@@ -1,0 +1,83 @@
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
+import { Categoria } from './categoria.entity';
+
+@Entity({ name: 'producto' })
+export class Producto {
+  @PrimaryGeneratedColumn({ name: 'id_producto' })
+  idProducto!: number;
+
+  @Column({ name: 'id_categoria', type: 'int' })
+  idCategoria!: number;
+
+  @Column({ name: 'id_tarifa_iva', type: 'int' })
+  idTarifaIva!: number;
+
+  @Column({ name: 'nombre', type: 'nvarchar', length: 150 })
+  nombre!: string;
+
+  @Column({ name: 'descripcion', type: 'nvarchar', nullable: true })
+  descripcion?: string;
+
+  @Column({ name: 'sku', type: 'nvarchar', length: 100, nullable: true })
+  sku?: string;
+
+  @Column({
+    name: 'precio_venta_sugerido_sin_iva',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+  })
+  precioVentaSugeridoSinIva!: number;
+
+  @Column({ name: 'stock_minimo', type: 'int' })
+  stockMinimo!: number;
+
+  @Column({ name: 'activo', type: 'bit' })
+  activo!: boolean;
+
+  @Column({ name: 'marca', type: 'nvarchar', length: 100, nullable: true })
+  marca?: string;
+
+  @Column({ name: 'variante', type: 'nvarchar', length: 100, nullable: true })
+  variante?: string;
+
+  @Column({ name: 'imagen_url', type: 'nvarchar', length: 500, nullable: true })
+  imagenUrl?: string;
+
+  @Column({
+    name: 'precio_venta_estandar_con_iva',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  precioVentaEstandarConIva?: number;
+
+  @Column({
+    name: 'costo_referencia',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
+  costoReferencia?: number;
+
+  @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
+  observaciones?: string;
+
+  @Column({ name: 'created_at', type: 'datetime2' })
+  createdAt!: Date;
+
+  @Column({ name: 'updated_at', type: 'datetime2' })
+  updatedAt!: Date;
+
+  @ManyToOne(() => Categoria, (categoria) => categoria.productos)
+  @JoinColumn({ name: 'id_categoria' })
+  categoria!: Categoria;
+}
