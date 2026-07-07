@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CategoriasModule } from './modules/categorias/categorias.module';
 import { ProductosModule } from './modules/productos/productos.module';
 import { ProveedoresModule } from './modules/proveedores/proveedores.module';
+import { TarifasIvaModule } from './modules/tarifas/tarifas-iva.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -37,6 +38,7 @@ import { ProveedoresModule } from './modules/proveedores/proveedores.module';
     CategoriasModule,
     ProductosModule,
     ProveedoresModule,
+    TarifasIvaModule,
   ],
 })
 export class AppModule {}

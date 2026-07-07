@@ -1,0 +1,54 @@
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+
+const estadoTarifaTransformer = {
+  to(value: string | boolean | null | undefined): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    return value === 'ACTIVA';
+  },
+
+  from(value: boolean | number | null | undefined): string {
+    return value === true || value === 1 ? 'ACTIVA' : 'INACTIVA';
+  },
+};
+
+@Entity({ name: 'tarifa_iva' })
+export class TarifaIva {
+  @PrimaryGeneratedColumn({ name: 'id_tarifa_iva' })
+  idTarifaIva!: number;
+
+  @Column({ name: 'codigo', type: 'nvarchar', length: 20 })
+  codigo!: string;
+
+  @Column({ name: 'descripcion', type: 'nvarchar', length: 45 })
+  descripcion!: string;
+
+  @Column({
+    name: 'porcentaje',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+  })
+  porcentaje!: number;
+
+  @Column({
+    name: 'activo',
+    type: 'bit',
+    transformer: estadoTarifaTransformer,
+  })
+  estado!: string;
+
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
+  updatedAt!: Date;
+}
