@@ -6,6 +6,8 @@ import { CategoriasModule } from './modules/categorias/categorias.module';
 import { ProductosModule } from './modules/productos/productos.module';
 import { ProveedoresModule } from './modules/proveedores/proveedores.module';
 import { TarifasIvaModule } from './modules/tarifas/tarifas-iva.module';
+import { PedidosModule } from './modules/pedidos/pedidos.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -39,6 +41,7 @@ import { TarifasIvaModule } from './modules/tarifas/tarifas-iva.module';
     ProductosModule,
     ProveedoresModule,
     TarifasIvaModule,
+    PedidosModule,
   ],
 })
 export class AppModule {}

@@ -1,9 +1,11 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Categoria } from './categoria.entity';
 
@@ -12,20 +14,20 @@ export class Producto {
   @PrimaryGeneratedColumn({ name: 'id_producto' })
   idProducto!: number;
 
-  @Column({ name: 'id_categoria', type: 'int' })
-  idCategoria!: number;
+  @Column({ name: 'id_categoria', type: 'int', nullable: true })
+  idCategoria?: number | null;
 
-  @Column({ name: 'id_tarifa_iva', type: 'int' })
-  idTarifaIva!: number;
+  @Column({ name: 'id_tarifa_iva', type: 'int', nullable: true })
+  idTarifaIva?: number | null;
 
   @Column({ name: 'nombre', type: 'nvarchar', length: 150 })
   nombre!: string;
 
   @Column({ name: 'descripcion', type: 'nvarchar', nullable: true })
-  descripcion?: string;
+  descripcion?: string | null;
 
   @Column({ name: 'sku', type: 'nvarchar', length: 100, nullable: true })
-  sku?: string;
+  sku?: string | null;
 
   @Column({
     name: 'precio_venta_sugerido_sin_iva',
@@ -42,13 +44,13 @@ export class Producto {
   activo!: boolean;
 
   @Column({ name: 'marca', type: 'nvarchar', length: 100, nullable: true })
-  marca?: string;
+  marca?: string | null;
 
   @Column({ name: 'variante', type: 'nvarchar', length: 100, nullable: true })
-  variante?: string;
+  variante?: string | null;
 
   @Column({ name: 'imagen_url', type: 'nvarchar', length: 500, nullable: true })
-  imagenUrl?: string;
+  imagenUrl?: string | null;
 
   @Column({
     name: 'precio_venta_estandar_con_iva',
@@ -57,7 +59,7 @@ export class Producto {
     scale: 2,
     nullable: true,
   })
-  precioVentaEstandarConIva?: number;
+  precioVentaEstandarConIva?: number | null;
 
   @Column({
     name: 'costo_referencia',
@@ -66,18 +68,20 @@ export class Producto {
     scale: 2,
     nullable: true,
   })
-  costoReferencia?: number;
+  costoReferencia?: number | null;
 
   @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
-  observaciones?: string;
+  observaciones?: string | null;
 
-  @Column({ name: 'created_at', type: 'datetime2' })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
   createdAt!: Date;
 
-  @Column({ name: 'updated_at', type: 'datetime2' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
   updatedAt!: Date;
 
-  @ManyToOne(() => Categoria, (categoria) => categoria.productos)
+  @ManyToOne(() => Categoria, (categoria) => categoria.productos, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'id_categoria' })
-  categoria!: Categoria;
+  categoria?: Categoria | null;
 }
