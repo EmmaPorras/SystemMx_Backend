@@ -1,7 +1,7 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -29,13 +29,13 @@ export class PedidosService {
 
   async findAll() {
     const pedidos = await this.pedidosRepository.find({
-relations: {
- origenCompra: true,
-  lotes: {
-      producto: true,
-      detallePedido: true,
-  },
-},
+      relations: {
+        origenCompra: true,
+        lotes: {
+          producto: true,
+          detallePedido: true,
+        },
+      },
       order: {
         idPedido: 'DESC',
       },
@@ -45,14 +45,21 @@ relations: {
   }
 
   async findOne(id: number) {
+    const pedidoId = Number(id);
+
+    if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
+      throw new BadRequestException('ID de pedido inválido.');
+    }
+
     const pedido = await this.pedidosRepository.findOne({
-  relations: {
-  origenCompra: true,
-    lotes: {
-    producto: true,
-    detallePedido: true,
-  },
-},
+      where: { idPedido: pedidoId },
+      relations: {
+        origenCompra: true,
+        lotes: {
+          producto: true,
+          detallePedido: true,
+        },
+      },
     });
 
     if (!pedido) {
@@ -62,71 +69,86 @@ relations: {
     return this.mapPedidoToResponse(pedido);
   }
 
-async create(dto: CreatePedidoDto) {
-  await this.validarProveedorExiste(dto.proveedorId);
-  await this.validarNumeroPedidoDisponible(dto.numeroPedido);
-
-  let pedidoIdCreado: number | null = null;
-
-  await this.dataSource.transaction(async (manager) => {
-    const subtotalProductos = dto.detalles.reduce(
-      (acc, detalle) =>
-        acc + detalle.cantidad * detalle.costoUnitarioOrigen,
-      0,
-    );
-
-    const inversionTotal = dto.detalles.reduce((acc, detalle) => {
-      const totalOrigen = detalle.cantidad * detalle.costoUnitarioOrigen;
-      return acc + totalOrigen * dto.tipoCambio;
-    }, 0);
-
-    const pedido = manager.create(PedidoCompraEntity, {
-      numeroPedido: dto.numeroPedido,
-      nombrePedido: `Pedido ${dto.numeroPedido}`,
-      idOrigenCompra: dto.proveedorId,
-      fechaPedido: dto.fecha,
-      fechaRecepcion: dto.estado === 'RECIBIDO' ? dto.fecha : null,
-      estado: dto.estado,
-      inversionTotal,
-      costoEnvio: 0,
-      impuestosImportacion: 0,
-      observaciones: dto.observaciones?.trim() || null,
-      paisCompra: dto.origen,
-      monedaCompra: dto.monedaCompra,
-      tipoCambio: dto.tipoCambio,
-      subtotalProductos,
-      envioInterno: 0,
-      envioCasillero: 0,
-      otrosGastos: 0,
-      metodoRepartoGastos: 'SIN_GASTOS',
+  private async findOneByNumeroPedido(numeroPedido: number) {
+    const pedido = await this.pedidosRepository.findOne({
+      where: { numeroPedido },
+      relations: {
+        origenCompra: true,
+        lotes: {
+          producto: true,
+          detallePedido: true,
+        },
+      },
     });
 
-    const pedidoGuardado = await manager.save(PedidoCompraEntity, pedido);
-
-    pedidoIdCreado = pedidoGuardado.idPedido;
-
-    for (const detalleDto of dto.detalles) {
-      await this.crearDetalleYLote(
-        manager,
-        pedidoGuardado.idPedido,
-        dto,
-        detalleDto,
-      );
+    if (!pedido) {
+      throw new NotFoundException('Pedido no encontrado.');
     }
-  });
 
-  if (typeof pedidoIdCreado !== 'number') {
-    throw new InternalServerErrorException(
-      'El pedido se guardó, pero no se pudo obtener el ID generado.',
-    );
+    return this.mapPedidoToResponse(pedido);
   }
 
-  return this.findOne(pedidoIdCreado);
-}
+  async create(dto: CreatePedidoDto) {
+    await this.validarProveedorExiste(dto.proveedorId);
+    await this.validarNumeroPedidoDisponible(dto.numeroPedido);
+
+    await this.dataSource.transaction(async (manager) => {
+      const subtotalProductos = dto.detalles.reduce(
+        (acc, detalle) =>
+          acc + detalle.cantidad * detalle.costoUnitarioOrigen,
+        0,
+      );
+
+      const inversionTotal = dto.detalles.reduce((acc, detalle) => {
+        const totalOrigen = detalle.cantidad * detalle.costoUnitarioOrigen;
+        return acc + totalOrigen * dto.tipoCambio;
+      }, 0);
+
+      const pedido = manager.create(PedidoCompraEntity, {
+        numeroPedido: dto.numeroPedido,
+        nombrePedido: `Pedido ${dto.numeroPedido}`,
+        idOrigenCompra: dto.proveedorId,
+        fechaPedido: dto.fecha,
+        fechaRecepcion: dto.estado === 'RECIBIDO' ? dto.fecha : null,
+        estado: dto.estado,
+        inversionTotal,
+        costoEnvio: 0,
+        impuestosImportacion: 0,
+        observaciones: dto.observaciones?.trim() || null,
+        paisCompra: dto.origen,
+        monedaCompra: dto.monedaCompra,
+        tipoCambio: dto.tipoCambio,
+        subtotalProductos,
+        envioInterno: 0,
+        envioCasillero: 0,
+        otrosGastos: 0,
+        metodoRepartoGastos: 'SIN_GASTOS',
+      });
+
+      const pedidoGuardado = await manager.save(PedidoCompraEntity, pedido);
+
+      for (const detalleDto of dto.detalles) {
+        await this.crearDetalleYLote(
+          manager,
+          pedidoGuardado.idPedido,
+          dto,
+          detalleDto,
+        );
+      }
+    });
+
+    return this.findOneByNumeroPedido(dto.numeroPedido);
+  }
 
   async update(id: number, dto: UpdatePedidoDto) {
+    const pedidoId = Number(id);
+
+    if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
+      throw new BadRequestException('ID de pedido inválido.');
+    }
+
     const pedidoActual = await this.pedidosRepository.findOne({
-      where: { idPedido: id },
+      where: { idPedido: pedidoId },
     });
 
     if (!pedidoActual) {
@@ -141,10 +163,10 @@ async create(dto: CreatePedidoDto) {
       dto.numeroPedido &&
       dto.numeroPedido !== pedidoActual.numeroPedido
     ) {
-      await this.validarNumeroPedidoDisponible(dto.numeroPedido, id);
+      await this.validarNumeroPedidoDisponible(dto.numeroPedido, pedidoId);
     }
 
-    const pedidoId = await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async (manager) => {
       const numeroPedido = dto.numeroPedido ?? pedidoActual.numeroPedido;
       const fecha = dto.fecha ?? pedidoActual.fechaPedido;
       const estado = dto.estado ?? pedidoActual.estado;
@@ -152,6 +174,7 @@ async create(dto: CreatePedidoDto) {
       const tipoCambio = dto.tipoCambio ?? Number(pedidoActual.tipoCambio);
       const proveedorId = dto.proveedorId ?? pedidoActual.idOrigenCompra;
       const origen = dto.origen ?? pedidoActual.paisCompra ?? '';
+
       const observaciones =
         dto.observaciones !== undefined
           ? dto.observaciones?.trim() || null
@@ -173,7 +196,7 @@ async create(dto: CreatePedidoDto) {
         }, 0);
       }
 
-      await manager.update(PedidoCompraEntity, id, {
+      await manager.update(PedidoCompraEntity, pedidoId, {
         numeroPedido,
         nombrePedido: `Pedido ${numeroPedido}`,
         idOrigenCompra: proveedorId,
@@ -195,8 +218,8 @@ async create(dto: CreatePedidoDto) {
       });
 
       if (dto.detalles) {
-        await manager.delete(LoteProducto, { idPedido: id });
-        await manager.delete(DetallePedidoCompra, { idPedido: id });
+        await manager.delete(LoteProducto, { idPedido: pedidoId });
+        await manager.delete(DetallePedidoCompra, { idPedido: pedidoId });
 
         const pedidoDtoCompleto: CreatePedidoDto = {
           numeroPedido,
@@ -213,22 +236,26 @@ async create(dto: CreatePedidoDto) {
         for (const detalleDto of dto.detalles) {
           await this.crearDetalleYLote(
             manager,
-            id,
+            pedidoId,
             pedidoDtoCompleto,
             detalleDto,
           );
         }
       }
-
-      return id;
     });
 
     return this.findOne(pedidoId);
   }
 
   async remove(id: number) {
+    const pedidoId = Number(id);
+
+    if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
+      throw new BadRequestException('ID de pedido inválido.');
+    }
+
     const pedido = await this.pedidosRepository.findOne({
-      where: { idPedido: id },
+      where: { idPedido: pedidoId },
     });
 
     if (!pedido) {
@@ -236,14 +263,14 @@ async create(dto: CreatePedidoDto) {
     }
 
     await this.dataSource.transaction(async (manager) => {
-      await manager.delete(LoteProducto, { idPedido: id });
-      await manager.delete(DetallePedidoCompra, { idPedido: id });
-      await manager.delete(PedidoCompraEntity, { idPedido: id });
+      await manager.delete(LoteProducto, { idPedido: pedidoId });
+      await manager.delete(DetallePedidoCompra, { idPedido: pedidoId });
+      await manager.delete(PedidoCompraEntity, { idPedido: pedidoId });
     });
 
     return {
       message: 'Pedido eliminado correctamente.',
-      id,
+      id: pedidoId,
     };
   }
 
@@ -316,6 +343,7 @@ async create(dto: CreatePedidoDto) {
     precioVentaRecomendado: number,
   ) {
     const nombreNormalizado = this.normalizarNombreProducto(productoNombre);
+
     const productosRepository = manager.getRepository(Producto);
 
     const productoExistente = await productosRepository
@@ -393,20 +421,20 @@ async create(dto: CreatePedidoDto) {
     const detalles = (pedido.lotes ?? []).map((lote) => {
       const producto = lote.producto;
 
-  return {
-    idTemporal: String(lote.idLote),
-    productoId: lote.idProducto,
-    productoNombre: producto?.nombre ?? `Producto ${lote.idProducto}`,
-    loteCodigo: lote.codigoLote,
-    cantidad: lote.cantidadInicial,
-    cantidadDisponible: lote.cantidadDisponible,
-    costoUnitarioOrigen: Number(
-      lote.detallePedido?.costoUnitarioOrigen ?? lote.costoUnitarioReal,
-    ),
-    costoUnitarioReal: Number(lote.costoUnitarioReal),
-    precioVentaRecomendado: Number(lote.precioVentaRecomendado),
-    estadoLote: lote.estadoLote,
-};
+      return {
+        idTemporal: String(lote.idLote),
+        productoId: lote.idProducto,
+        productoNombre: producto?.nombre ?? `Producto ${lote.idProducto}`,
+        loteCodigo: lote.codigoLote,
+        cantidad: lote.cantidadInicial,
+        cantidadDisponible: lote.cantidadDisponible,
+        costoUnitarioOrigen: Number(
+          lote.detallePedido?.costoUnitarioOrigen ?? lote.costoUnitarioReal,
+        ),
+        costoUnitarioReal: Number(lote.costoUnitarioReal),
+        precioVentaRecomendado: Number(lote.precioVentaRecomendado),
+        estadoLote: lote.estadoLote,
+      };
     });
 
     return {

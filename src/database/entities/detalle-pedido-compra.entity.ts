@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
 import { PedidoCompraEntity } from './pedido-compra.entity';
 import { Producto } from './producto.entity';
 
@@ -120,7 +121,7 @@ export class DetallePedidoCompra {
   @Column({ name: 'metodo_reparto_gastos', type: 'nvarchar', length: 30 })
   metodoRepartoGastos!: string;
 
-  @Column({ name: 'observaciones', type: 'nvarchar', length: 'MAX', nullable: true })
+  @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
   observaciones?: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2' })

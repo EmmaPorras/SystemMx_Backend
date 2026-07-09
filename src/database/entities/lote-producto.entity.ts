@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
 import { DetallePedidoCompra } from './detalle-pedido-compra.entity';
 import { PedidoCompraEntity } from './pedido-compra.entity';
 import { Producto } from './producto.entity';
@@ -76,7 +77,7 @@ export class LoteProducto {
   })
   costoPendienteAlVender!: number;
 
-  @Column({ name: 'observaciones', type: 'nvarchar', length: 'MAX', nullable: true })
+  @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
   observaciones?: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
@@ -93,7 +94,7 @@ export class LoteProducto {
   @JoinColumn({ name: 'id_producto' })
   producto!: Producto;
 
-  @ManyToOne(() => DetallePedidoCompra)
+  @ManyToOne(() => DetallePedidoCompra, { nullable: true })
   @JoinColumn({ name: 'id_detalle_pedido' })
   detallePedido?: DetallePedidoCompra | null;
 }
