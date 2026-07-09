@@ -2,13 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
 import { DetallePedidoCompra } from './detalle-pedido-compra.entity';
 import { LoteProducto } from './lote-producto.entity';
-import { JoinColumn, ManyToOne } from 'typeorm';
 import { OrigenCompra } from './origen-compra.entity';
 
 @Entity({ name: 'pedido_compra' })
@@ -47,7 +49,6 @@ export class PedidoCompraEntity {
     type: 'decimal',
     precision: 12,
     scale: 2,
-    default: 0,
   })
   costoEnvio!: number;
 
@@ -56,11 +57,10 @@ export class PedidoCompraEntity {
     type: 'decimal',
     precision: 12,
     scale: 2,
-    default: 0,
   })
   impuestosImportacion!: number;
 
-  @Column({ name: 'observaciones', type: 'nvarchar', length: 'MAX', nullable: true })
+  @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
   observaciones?: string | null;
 
   @Column({ name: 'pais_compra', type: 'nvarchar', length: 100, nullable: true })
@@ -82,7 +82,6 @@ export class PedidoCompraEntity {
     type: 'decimal',
     precision: 12,
     scale: 2,
-    default: 0,
   })
   subtotalProductos!: number;
 
@@ -91,7 +90,6 @@ export class PedidoCompraEntity {
     type: 'decimal',
     precision: 12,
     scale: 2,
-    default: 0,
   })
   envioInterno!: number;
 
@@ -100,7 +98,6 @@ export class PedidoCompraEntity {
     type: 'decimal',
     precision: 12,
     scale: 2,
-    default: 0,
   })
   envioCasillero!: number;
 
@@ -109,21 +106,20 @@ export class PedidoCompraEntity {
     type: 'decimal',
     precision: 12,
     scale: 2,
-    default: 0,
   })
   otrosGastos!: number;
 
   @Column({ name: 'metodo_reparto_gastos', type: 'nvarchar', length: 30 })
   metodoRepartoGastos!: string;
 
-    @Column({
-      name: 'dias_duracion',
-      type: 'int',
-      nullable: true,
-      insert: false,
-      update: false,
-    })
-    diasDuracion?: number | null;
+  @Column({
+    name: 'dias_duracion',
+    type: 'int',
+    nullable: true,
+    insert: false,
+    update: false,
+  })
+  diasDuracion?: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
   createdAt!: Date;
@@ -131,14 +127,13 @@ export class PedidoCompraEntity {
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
   updatedAt!: Date;
 
+  @ManyToOne(() => OrigenCompra)
+  @JoinColumn({ name: 'id_origen_compra' })
+  origenCompra!: OrigenCompra;
+
   @OneToMany(() => DetallePedidoCompra, (detalle) => detalle.pedido)
   detalles!: DetallePedidoCompra[];
 
   @OneToMany(() => LoteProducto, (lote) => lote.pedido)
   lotes!: LoteProducto[];
-  
-  @ManyToOne(() => OrigenCompra)
-  @JoinColumn({ name: 'id_origen_compra' })
-  origenCompra!: OrigenCompra;
-
 }

@@ -7,7 +7,9 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
 import { Categoria } from './categoria.entity';
+import { TarifaIva } from './tarifa-iva.entity';
 
 @Entity({ name: 'producto' })
 export class Producto {
@@ -79,9 +81,11 @@ export class Producto {
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
   updatedAt!: Date;
 
-  @ManyToOne(() => Categoria, (categoria) => categoria.productos, {
-    nullable: true,
-  })
+  @ManyToOne(() => Categoria, { nullable: true })
   @JoinColumn({ name: 'id_categoria' })
   categoria?: Categoria | null;
+
+  @ManyToOne(() => TarifaIva, { nullable: true })
+  @JoinColumn({ name: 'id_tarifa_iva' })
+  tarifaIva?: TarifaIva | null;
 }
