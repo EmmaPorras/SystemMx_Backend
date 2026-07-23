@@ -18,6 +18,14 @@ import {
 } from './dto/create-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
 
+type ProductoSugeridoSql = {
+  idProducto: number;
+  nombre: string;
+  nombreBusqueda: string;
+  precioVentaSugerido: number | string | null;
+  activo: boolean | number;
+};
+
 @Injectable()
 export class PedidosService {
   constructor(
@@ -67,6 +75,27 @@ export class PedidosService {
     }
 
     return this.mapPedidoToResponse(pedido);
+  }
+
+  async buscarProductosSugeridos(busqueda: string) {
+    const textoBusqueda = this.normalizarNombreProducto(busqueda ?? '');
+
+    if (textoBusqueda.length < 2) {
+      return [];
+    }
+
+    const resultados = await this.dataSource.query<ProductoSugeridoSql[]>(
+      'EXEC dbo.sp_buscar_productos_sugeridos @texto = @0',
+      [textoBusqueda],
+    );
+
+    return resultados.map((producto) => ({
+      id: Number(producto.idProducto),
+      nombre: producto.nombre,
+      nombreBusqueda: producto.nombreBusqueda,
+      precioVentaSugerido: Number(producto.precioVentaSugerido ?? 0),
+      activo: Boolean(producto.activo),
+    }));
   }
 
   private async findOneByNumeroPedido(numeroPedido: number) {
@@ -159,10 +188,7 @@ export class PedidosService {
       await this.validarProveedorExiste(dto.proveedorId);
     }
 
-    if (
-      dto.numeroPedido &&
-      dto.numeroPedido !== pedidoActual.numeroPedido
-    ) {
+    if (dto.numeroPedido && dto.numeroPedido !== pedidoActual.numeroPedido) {
       await this.validarNumeroPedidoDisponible(dto.numeroPedido, pedidoId);
     }
 
@@ -280,10 +306,9 @@ export class PedidosService {
     pedidoDto: CreatePedidoDto,
     detalleDto: CreatePedidoDetalleDto,
   ) {
-    const producto = await this.obtenerOCrearProducto(
+    const producto = await this.obtenerProductoParaDetalle(
       manager,
-      detalleDto.productoNombre,
-      detalleDto.precioVentaRecomendado,
+      detalleDto,
     );
 
     const totalOrigen = detalleDto.cantidad * detalleDto.costoUnitarioOrigen;
@@ -335,6 +360,35 @@ export class PedidosService {
     });
 
     await manager.save(LoteProducto, lote);
+  }
+
+  private async obtenerProductoParaDetalle(
+    manager: EntityManager,
+    detalleDto: CreatePedidoDetalleDto,
+  ) {
+    const productosRepository = manager.getRepository(Producto);
+
+    if (detalleDto.productoId) {
+      const productoExistente = await productosRepository.findOne({
+        where: {
+          idProducto: detalleDto.productoId,
+        },
+      });
+
+      if (!productoExistente) {
+        throw new NotFoundException(
+          `El producto con ID ${detalleDto.productoId} no existe.`,
+        );
+      }
+
+      return productoExistente;
+    }
+
+    return this.obtenerOCrearProducto(
+      manager,
+      detalleDto.productoNombre,
+      detalleDto.precioVentaRecomendado,
+    );
   }
 
   private async obtenerOCrearProducto(

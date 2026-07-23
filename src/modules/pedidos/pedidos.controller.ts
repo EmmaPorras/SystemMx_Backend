@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
@@ -19,6 +20,11 @@ export class PedidosController {
   @Get()
   findAll() {
     return this.pedidosService.findAll();
+  }
+
+  @Get('productos-sugeridos')
+  buscarProductosSugeridos(@Query('busqueda') busqueda = '') {
+    return this.pedidosService.buscarProductosSugeridos(busqueda);
   }
 
   @Get(':id')
