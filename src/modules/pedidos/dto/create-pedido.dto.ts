@@ -38,6 +38,13 @@ export class CreatePedidoDetalleDto {
   @Max(99999)
   cantidad!: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(99999)
+  cantidadRecibida?: number;
+
   @Type(() => Number)
   @IsNumber()
   @Min(0)

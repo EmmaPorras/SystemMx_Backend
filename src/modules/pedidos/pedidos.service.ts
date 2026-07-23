@@ -26,6 +26,12 @@ type ProductoSugeridoSql = {
   activo: boolean | number;
 };
 
+type CantidadesLoteCalculadas = {
+  cantidadRecibida: number;
+  cantidadDisponible: number;
+  fechaEntrada: string | null;
+};
+
 @Injectable()
 export class PedidosService {
   constructor(
@@ -306,15 +312,17 @@ export class PedidosService {
     pedidoDto: CreatePedidoDto,
     detalleDto: CreatePedidoDetalleDto,
   ) {
-    const producto = await this.obtenerProductoParaDetalle(
-      manager,
-      detalleDto,
-    );
+    const producto = await this.obtenerProductoParaDetalle(manager, detalleDto);
 
     const totalOrigen = detalleDto.cantidad * detalleDto.costoUnitarioOrigen;
     const totalColones = totalOrigen * pedidoDto.tipoCambio;
     const costoTotalReal = totalColones;
     const costoUnitarioReal = costoTotalReal / detalleDto.cantidad;
+
+    const cantidadesLote = this.calcularCantidadesLote(
+      detalleDto,
+      pedidoDto.fecha,
+    );
 
     const detalle = manager.create(DetallePedidoCompra, {
       idPedido,
@@ -347,12 +355,12 @@ export class PedidosService {
       idDetallePedido: detalleGuardado.idDetallePedido,
       codigoLote: detalleDto.loteCodigo,
       cantidadInicial: detalleDto.cantidad,
-      cantidadDisponible:
-        detalleDto.estadoLote === 'AGOTADO' ? 0 : detalleDto.cantidad,
+      cantidadRecibida: cantidadesLote.cantidadRecibida,
+      cantidadDisponible: cantidadesLote.cantidadDisponible,
       costoUnitarioReal,
       precioVentaRecomendado: detalleDto.precioVentaRecomendado,
       estadoLote: detalleDto.estadoLote,
-      fechaEntrada: pedidoDto.estado === 'RECIBIDO' ? pedidoDto.fecha : null,
+      fechaEntrada: cantidadesLote.fechaEntrada,
       precioVentaFinal: null,
       tipoLote: 'COMPRA',
       costoPendienteAlVender: 0,
@@ -360,6 +368,89 @@ export class PedidosService {
     });
 
     await manager.save(LoteProducto, lote);
+  }
+
+  private calcularCantidadesLote(
+    detalleDto: CreatePedidoDetalleDto,
+    fechaPedido: string,
+  ): CantidadesLoteCalculadas {
+    const cantidad = Number(detalleDto.cantidad);
+    const estadoLote = detalleDto.estadoLote;
+    const cantidadRecibidaInput =
+      detalleDto.cantidadRecibida !== undefined &&
+      detalleDto.cantidadRecibida !== null
+        ? Number(detalleDto.cantidadRecibida)
+        : null;
+
+    if (!Number.isInteger(cantidad) || cantidad <= 0) {
+      throw new BadRequestException('La cantidad del lote debe ser mayor a 0.');
+    }
+
+    if (estadoLote === 'EN_PROCESO') {
+      return {
+        cantidadRecibida: 0,
+        cantidadDisponible: 0,
+        fechaEntrada: null,
+      };
+    }
+
+    if (estadoLote === 'EN_STOCK' || estadoLote === 'VENDIDO_PARCIAL') {
+      const cantidadRecibida = cantidadRecibidaInput ?? cantidad;
+
+      if (!Number.isInteger(cantidadRecibida)) {
+        throw new BadRequestException(
+          'La cantidad recibida debe ser un número entero.',
+        );
+      }
+
+      if (cantidadRecibida <= 0) {
+        throw new BadRequestException(
+          'Si el lote está en stock, la cantidad recibida debe ser mayor a 0.',
+        );
+      }
+
+      if (cantidadRecibida > cantidad) {
+        throw new BadRequestException(
+          'La cantidad recibida no puede ser mayor a la cantidad del lote.',
+        );
+      }
+
+      return {
+        cantidadRecibida,
+        cantidadDisponible: cantidadRecibida,
+        fechaEntrada: fechaPedido,
+      };
+    }
+
+    if (estadoLote === 'AGOTADO') {
+      const cantidadRecibida = cantidadRecibidaInput ?? cantidad;
+
+      if (!Number.isInteger(cantidadRecibida)) {
+        throw new BadRequestException(
+          'La cantidad recibida debe ser un número entero.',
+        );
+      }
+
+      if (cantidadRecibida < 0) {
+        throw new BadRequestException(
+          'La cantidad recibida no puede ser negativa.',
+        );
+      }
+
+      if (cantidadRecibida > cantidad) {
+        throw new BadRequestException(
+          'La cantidad recibida no puede ser mayor a la cantidad del lote.',
+        );
+      }
+
+      return {
+        cantidadRecibida,
+        cantidadDisponible: 0,
+        fechaEntrada: cantidadRecibida > 0 ? fechaPedido : null,
+      };
+    }
+
+    throw new BadRequestException('Estado de lote inválido.');
   }
 
   private async obtenerProductoParaDetalle(
@@ -474,14 +565,18 @@ export class PedidosService {
   private mapPedidoToResponse(pedido: PedidoCompraEntity) {
     const detalles = (pedido.lotes ?? []).map((lote) => {
       const producto = lote.producto;
+      const cantidadInicial = Number(lote.cantidadInicial);
+      const cantidadRecibida = Number(lote.cantidadRecibida ?? 0);
 
       return {
         idTemporal: String(lote.idLote),
         productoId: lote.idProducto,
         productoNombre: producto?.nombre ?? `Producto ${lote.idProducto}`,
         loteCodigo: lote.codigoLote,
-        cantidad: lote.cantidadInicial,
-        cantidadDisponible: lote.cantidadDisponible,
+        cantidad: cantidadInicial,
+        cantidadRecibida,
+        cantidadPendiente: Math.max(cantidadInicial - cantidadRecibida, 0),
+        cantidadDisponible: Number(lote.cantidadDisponible),
         costoUnitarioOrigen: Number(
           lote.detallePedido?.costoUnitarioOrigen ?? lote.costoUnitarioReal,
         ),

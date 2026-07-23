@@ -32,6 +32,9 @@ export class LoteProducto {
   @Column({ name: 'cantidad_inicial', type: 'int' })
   cantidadInicial!: number;
 
+  @Column({ name: 'cantidad_recibida', type: 'int' })
+  cantidadRecibida!: number;
+
   @Column({ name: 'cantidad_disponible', type: 'int' })
   cantidadDisponible!: number;
 
