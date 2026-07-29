@@ -1,0 +1,23 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
+import { LoteProducto } from '../../database/entities/lote-producto.entity';
+import { Producto } from '../../database/entities/producto.entity';
+import { VentaEntity } from '../../database/entities/venta.entity';
+import { VentasController } from './ventas.controller';
+import { VentasService } from './ventas.service';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      VentaEntity,
+      DetalleVenta,
+      LoteProducto,
+      Producto,
+    ]),
+  ],
+  controllers: [VentasController],
+  providers: [VentasService],
+})
+export class VentasModule {}
