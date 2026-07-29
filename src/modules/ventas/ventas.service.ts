@@ -1,0 +1,796 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
+
+import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
+import { LoteProducto } from '../../database/entities/lote-producto.entity';
+import { VentaEntity } from '../../database/entities/venta.entity';
+import {
+  CreateVentaDetalleDto,
+  CreateVentaDto,
+} from './dto/create-venta.dto';
+import { UpdatePagoVentaDto } from './dto/update-pago-venta.dto';
+
+type FindAllVentasFilters = {
+  papelera?: string;
+  deudores?: string;
+};
+
+type TarifaCalculada = {
+  idTarifaIva: number | null;
+  porcentajeIva: number;
+};
+
+type LoteAsignado = {
+  lote: LoteProducto;
+  cantidad: number;
+  costoUnitarioReal: number;
+};
+
+type DetalleVentaCalculado = {
+  idProducto: number;
+  idLote: number;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+  descuento: number;
+  baseImponible: number;
+  tipoTarifa: string;
+  idTarifaIva: number | null;
+  porcentajeIva: number;
+  iva: number;
+  totalLinea: number;
+  costoUnitarioReal: number;
+  costoTotal: number;
+  gananciaBruta: number;
+  modoDescuentoLote: string;
+  detalle: string | null;
+};
+
+@Injectable()
+export class VentasService {
+  constructor(
+    private readonly dataSource: DataSource,
+
+    @InjectRepository(VentaEntity)
+    private readonly ventasRepository: Repository<VentaEntity>,
+  ) {}
+
+  async findAll(filters: FindAllVentasFilters = {}) {
+    const mostrarPapelera = filters.papelera === 'true';
+    const mostrarDeudores = filters.deudores === 'true';
+
+    const query = this.ventasRepository
+      .createQueryBuilder('venta')
+      .leftJoinAndSelect('venta.detalles', 'detalle')
+      .leftJoinAndSelect('detalle.producto', 'producto')
+      .leftJoinAndSelect('detalle.lote', 'lote')
+      .where('venta.en_papelera = :enPapelera', {
+        enPapelera: mostrarPapelera ? 1 : 0,
+      });
+
+    if (mostrarDeudores) {
+      query
+        .andWhere('venta.estado_pago IN (:...estadosPago)', {
+          estadosPago: ['EN_DEUDA', 'PARCIAL'],
+        })
+        .andWhere('venta.estado_venta = :estadoVenta', {
+          estadoVenta: 'REGISTRADA',
+        });
+    }
+
+    query
+      .orderBy('venta.fecha_venta', 'DESC')
+      .addOrderBy('venta.id_venta', 'DESC')
+      .addOrderBy('detalle.id_detalle_venta', 'ASC');
+
+    const ventas = await query.getMany();
+
+    return ventas.map((venta) => this.mapVentaToResponse(venta));
+  }
+
+  async findOne(id: number) {
+    const ventaId = this.validarId(id, 'ID de venta inválido.');
+
+    const venta = await this.ventasRepository.findOne({
+      where: {
+        idVenta: ventaId,
+      },
+      relations: {
+        detalles: {
+          producto: true,
+          lote: true,
+        },
+      },
+    });
+
+    if (!venta) {
+      throw new NotFoundException('Venta no encontrada.');
+    }
+
+    return this.mapVentaToResponse(venta);
+  }
+
+  async obtenerInventarioDisponible() {
+    const lotes = await this.dataSource.getRepository(LoteProducto).find({
+      where: {
+        cantidadDisponible: MoreThan(0),
+        estadoLote: In(['EN_STOCK', 'VENDIDO_PARCIAL']),
+      },
+      relations: {
+        producto: true,
+        pedido: {
+          origenCompra: true,
+        },
+      },
+      order: {
+        fechaEntrada: 'ASC',
+        idLote: 'ASC',
+      },
+    });
+
+    return lotes.map((lote) => ({
+      loteId: lote.idLote,
+      productoId: lote.idProducto,
+      productoNombre: lote.producto?.nombre ?? `Producto ${lote.idProducto}`,
+      loteCodigo: lote.codigoLote,
+      pedidoId: lote.idPedido,
+      numeroPedido: lote.pedido?.numeroPedido
+        ? String(lote.pedido.numeroPedido)
+        : '',
+      proveedorNombre:
+        lote.pedido?.origenCompra?.nombreReferencia ??
+        `Proveedor ${lote.pedido?.idOrigenCompra ?? ''}`.trim(),
+      cantidadDisponible: Number(lote.cantidadDisponible),
+      costoUnitarioReal: Number(lote.costoUnitarioReal),
+      precioVentaRecomendado: Number(lote.precioVentaRecomendado),
+      estadoLote: lote.estadoLote,
+      fechaEntrada: lote.fechaEntrada,
+    }));
+  }
+
+  async create(dto: CreateVentaDto) {
+    await this.validarNumeroVentaDisponible(dto.numeroVenta);
+
+    let ventaIdCreada = 0;
+
+    await this.dataSource.transaction(async (manager) => {
+      const detallesCalculados: DetalleVentaCalculado[] = [];
+
+      for (const detalleDto of dto.detalles) {
+        const detallesPorLinea = await this.calcularDetallesPorLinea(
+          manager,
+          detalleDto,
+        );
+
+        detallesCalculados.push(...detallesPorLinea);
+      }
+
+      const totales = this.calcularTotalesVenta(detallesCalculados);
+      const montoPagado =
+        dto.montoPagado === undefined || dto.montoPagado === null
+          ? totales.totalVenta
+          : this.redondear(dto.montoPagado);
+
+      if (montoPagado > totales.totalVenta) {
+        throw new BadRequestException(
+          'El monto pagado no puede ser mayor al total de la venta.',
+        );
+      }
+
+      const saldoPendiente = this.redondear(totales.totalVenta - montoPagado);
+      const estadoPago = this.calcularEstadoPago(
+        totales.totalVenta,
+        montoPagado,
+      );
+
+      const venta = manager.create(VentaEntity, {
+        numeroVenta: dto.numeroVenta,
+        fechaVenta: dto.fechaVenta,
+        clienteNombre: dto.clienteNombre?.trim() || null,
+        medioPago: dto.medioPago,
+        estadoPago,
+        estadoVenta: 'REGISTRADA',
+        subtotal: totales.subtotal,
+        descuentoTotal: totales.descuentoTotal,
+        ivaTotal: totales.ivaTotal,
+        totalVenta: totales.totalVenta,
+        montoPagado,
+        saldoPendiente,
+        costoTotal: totales.costoTotal,
+        gananciaBruta: totales.gananciaBruta,
+        margenBruto: totales.margenBruto,
+        fechaEntrega: dto.fechaEntrega ?? dto.fechaVenta,
+        fechaVencimientoPago: dto.fechaVencimientoPago ?? null,
+        observaciones: dto.observaciones?.trim() || null,
+        enPapelera: dto.enPapelera ?? false,
+      });
+
+      const ventaGuardada = await manager.save(VentaEntity, venta);
+      ventaIdCreada = ventaGuardada.idVenta;
+
+      for (const detalleCalculado of detallesCalculados) {
+        const detalle = manager.create(DetalleVenta, {
+          idVenta: ventaGuardada.idVenta,
+          idProducto: detalleCalculado.idProducto,
+          idLote: detalleCalculado.idLote,
+          cantidad: detalleCalculado.cantidad,
+          precioUnitario: detalleCalculado.precioUnitario,
+          subtotal: detalleCalculado.subtotal,
+          descuento: detalleCalculado.descuento,
+          baseImponible: detalleCalculado.baseImponible,
+          tipoTarifa: detalleCalculado.tipoTarifa,
+          idTarifaIva: detalleCalculado.idTarifaIva,
+          porcentajeIva: detalleCalculado.porcentajeIva,
+          iva: detalleCalculado.iva,
+          totalLinea: detalleCalculado.totalLinea,
+          costoUnitarioReal: detalleCalculado.costoUnitarioReal,
+          costoTotal: detalleCalculado.costoTotal,
+          gananciaBruta: detalleCalculado.gananciaBruta,
+          modoDescuentoLote: detalleCalculado.modoDescuentoLote,
+          detalle: detalleCalculado.detalle,
+        });
+
+        await manager.save(DetalleVenta, detalle);
+      }
+    });
+
+    return this.findOne(ventaIdCreada);
+  }
+
+  async actualizarPago(id: number, dto: UpdatePagoVentaDto) {
+    const ventaId = this.validarId(id, 'ID de venta inválido.');
+
+    const venta = await this.ventasRepository.findOne({
+      where: {
+        idVenta: ventaId,
+      },
+    });
+
+    if (!venta) {
+      throw new NotFoundException('Venta no encontrada.');
+    }
+
+    if (venta.estadoVenta === 'ANULADA') {
+      throw new BadRequestException(
+        'No se puede actualizar el pago de una venta anulada.',
+      );
+    }
+
+    const totalVenta = Number(venta.totalVenta);
+    const montoPagado = this.redondear(dto.montoPagado);
+
+    if (montoPagado > totalVenta) {
+      throw new BadRequestException(
+        'El monto pagado no puede ser mayor al total de la venta.',
+      );
+    }
+
+    venta.montoPagado = montoPagado;
+    venta.saldoPendiente = this.redondear(totalVenta - montoPagado);
+    venta.estadoPago = this.calcularEstadoPago(totalVenta, montoPagado);
+
+    await this.ventasRepository.save(venta);
+
+    return this.findOne(ventaId);
+  }
+
+  async enviarAPapelera(id: number) {
+    const ventaId = this.validarId(id, 'ID de venta inválido.');
+
+    const venta = await this.ventasRepository.findOne({
+      where: {
+        idVenta: ventaId,
+      },
+    });
+
+    if (!venta) {
+      throw new NotFoundException('Venta no encontrada.');
+    }
+
+    venta.enPapelera = true;
+
+    await this.ventasRepository.save(venta);
+
+    return this.findOne(ventaId);
+  }
+
+  async restaurarDePapelera(id: number) {
+    const ventaId = this.validarId(id, 'ID de venta inválido.');
+
+    const venta = await this.ventasRepository.findOne({
+      where: {
+        idVenta: ventaId,
+      },
+    });
+
+    if (!venta) {
+      throw new NotFoundException('Venta no encontrada.');
+    }
+
+    venta.enPapelera = false;
+
+    await this.ventasRepository.save(venta);
+
+    return this.findOne(ventaId);
+  }
+
+  async anularVenta(id: number) {
+    const ventaId = this.validarId(id, 'ID de venta inválido.');
+
+    await this.dataSource.transaction(async (manager) => {
+      const venta = await manager.getRepository(VentaEntity).findOne({
+        where: {
+          idVenta: ventaId,
+        },
+        relations: {
+          detalles: {
+            lote: true,
+          },
+        },
+      });
+
+      if (!venta) {
+        throw new NotFoundException('Venta no encontrada.');
+      }
+
+      if (venta.estadoVenta === 'ANULADA') {
+        throw new BadRequestException('La venta ya está anulada.');
+      }
+
+      for (const detalle of venta.detalles ?? []) {
+        const lote = detalle.lote;
+
+        if (!lote) {
+          throw new BadRequestException(
+            `No se encontró el lote asociado al detalle ${detalle.idDetalleVenta}.`,
+          );
+        }
+
+        lote.cantidadDisponible =
+          Number(lote.cantidadDisponible) + Number(detalle.cantidad);
+
+        const cantidadRecibida = Number(
+          lote.cantidadRecibida ?? lote.cantidadInicial,
+        );
+
+        if (lote.cantidadDisponible <= 0) {
+          lote.estadoLote = 'AGOTADO';
+        } else if (lote.cantidadDisponible >= cantidadRecibida) {
+          lote.estadoLote = 'EN_STOCK';
+        } else {
+          lote.estadoLote = 'VENDIDO_PARCIAL';
+        }
+
+        await manager.save(LoteProducto, lote);
+      }
+
+      venta.estadoVenta = 'ANULADA';
+      venta.estadoPago = 'ANULADA';
+      venta.montoPagado = 0;
+      venta.saldoPendiente = 0;
+
+      await manager.save(VentaEntity, venta);
+    });
+
+    return this.findOne(ventaId);
+  }
+
+  private async calcularDetallesPorLinea(
+    manager: EntityManager,
+    detalleDto: CreateVentaDetalleDto,
+  ): Promise<DetalleVentaCalculado[]> {
+    const modoDescuentoLote = detalleDto.modoDescuentoLote ?? 'FIFO';
+    const tarifa = await this.resolverTarifa(manager, detalleDto);
+    const asignaciones = await this.asignarLotes(
+      manager,
+      detalleDto,
+      modoDescuentoLote,
+    );
+
+    const subtotalOriginal = this.redondear(
+      detalleDto.cantidad * detalleDto.precioUnitario,
+    );
+
+    const descuentoTotal = this.redondear(detalleDto.descuento ?? 0);
+
+    if (descuentoTotal > subtotalOriginal) {
+      throw new BadRequestException(
+        'El descuento no puede ser mayor al subtotal de la línea.',
+      );
+    }
+
+    let descuentoPendiente = descuentoTotal;
+
+    return asignaciones.map((asignacion, index) => {
+      const esUltimaLinea = index === asignaciones.length - 1;
+
+      const subtotal = this.redondear(
+        asignacion.cantidad * detalleDto.precioUnitario,
+      );
+
+      const descuento = esUltimaLinea
+        ? this.redondear(descuentoPendiente)
+        : this.redondear(
+            descuentoTotal * (asignacion.cantidad / detalleDto.cantidad),
+          );
+
+      descuentoPendiente = this.redondear(descuentoPendiente - descuento);
+
+      const baseImponible = this.redondear(subtotal - descuento);
+      const iva = this.redondear(
+        baseImponible * (tarifa.porcentajeIva / 100),
+      );
+      const totalLinea = this.redondear(baseImponible + iva);
+      const costoTotal = this.redondear(
+        asignacion.cantidad * asignacion.costoUnitarioReal,
+      );
+      const gananciaBruta = this.redondear(baseImponible - costoTotal);
+
+      return {
+        idProducto: detalleDto.productoId,
+        idLote: asignacion.lote.idLote,
+        cantidad: asignacion.cantidad,
+        precioUnitario: this.redondear(detalleDto.precioUnitario),
+        subtotal,
+        descuento,
+        baseImponible,
+        tipoTarifa: detalleDto.tipoTarifa,
+        idTarifaIva: tarifa.idTarifaIva,
+        porcentajeIva: tarifa.porcentajeIva,
+        iva,
+        totalLinea,
+        costoUnitarioReal: asignacion.costoUnitarioReal,
+        costoTotal,
+        gananciaBruta,
+        modoDescuentoLote,
+        detalle: detalleDto.detalle?.trim() || null,
+      };
+    });
+  }
+
+  private async asignarLotes(
+    manager: EntityManager,
+    detalleDto: CreateVentaDetalleDto,
+    modoDescuentoLote: string,
+  ): Promise<LoteAsignado[]> {
+    if (modoDescuentoLote === 'MANUAL') {
+      return this.asignarLoteManual(manager, detalleDto);
+    }
+
+    return this.asignarLotesFifo(manager, detalleDto);
+  }
+
+  private async asignarLoteManual(
+    manager: EntityManager,
+    detalleDto: CreateVentaDetalleDto,
+  ): Promise<LoteAsignado[]> {
+    if (!detalleDto.loteId) {
+      throw new BadRequestException(
+        'Debe seleccionar un lote cuando el modo es manual.',
+      );
+    }
+
+    const lote = await manager.getRepository(LoteProducto).findOne({
+      where: {
+        idLote: detalleDto.loteId,
+        idProducto: detalleDto.productoId,
+      },
+      relations: {
+        producto: true,
+      },
+    });
+
+    if (!lote) {
+      throw new NotFoundException('Lote no encontrado para ese producto.');
+    }
+
+    if (!['EN_STOCK', 'VENDIDO_PARCIAL'].includes(lote.estadoLote)) {
+      throw new BadRequestException(
+        'Solo se pueden vender lotes en stock o vendidos parcialmente.',
+      );
+    }
+
+    const disponible = Number(lote.cantidadDisponible);
+
+    if (disponible < detalleDto.cantidad) {
+      throw new BadRequestException(
+        `Stock insuficiente. Disponible en lote ${lote.codigoLote}: ${disponible}.`,
+      );
+    }
+
+    const costoUnitarioReal = Number(lote.costoUnitarioReal);
+
+    await this.descontarStockLote(manager, lote, detalleDto.cantidad);
+
+    return [
+      {
+        lote,
+        cantidad: detalleDto.cantidad,
+        costoUnitarioReal,
+      },
+    ];
+  }
+
+  private async asignarLotesFifo(
+    manager: EntityManager,
+    detalleDto: CreateVentaDetalleDto,
+  ): Promise<LoteAsignado[]> {
+    const lotesDisponibles = await manager.getRepository(LoteProducto).find({
+      where: {
+        idProducto: detalleDto.productoId,
+        cantidadDisponible: MoreThan(0),
+        estadoLote: In(['EN_STOCK', 'VENDIDO_PARCIAL']),
+      },
+      relations: {
+        producto: true,
+      },
+      order: {
+        fechaEntrada: 'ASC',
+        idLote: 'ASC',
+      },
+    });
+
+    if (lotesDisponibles.length === 0) {
+      throw new BadRequestException(
+        `No hay stock disponible para el producto ${detalleDto.productoId}.`,
+      );
+    }
+
+    let cantidadPendiente = detalleDto.cantidad;
+    const asignaciones: LoteAsignado[] = [];
+
+    for (const lote of lotesDisponibles) {
+      if (cantidadPendiente <= 0) break;
+
+      const disponible = Number(lote.cantidadDisponible);
+      const cantidadUsada = Math.min(disponible, cantidadPendiente);
+      const costoUnitarioReal = Number(lote.costoUnitarioReal);
+
+      await this.descontarStockLote(manager, lote, cantidadUsada);
+
+      asignaciones.push({
+        lote,
+        cantidad: cantidadUsada,
+        costoUnitarioReal,
+      });
+
+      cantidadPendiente -= cantidadUsada;
+    }
+
+    if (cantidadPendiente > 0) {
+      throw new BadRequestException(
+        `Stock insuficiente para el producto ${detalleDto.productoId}. Faltan ${cantidadPendiente} unidades.`,
+      );
+    }
+
+    return asignaciones;
+  }
+
+  private async descontarStockLote(
+    manager: EntityManager,
+    lote: LoteProducto,
+    cantidadVendida: number,
+  ) {
+    const disponibleActual = Number(lote.cantidadDisponible);
+    const nuevoDisponible = disponibleActual - cantidadVendida;
+
+    if (nuevoDisponible < 0) {
+      throw new BadRequestException(
+        `El lote ${lote.codigoLote} no tiene stock suficiente.`,
+      );
+    }
+
+    lote.cantidadDisponible = nuevoDisponible;
+    lote.estadoLote = nuevoDisponible === 0 ? 'AGOTADO' : 'VENDIDO_PARCIAL';
+
+    await manager.save(LoteProducto, lote);
+  }
+
+  private async resolverTarifa(
+    manager: EntityManager,
+    detalleDto: CreateVentaDetalleDto,
+  ): Promise<TarifaCalculada> {
+    if (detalleDto.tipoTarifa === 'EXENTO') {
+      return {
+        idTarifaIva: null,
+        porcentajeIva: 0,
+      };
+    }
+
+    if (detalleDto.tipoTarifa === 'ESPECIAL') {
+      if (
+        detalleDto.porcentajeIva === undefined ||
+        detalleDto.porcentajeIva === null
+      ) {
+        throw new BadRequestException(
+          'Debe indicar el porcentaje para una tarifa especial.',
+        );
+      }
+
+      return {
+        idTarifaIva: null,
+        porcentajeIva: this.redondear(detalleDto.porcentajeIva),
+      };
+    }
+
+    if (detalleDto.idTarifaIva) {
+      const tarifas = await manager.query<
+        Array<{
+          idTarifaIva: number;
+          porcentaje: number | string;
+          activo: boolean | number;
+        }>
+      >(
+        `
+        SELECT TOP 1
+          id_tarifa_iva AS idTarifaIva,
+          porcentaje,
+          activo
+        FROM dbo.tarifa_iva
+        WHERE id_tarifa_iva = @0
+        `,
+        [detalleDto.idTarifaIva],
+      );
+
+      const tarifa = tarifas[0];
+
+      if (!tarifa) {
+        throw new NotFoundException('Tarifa IVA no encontrada.');
+      }
+
+      if (!Boolean(tarifa.activo)) {
+        throw new BadRequestException('La tarifa IVA seleccionada no está activa.');
+      }
+
+      return {
+        idTarifaIva: Number(tarifa.idTarifaIva),
+        porcentajeIva: Number(tarifa.porcentaje),
+      };
+    }
+
+    return {
+      idTarifaIva: null,
+      porcentajeIva: Number(detalleDto.porcentajeIva ?? 13),
+    };
+  }
+
+  private calcularTotalesVenta(detalles: DetalleVentaCalculado[]) {
+    const subtotal = this.redondear(
+      detalles.reduce((acc, detalle) => acc + detalle.subtotal, 0),
+    );
+
+    const descuentoTotal = this.redondear(
+      detalles.reduce((acc, detalle) => acc + detalle.descuento, 0),
+    );
+
+    const ivaTotal = this.redondear(
+      detalles.reduce((acc, detalle) => acc + detalle.iva, 0),
+    );
+
+    const totalVenta = this.redondear(
+      detalles.reduce((acc, detalle) => acc + detalle.totalLinea, 0),
+    );
+
+    const costoTotal = this.redondear(
+      detalles.reduce((acc, detalle) => acc + detalle.costoTotal, 0),
+    );
+
+    const gananciaBruta = this.redondear(
+      detalles.reduce((acc, detalle) => acc + detalle.gananciaBruta, 0),
+    );
+
+    const baseTotal = this.redondear(subtotal - descuentoTotal);
+
+    const margenBruto =
+      baseTotal > 0 ? this.redondear((gananciaBruta / baseTotal) * 100) : 0;
+
+    return {
+      subtotal,
+      descuentoTotal,
+      ivaTotal,
+      totalVenta,
+      costoTotal,
+      gananciaBruta,
+      margenBruto,
+    };
+  }
+
+  private calcularEstadoPago(totalVenta: number, montoPagado: number) {
+    if (montoPagado >= totalVenta) {
+      return 'PAGADA';
+    }
+
+    if (montoPagado > 0) {
+      return 'PARCIAL';
+    }
+
+    return 'EN_DEUDA';
+  }
+
+  private async validarNumeroVentaDisponible(numeroVenta: number) {
+    const ventaExistente = await this.ventasRepository.findOne({
+      where: {
+        numeroVenta,
+      },
+    });
+
+    if (ventaExistente) {
+      throw new ConflictException(`Ya existe la venta ${numeroVenta}.`);
+    }
+  }
+
+  private validarId(id: number, mensaje: string) {
+    const numericId = Number(id);
+
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      throw new BadRequestException(mensaje);
+    }
+
+    return numericId;
+  }
+
+  private redondear(value: number) {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+      return 0;
+    }
+
+    return Number(numericValue.toFixed(2));
+  }
+
+  private mapVentaToResponse(venta: VentaEntity) {
+    return {
+      id: venta.idVenta,
+      numeroVenta: String(venta.numeroVenta),
+      fechaVenta: venta.fechaVenta,
+      clienteNombre: venta.clienteNombre ?? '',
+      medioPago: venta.medioPago,
+      estadoPago: venta.estadoPago,
+      estadoVenta: venta.estadoVenta,
+      subtotal: Number(venta.subtotal),
+      descuentoTotal: Number(venta.descuentoTotal),
+      ivaTotal: Number(venta.ivaTotal),
+      totalVenta: Number(venta.totalVenta),
+      montoPagado: Number(venta.montoPagado),
+      saldoPendiente: Number(venta.saldoPendiente),
+      costoTotal: Number(venta.costoTotal),
+      gananciaBruta: Number(venta.gananciaBruta),
+      margenBruto: Number(venta.margenBruto),
+      fechaEntrega: venta.fechaEntrega,
+      fechaVencimientoPago: venta.fechaVencimientoPago,
+      observaciones: venta.observaciones ?? '',
+      enPapelera: Boolean(venta.enPapelera),
+      detalles: (venta.detalles ?? []).map((detalle) => ({
+        id: detalle.idDetalleVenta,
+        productoId: detalle.idProducto,
+        productoNombre:
+          detalle.producto?.nombre ?? `Producto ${detalle.idProducto}`,
+        loteId: detalle.idLote,
+        loteCodigo: detalle.lote?.codigoLote ?? `Lote ${detalle.idLote}`,
+        pedidoId: detalle.lote?.idPedido,
+        cantidad: Number(detalle.cantidad),
+        precioUnitario: Number(detalle.precioUnitario),
+        subtotal: Number(detalle.subtotal),
+        descuento: Number(detalle.descuento),
+        baseImponible: Number(detalle.baseImponible),
+        tipoTarifa: detalle.tipoTarifa,
+        idTarifaIva: detalle.idTarifaIva,
+        porcentajeIva: Number(detalle.porcentajeIva),
+        iva: Number(detalle.iva),
+        totalLinea: Number(detalle.totalLinea),
+        costoUnitarioReal: Number(detalle.costoUnitarioReal),
+        costoTotal: Number(detalle.costoTotal),
+        gananciaBruta: Number(detalle.gananciaBruta),
+        modoDescuentoLote: detalle.modoDescuentoLote,
+        detalle: detalle.detalle ?? '',
+      })),
+    };
+  }
+}
