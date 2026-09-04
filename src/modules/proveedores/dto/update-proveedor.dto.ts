@@ -38,6 +38,11 @@ export class UpdateProveedorDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
+  pais?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(150)
   direccion?: string;
 
@@ -54,11 +59,7 @@ export class UpdateProveedorDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(100)
-  pais?: string;
-
-  @IsOptional()
-  @IsString()
+  @IsIn(['CRC', 'USD', 'EUR', 'COP', 'BRL'])
   @MaxLength(10)
   monedaPreferida?: string;
 

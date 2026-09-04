@@ -46,10 +46,10 @@ export class ProveedoresService {
       nombreReferencia: createProveedorDto.nombreReferencia.trim(),
       telefono: createProveedorDto.telefono.trim(),
       correo: createProveedorDto.correo.trim().toLowerCase(),
-      direccion: createProveedorDto.direccion.trim(),
+      pais: createProveedorDto.pais.trim(),
+      direccion: this.normalizarTextoOpcional(createProveedorDto.direccion),
       estado: createProveedorDto.estado,
       contacto: this.normalizarTextoOpcional(createProveedorDto.contacto),
-      pais: this.normalizarTextoOpcional(createProveedorDto.pais),
       monedaPreferida:
         createProveedorDto.monedaPreferida?.trim().toUpperCase() || null,
       observaciones: this.normalizarTextoOpcional(
@@ -79,8 +79,14 @@ export class ProveedoresService {
       proveedor.correo = updateProveedorDto.correo.trim().toLowerCase();
     }
 
+    if (updateProveedorDto.pais !== undefined) {
+      proveedor.pais = updateProveedorDto.pais.trim();
+    }
+
     if (updateProveedorDto.direccion !== undefined) {
-      proveedor.direccion = updateProveedorDto.direccion.trim();
+      proveedor.direccion = this.normalizarTextoOpcional(
+        updateProveedorDto.direccion,
+      );
     }
 
     if (updateProveedorDto.estado !== undefined) {
@@ -91,10 +97,6 @@ export class ProveedoresService {
       proveedor.contacto = this.normalizarTextoOpcional(
         updateProveedorDto.contacto,
       );
-    }
-
-    if (updateProveedorDto.pais !== undefined) {
-      proveedor.pais = this.normalizarTextoOpcional(updateProveedorDto.pais);
     }
 
     if (updateProveedorDto.monedaPreferida !== undefined) {
