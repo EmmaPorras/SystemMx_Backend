@@ -33,8 +33,13 @@ export class CreateProveedorDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
+  pais!: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(150)
-  direccion!: string;
+  direccion?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -45,11 +50,6 @@ export class CreateProveedorDto {
   @IsString()
   @MaxLength(150)
   contacto?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  pais?: string;
 
   @IsOptional()
   @IsString()
