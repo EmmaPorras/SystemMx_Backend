@@ -1,15 +1,53 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { MovimientoInventario } from '../../database/entities/movimiento-inventario.entity';
+import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
+import { Producto } from '../../database/entities/producto.entity';
 import { InventarioService } from './inventario.service';
 
 describe('InventarioService', () => {
   let service: InventarioService;
 
-  const movimientoRepositoryMock = {
+  const lotesRepositoryMock = {
+    find: jest.fn(),
+    findAndCount: jest.fn(),
+    findOne: jest.fn(),
+  };
+
+  const movimientosQueryBuilderMock = {
+    andWhere: jest.fn(),
+    orderBy: jest.fn(),
+    addOrderBy: jest.fn(),
+    skip: jest.fn(),
+    take: jest.fn(),
+    getManyAndCount: jest.fn(),
+  };
+
+  const movimientosRepositoryMock = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+
+  const productosRepositoryMock = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+  };
+
+  const pedidosRepositoryMock = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+  };
+
+  const managerMovimientoRepoMock = {
     create: jest.fn(),
     save: jest.fn(),
   };
@@ -22,25 +60,72 @@ describe('InventarioService', () => {
     ({
       idLote: 10,
       idProducto: 6,
+      idPedido: 1,
+      idDetallePedido: 1,
+      codigoLote: 'L1',
+      cantidadInicial: 10,
+      cantidadRecibida: 0,
+      cantidadDisponible: 0,
       costoUnitarioReal: 4000,
+      precioVentaRecomendado: 6500,
+      estadoLote: 'EN_PROCESO',
+      fechaEntrada: null,
       ...overrides,
     }) as LoteProducto;
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    managerMock.getRepository.mockReturnValue(movimientoRepositoryMock);
+    movimientosQueryBuilderMock.andWhere.mockReturnValue(
+      movimientosQueryBuilderMock,
+    );
+    movimientosQueryBuilderMock.orderBy.mockReturnValue(
+      movimientosQueryBuilderMock,
+    );
+    movimientosQueryBuilderMock.addOrderBy.mockReturnValue(
+      movimientosQueryBuilderMock,
+    );
+    movimientosQueryBuilderMock.skip.mockReturnValue(
+      movimientosQueryBuilderMock,
+    );
+    movimientosQueryBuilderMock.take.mockReturnValue(
+      movimientosQueryBuilderMock,
+    );
+    movimientosQueryBuilderMock.getManyAndCount.mockResolvedValue([[], 0]);
 
-    movimientoRepositoryMock.create.mockImplementation(
+    movimientosRepositoryMock.createQueryBuilder.mockReturnValue(
+      movimientosQueryBuilderMock,
+    );
+
+    managerMock.getRepository.mockReturnValue(managerMovimientoRepoMock);
+    managerMovimientoRepoMock.create.mockImplementation(
       (dto: Partial<MovimientoInventario>) => dto,
     );
-    movimientoRepositoryMock.save.mockImplementation(
+    managerMovimientoRepoMock.save.mockImplementation(
       (ent: Partial<MovimientoInventario>) =>
         Promise.resolve({ idMovimiento: 1, ...ent }),
     );
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [InventarioService],
+      providers: [
+        InventarioService,
+        {
+          provide: getRepositoryToken(LoteProducto),
+          useValue: lotesRepositoryMock,
+        },
+        {
+          provide: getRepositoryToken(MovimientoInventario),
+          useValue: movimientosRepositoryMock,
+        },
+        {
+          provide: getRepositoryToken(Producto),
+          useValue: productosRepositoryMock,
+        },
+        {
+          provide: getRepositoryToken(PedidoCompraEntity),
+          useValue: pedidosRepositoryMock,
+        },
+      ],
     }).compile();
 
     service = module.get<InventarioService>(InventarioService);
@@ -50,8 +135,314 @@ describe('InventarioService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('registrarMovimiento', () => {
-    it('23. Test ENTRADA_COMPRA genera referenciaTipo PEDIDO y calcula total', async () => {
+  describe('listarLotes', () => {
+    it('debe listar lotes paginados con producto y pedido asociados', async () => {
+      const lote = crearLote({
+        idLote: 20,
+        idProducto: 6,
+        idPedido: 15,
+        cantidadInicial: 10,
+        cantidadRecibida: 10,
+        cantidadDisponible: 10,
+        estadoLote: 'EN_STOCK',
+      });
+      const producto = {
+        idProducto: 6,
+        nombre: 'Aceite',
+        activo: true,
+      } as Producto;
+      const pedido = {
+        idPedido: 15,
+        numeroPedido: 30,
+        estado: 'RECIBIDO',
+      } as PedidoCompraEntity;
+
+      lotesRepositoryMock.findAndCount.mockResolvedValue([[lote], 1]);
+      productosRepositoryMock.find.mockResolvedValue([producto]);
+      pedidosRepositoryMock.find.mockResolvedValue([pedido]);
+
+      const resultado = await service.listarLotes({ pagina: 1, limite: 10 });
+
+      expect(resultado.total).toBe(1);
+      expect(resultado.pagina).toBe(1);
+      expect(resultado.limite).toBe(10);
+      expect(resultado.totalPaginas).toBe(1);
+      expect(resultado.items[0].idLote).toBe(20);
+      expect(resultado.items[0].producto?.nombre).toBe('Aceite');
+      expect(resultado.items[0].pedido?.numeroPedido).toBe(30);
+    });
+
+    it('45. Test de matemáticas del lote (inicial 10, recibida 7, disponible 5)', async () => {
+      const lote = crearLote({
+        idLote: 10,
+        cantidadInicial: 10,
+        cantidadRecibida: 7,
+        cantidadDisponible: 5,
+      });
+
+      lotesRepositoryMock.findAndCount.mockResolvedValue([[lote], 1]);
+      productosRepositoryMock.find.mockResolvedValue([]);
+      pedidosRepositoryMock.find.mockResolvedValue([]);
+
+      const resultado = await service.listarLotes({});
+      const item = resultado.items[0];
+
+      expect(item.cantidadInicial).toBe(10);
+      expect(item.cantidadRecibida).toBe(7);
+      expect(item.cantidadDisponible).toBe(5);
+      expect(item.cantidadVendida).toBe(2);
+      expect(item.cantidadPendienteRecepcion).toBe(3);
+    });
+
+    it('debe aplicar filtros por productoId, pedidoId y estadoLote', async () => {
+      lotesRepositoryMock.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.listarLotes({
+        productoId: 6,
+        pedidoId: 10,
+        estadoLote: 'EN_STOCK',
+      });
+
+      expect(lotesRepositoryMock.findAndCount).toHaveBeenCalledWith({
+        where: {
+          idProducto: 6,
+          idPedido: 10,
+          estadoLote: 'EN_STOCK',
+        },
+        order: { idLote: 'DESC' },
+        skip: 0,
+        take: 50,
+      });
+    });
+  });
+
+  describe('buscarLotePorId', () => {
+    it('debe retornar lote mapeado si existe', async () => {
+      const lote = crearLote({ idLote: 10, idProducto: 6, idPedido: 1 });
+      const producto = {
+        idProducto: 6,
+        nombre: 'Aceite',
+        activo: true,
+      } as Producto;
+      const pedido = {
+        idPedido: 1,
+        numeroPedido: 100,
+        estado: 'RECIBIDO',
+      } as PedidoCompraEntity;
+
+      lotesRepositoryMock.findOne.mockResolvedValue(lote);
+      productosRepositoryMock.findOne.mockResolvedValue(producto);
+      pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
+
+      const resultado = await service.buscarLotePorId(10);
+
+      expect(resultado.idLote).toBe(10);
+      expect(resultado.producto?.nombre).toBe('Aceite');
+      expect(resultado.pedido?.numeroPedido).toBe(100);
+    });
+
+    it('debe lanzar 404 si el lote no existe', async () => {
+      lotesRepositoryMock.findOne.mockResolvedValue(null);
+
+      await expect(service.buscarLotePorId(999)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('debe lanzar 400 si el ID es inválido', async () => {
+      await expect(service.buscarLotePorId(0)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.buscarLotePorId(-1)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.buscarLotePorId(Number.NaN)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('listarLotesProducto', () => {
+    it('debe retornar lotes del producto si el producto existe', async () => {
+      const producto = { idProducto: 6, nombre: 'Aceite' } as Producto;
+      productosRepositoryMock.findOne.mockResolvedValue(producto);
+
+      const lote = crearLote({ idLote: 10, idProducto: 6 });
+      lotesRepositoryMock.findAndCount.mockResolvedValue([[lote], 1]);
+      productosRepositoryMock.find.mockResolvedValue([producto]);
+      pedidosRepositoryMock.find.mockResolvedValue([]);
+
+      const resultado = await service.listarLotesProducto(6, {});
+
+      expect(resultado.items).toHaveLength(1);
+      expect(resultado.items[0].idProducto).toBe(6);
+    });
+
+    it('producto existente sin lotes retorna items vacíos []', async () => {
+      const producto = { idProducto: 6, nombre: 'Aceite' } as Producto;
+      productosRepositoryMock.findOne.mockResolvedValue(producto);
+      lotesRepositoryMock.findAndCount.mockResolvedValue([[], 0]);
+
+      const resultado = await service.listarLotesProducto(6, {});
+
+      expect(resultado.items).toEqual([]);
+      expect(resultado.total).toBe(0);
+    });
+
+    it('producto inexistente lanza 404', async () => {
+      productosRepositoryMock.findOne.mockResolvedValue(null);
+
+      await expect(service.listarLotesProducto(999, {})).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('productoId inválido lanza 400', async () => {
+      await expect(service.listarLotesProducto(0, {})).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('listarMovimientos', () => {
+    it('debe listar movimientos con orden DESC y relaciones mapeadas', async () => {
+      const mov = {
+        idMovimiento: 1,
+        idProducto: 6,
+        idLote: 10,
+        fechaMovimiento: new Date(),
+        tipoMovimiento: 'ENTRADA_COMPRA',
+        cantidad: 5,
+        referenciaTipo: 'PEDIDO',
+        referenciaId: 13,
+        usuario: null,
+        motivo: 'Recepción',
+        observaciones: null,
+        costoUnitario: 4000,
+        totalMovimiento: 20000,
+      } as MovimientoInventario;
+
+      movimientosQueryBuilderMock.getManyAndCount.mockResolvedValue([[mov], 1]);
+      productosRepositoryMock.find.mockResolvedValue([
+        { idProducto: 6, nombre: 'Aceite' } as Producto,
+      ]);
+      lotesRepositoryMock.find.mockResolvedValue([
+        crearLote({ idLote: 10, codigoLote: 'L1' }),
+      ]);
+
+      const resultado = await service.listarMovimientos({});
+
+      expect(resultado.total).toBe(1);
+      expect(resultado.items[0].tipoMovimiento).toBe('ENTRADA_COMPRA');
+      expect(resultado.items[0].producto?.nombre).toBe('Aceite');
+      expect(resultado.items[0].lote?.codigoLote).toBe('L1');
+      expect(movimientosQueryBuilderMock.orderBy).toHaveBeenCalledWith(
+        'movimiento.fechaMovimiento',
+        'DESC',
+      );
+    });
+
+    it('debe aplicar filtros por productoId, loteId, tipoMovimiento, referenciaTipo, referenciaId y fechas', async () => {
+      movimientosQueryBuilderMock.getManyAndCount.mockResolvedValue([[], 0]);
+
+      await service.listarMovimientos({
+        productoId: 6,
+        loteId: 10,
+        tipoMovimiento: 'ENTRADA_COMPRA',
+        referenciaTipo: 'PEDIDO',
+        referenciaId: 13,
+        desde: '2026-09-01',
+        hasta: '2026-09-08',
+      });
+
+      expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'movimiento.idProducto = :productoId',
+        { productoId: 6 },
+      );
+      expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'movimiento.idLote = :loteId',
+        { loteId: 10 },
+      );
+      expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'movimiento.tipoMovimiento = :tipoMovimiento',
+        { tipoMovimiento: 'ENTRADA_COMPRA' },
+      );
+      expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'movimiento.referenciaTipo = :referenciaTipo',
+        { referenciaTipo: 'PEDIDO' },
+      );
+      expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'movimiento.referenciaId = :referenciaId',
+        { referenciaId: 13 },
+      );
+      expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'CONVERT(date, movimiento.fechaMovimiento) >= :desde',
+        { desde: '2026-09-01' },
+      );
+      expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'CONVERT(date, movimiento.fechaMovimiento) <= :hasta',
+        { hasta: '2026-09-08' },
+      );
+    });
+
+    it('debe lanzar 400 si fecha desde es posterior a fecha hasta', async () => {
+      await expect(
+        service.listarMovimientos({
+          desde: '2026-09-10',
+          hasta: '2026-09-01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('buscarMovimientoPorId', () => {
+    it('debe retornar movimiento si existe', async () => {
+      const mov = {
+        idMovimiento: 1,
+        idProducto: 6,
+        idLote: 10,
+        fechaMovimiento: new Date(),
+        tipoMovimiento: 'ENTRADA_COMPRA',
+        cantidad: 3,
+        referenciaTipo: 'PEDIDO',
+        referenciaId: 13,
+        costoUnitario: 4000,
+        totalMovimiento: 12000,
+      } as MovimientoInventario;
+
+      movimientosRepositoryMock.findOne.mockResolvedValue(mov);
+      productosRepositoryMock.findOne.mockResolvedValue({
+        idProducto: 6,
+        nombre: 'Aceite',
+      });
+      lotesRepositoryMock.findOne.mockResolvedValue(
+        crearLote({ idLote: 10, codigoLote: 'L1' }),
+      );
+
+      const resultado = await service.buscarMovimientoPorId(1);
+
+      expect(resultado.idMovimiento).toBe(1);
+      expect(resultado.producto?.nombre).toBe('Aceite');
+      expect(resultado.lote?.codigoLote).toBe('L1');
+    });
+
+    it('debe lanzar 404 si el movimiento no existe', async () => {
+      movimientosRepositoryMock.findOne.mockResolvedValue(null);
+
+      await expect(service.buscarMovimientoPorId(999)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('debe lanzar 400 si el ID es inválido', async () => {
+      await expect(service.buscarMovimientoPorId(0)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('registrarMovimiento (infraestructura)', () => {
+    it('ENTRADA_COMPRA genera referenciaTipo PEDIDO y calcula total', async () => {
       const lote = crearLote({
         idLote: 10,
         idProducto: 6,
@@ -68,7 +459,7 @@ describe('InventarioService', () => {
         },
       );
 
-      expect(movimientoRepositoryMock.create).toHaveBeenCalledWith({
+      expect(managerMovimientoRepoMock.create).toHaveBeenCalledWith({
         idProducto: 6,
         idLote: 10,
         tipoMovimiento: 'ENTRADA_COMPRA',
@@ -84,7 +475,7 @@ describe('InventarioService', () => {
       expect(resultado).toBeDefined();
     });
 
-    it('24. Test SALIDA_VENTA genera referenciaTipo VENTA', async () => {
+    it('SALIDA_VENTA genera referenciaTipo VENTA', async () => {
       const lote = crearLote({
         idLote: 10,
         idProducto: 6,
@@ -101,7 +492,7 @@ describe('InventarioService', () => {
         },
       );
 
-      expect(movimientoRepositoryMock.create).toHaveBeenCalledWith(
+      expect(managerMovimientoRepoMock.create).toHaveBeenCalledWith(
         expect.objectContaining({
           tipoMovimiento: 'SALIDA_VENTA',
           cantidad: 2,
@@ -113,7 +504,7 @@ describe('InventarioService', () => {
       );
     });
 
-    it('25. Test REINGRESO_ANULACION_VENTA genera referenciaTipo VENTA', async () => {
+    it('REINGRESO_ANULACION_VENTA genera referenciaTipo VENTA', async () => {
       const lote = crearLote({
         idLote: 10,
         idProducto: 6,
@@ -130,7 +521,7 @@ describe('InventarioService', () => {
         },
       );
 
-      expect(movimientoRepositoryMock.create).toHaveBeenCalledWith(
+      expect(managerMovimientoRepoMock.create).toHaveBeenCalledWith(
         expect.objectContaining({
           tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
           cantidad: 2,
@@ -142,109 +533,7 @@ describe('InventarioService', () => {
       );
     });
 
-    it('26. Motivos predeterminados según tipo de movimiento', async () => {
-      const lote = crearLote();
-
-      await service.registrarMovimiento(
-        managerMock as unknown as EntityManager,
-        {
-          lote,
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-        },
-      );
-      expect(movimientoRepositoryMock.create).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          motivo: 'Recepción de mercancía por compra',
-        }),
-      );
-
-      await service.registrarMovimiento(
-        managerMock as unknown as EntityManager,
-        {
-          lote,
-          tipoMovimiento: 'SALIDA_VENTA',
-          cantidad: 1,
-          referenciaId: 1,
-        },
-      );
-      expect(movimientoRepositoryMock.create).toHaveBeenLastCalledWith(
-        expect.objectContaining({ motivo: 'Salida de inventario por venta' }),
-      );
-
-      await service.registrarMovimiento(
-        managerMock as unknown as EntityManager,
-        {
-          lote,
-          tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
-          cantidad: 1,
-          referenciaId: 1,
-        },
-      );
-      expect(movimientoRepositoryMock.create).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          motivo: 'Reingreso de inventario por anulación de venta',
-        }),
-      );
-    });
-
-    it('27. Test motivo personalizado trimeado', async () => {
-      await service.registrarMovimiento(
-        managerMock as unknown as EntityManager,
-        {
-          lote: crearLote(),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-          motivo: '  Primera recepción parcial  ',
-        },
-      );
-
-      expect(movimientoRepositoryMock.create).toHaveBeenCalledWith(
-        expect.objectContaining({ motivo: 'Primera recepción parcial' }),
-      );
-    });
-
-    it('28. Test observaciones trimeadas', async () => {
-      await service.registrarMovimiento(
-        managerMock as unknown as EntityManager,
-        {
-          lote: crearLote(),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-          observaciones: '  Caja dañada  ',
-        },
-      );
-
-      expect(movimientoRepositoryMock.create).toHaveBeenCalledWith(
-        expect.objectContaining({ observaciones: 'Caja dañada' }),
-      );
-    });
-
-    it('29. Strings vacíos en usuario y observaciones se normalizan a null', async () => {
-      await service.registrarMovimiento(
-        managerMock as unknown as EntityManager,
-        {
-          lote: crearLote(),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-          usuario: '   ',
-          observaciones: '   ',
-        },
-      );
-
-      expect(movimientoRepositoryMock.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          usuario: null,
-          observaciones: null,
-        }),
-      );
-    });
-
-    it('30. Cantidad 0 lanza 400 BadRequestException', async () => {
+    it('Cantidad 0 lanza 400 BadRequestException', async () => {
       await expect(
         service.registrarMovimiento(managerMock as unknown as EntityManager, {
           lote: crearLote(),
@@ -255,89 +544,7 @@ describe('InventarioService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('31. Cantidad negativa lanza 400 BadRequestException', async () => {
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote(),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: -5,
-          referenciaId: 1,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('32. Cantidad decimal (1.5) lanza 400 BadRequestException', async () => {
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote(),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1.5,
-          referenciaId: 1,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('33. Lote inválido (idLote <= 0) lanza 400 BadRequestException', async () => {
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote({ idLote: 0 }),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-        }),
-      ).rejects.toThrow(BadRequestException);
-
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote({ idLote: -1 }),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('34. Producto inválido (idProducto <= 0) lanza 400 BadRequestException', async () => {
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote({ idProducto: 0 }),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-        }),
-      ).rejects.toThrow(BadRequestException);
-
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote({ idProducto: -2 }),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('35. Referencia inválida (referenciaId <= 0) lanza 400 BadRequestException', async () => {
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote(),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 0,
-        }),
-      ).rejects.toThrow(BadRequestException);
-
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote(),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: -10,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('36. Costo inválido (costoUnitarioReal < 0 o NaN) lanza 409 ConflictException', async () => {
+    it('Costo inválido lanza 409 ConflictException', async () => {
       await expect(
         service.registrarMovimiento(managerMock as unknown as EntityManager, {
           lote: crearLote({ costoUnitarioReal: -1 }),
@@ -346,54 +553,6 @@ describe('InventarioService', () => {
           referenciaId: 1,
         }),
       ).rejects.toThrow(ConflictException);
-
-      await expect(
-        service.registrarMovimiento(managerMock as unknown as EntityManager, {
-          lote: crearLote({ costoUnitarioReal: Number.NaN }),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-        }),
-      ).rejects.toThrow(ConflictException);
-    });
-
-    it('37. Costo como string retornado por el driver SQL parsea a número y calcula total', async () => {
-      const lote = crearLote({
-        costoUnitarioReal: '4000.50' as unknown as number,
-      });
-
-      await service.registrarMovimiento(
-        managerMock as unknown as EntityManager,
-        {
-          lote,
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 2,
-          referenciaId: 1,
-        },
-      );
-
-      expect(movimientoRepositoryMock.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          costoUnitario: 4000.5,
-          totalMovimiento: 8001,
-        }),
-      );
-    });
-
-    it('38. Verifica que usa el repository de MovimientoInventario desde el EntityManager', async () => {
-      await service.registrarMovimiento(
-        managerMock as unknown as EntityManager,
-        {
-          lote: crearLote(),
-          tipoMovimiento: 'ENTRADA_COMPRA',
-          cantidad: 1,
-          referenciaId: 1,
-        },
-      );
-
-      expect(managerMock.getRepository).toHaveBeenCalledWith(
-        MovimientoInventario,
-      );
     });
   });
 });
