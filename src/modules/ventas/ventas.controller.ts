@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 
 import { CreateVentaDto } from './dto/create-venta.dto';
-import { UpdatePagoVentaDto } from './dto/update-pago-venta.dto';
+import { RegistrarPagoVentaDto } from './dto/registrar-pago-venta.dto';
 import { VentasService } from './ventas.service';
 
 @Controller('ventas')
@@ -33,6 +33,11 @@ export class VentasController {
     return this.ventasService.obtenerInventarioDisponible();
   }
 
+  @Get(':id/pagos')
+  listarPagos(@Param('id', ParseIntPipe) id: number) {
+    return this.ventasService.listarPagosVenta(id);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.ventasService.findOne(id);
@@ -43,12 +48,12 @@ export class VentasController {
     return this.ventasService.create(dto);
   }
 
-  @Patch(':id/pago')
-  actualizarPago(
+  @Post(':id/pagos')
+  registrarPago(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdatePagoVentaDto,
+    @Body() dto: RegistrarPagoVentaDto,
   ) {
-    return this.ventasService.actualizarPago(id, dto);
+    return this.ventasService.registrarPago(id, dto);
   }
 
   @Patch(':id/papelera')

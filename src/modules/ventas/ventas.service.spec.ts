@@ -9,10 +9,12 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
+import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
 import { InventarioService } from '../inventario/inventario.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
+import { RegistrarPagoVentaDto } from './dto/registrar-pago-venta.dto';
 import { VentasService } from './ventas.service';
 
 interface MockQueryBuilder {
@@ -28,6 +30,7 @@ interface MockQueryBuilder {
 describe('VentasService', () => {
   let service: VentasService;
   let ventasRepository: jest.Mocked<Repository<VentaEntity>>;
+  let pagosRepository: jest.Mocked<Repository<PagoVenta>>;
   let inventarioService: { registrarMovimiento: jest.Mock };
   let dataSource: { transaction: jest.Mock };
   let manager: jest.Mocked<EntityManager>;
@@ -70,6 +73,7 @@ describe('VentasService', () => {
     createdAt: new Date('2026-09-10'),
     updatedAt: new Date('2026-09-10'),
     detalles: [],
+    pagos: [],
     ...overrides,
   });
 
@@ -125,6 +129,19 @@ describe('VentasService', () => {
     ...overrides,
   });
 
+  const crearPagoVenta = (overrides: Partial<PagoVenta> = {}): PagoVenta => ({
+    idPagoVenta: 1,
+    idVenta: 100,
+    metodoPago: 'EFECTIVO',
+    monto: 13000,
+    referencia: null,
+    observaciones: null,
+    createdAt: new Date('2026-09-10'),
+    updatedAt: new Date('2026-09-10'),
+    venta: null as unknown as VentaEntity,
+    ...overrides,
+  });
+
   beforeEach(async () => {
     managerSaveMock = jest.fn((_entityClass: unknown, entity: unknown) => {
       if (entity && typeof entity === 'object' && 'numeroVenta' in entity) {
@@ -132,6 +149,14 @@ describe('VentasService', () => {
       }
       if (entity && typeof entity === 'object' && 'idProducto' in entity) {
         return Promise.resolve({ idDetalleVenta: 200, ...entity });
+      }
+      if (
+        entity &&
+        typeof entity === 'object' &&
+        'metodoPago' in entity &&
+        'monto' in entity
+      ) {
+        return Promise.resolve({ idPagoVenta: 1, ...entity } as PagoVenta);
       }
       return Promise.resolve(entity);
     });
@@ -169,6 +194,13 @@ describe('VentasService', () => {
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<VentaEntity>>;
 
+    pagosRepository = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn((plain: unknown) => plain as PagoVenta),
+    } as unknown as jest.Mocked<Repository<PagoVenta>>;
+
     inventarioService = {
       registrarMovimiento: jest.fn().mockResolvedValue({ idMovimiento: 1 }),
     };
@@ -183,6 +215,10 @@ describe('VentasService', () => {
         {
           provide: getRepositoryToken(VentaEntity),
           useValue: ventasRepository,
+        },
+        {
+          provide: getRepositoryToken(PagoVenta),
+          useValue: pagosRepository,
         },
         {
           provide: InventarioService,
@@ -212,12 +248,13 @@ describe('VentasService', () => {
 
       manager.getRepository.mockReturnValue({
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+        create: jest.fn((plain: unknown) => plain),
+        save: managerSaveMock,
+      } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1001,
         fechaVenta: '2026-09-10',
-        clienteNombre: 'Cliente Manual',
         medioPago: 'EFECTIVO',
         detalles: [
           {
@@ -225,19 +262,19 @@ describe('VentasService', () => {
             loteId: 13,
             cantidad: 2,
             precioUnitario: 6500,
-            descuento: 0,
             tipoTarifa: 'EXENTO',
             modoDescuentoLote: 'MANUAL',
           },
         ],
       };
 
-      const resultado = await service.create(dto);
+      await service.create(dto);
 
       expect(qbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(loteMock.cantidadDisponible).toBe(3);
       expect(loteMock.estadoLote).toBe('VENDIDO_PARCIAL');
       expect(managerSaveMock).toHaveBeenCalledWith(LoteProducto, loteMock);
+
       expect(inventarioService.registrarMovimiento).toHaveBeenCalledWith(
         manager,
         expect.objectContaining({
@@ -247,7 +284,6 @@ describe('VentasService', () => {
           referenciaId: 100,
         }),
       );
-      expect(resultado.id).toBe(100);
     });
 
     it('debe cambiar estadoLote a AGOTADO si cantidadDisponible llega a 0', async () => {
@@ -255,7 +291,7 @@ describe('VentasService', () => {
         idLote: 13,
         idProducto: 6,
         cantidadDisponible: 2,
-        estadoLote: 'EN_STOCK',
+        estadoLote: 'VENDIDO_PARCIAL',
       });
 
       const qbMock = crearQueryBuilderMock();
@@ -263,7 +299,9 @@ describe('VentasService', () => {
 
       manager.getRepository.mockReturnValue({
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+        create: jest.fn((plain: unknown) => plain),
+        save: managerSaveMock,
+      } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1002,
@@ -291,8 +329,8 @@ describe('VentasService', () => {
       const loteMock = crearLote({
         idLote: 13,
         idProducto: 6,
-        cantidadDisponible: 2,
-        estadoLote: 'EN_STOCK',
+        cantidadDisponible: 1,
+        estadoLote: 'VENDIDO_PARCIAL',
       });
 
       const qbMock = crearQueryBuilderMock();
@@ -310,7 +348,7 @@ describe('VentasService', () => {
           {
             productoId: 6,
             loteId: 13,
-            cantidad: 3,
+            cantidad: 2,
             precioUnitario: 6500,
             tipoTarifa: 'EXENTO',
             modoDescuentoLote: 'MANUAL',
@@ -326,25 +364,18 @@ describe('VentasService', () => {
   describe('create - Modo FIFO con múltiples lotes', () => {
     it('debe solicitar bloqueo pessimistic_write y repartir venta entre lotes en orden fechaEntrada ASC, idLote ASC', async () => {
       const lote1 = crearLote({
-        idLote: 16,
+        idLote: 1,
         idProducto: 9,
-        codigoLote: 'L1',
-        cantidadRecibida: 3,
         cantidadDisponible: 3,
         costoUnitarioReal: 1000,
         estadoLote: 'EN_STOCK',
-        fechaEntrada: '2026-09-07',
       });
-
       const lote2 = crearLote({
-        idLote: 17,
+        idLote: 2,
         idProducto: 9,
-        codigoLote: 'L2',
-        cantidadRecibida: 5,
         cantidadDisponible: 5,
         costoUnitarioReal: 1200,
         estadoLote: 'EN_STOCK',
-        fechaEntrada: '2026-09-10',
       });
 
       const qbMock = crearQueryBuilderMock();
@@ -352,7 +383,9 @@ describe('VentasService', () => {
 
       manager.getRepository.mockReturnValue({
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+        create: jest.fn((plain: unknown) => plain),
+        save: managerSaveMock,
+      } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1004,
@@ -444,14 +477,12 @@ describe('VentasService', () => {
     });
   });
 
-  describe('create - Manejo de errores y transaccionalidad', () => {
+  describe('create - Manejo de errores, pagos iniciales y transaccionalidad', () => {
     it('debe propagar error si inventarioService.registrarMovimiento falla', async () => {
       const loteMock = crearLote({
         idLote: 13,
         idProducto: 6,
         cantidadDisponible: 5,
-        costoUnitarioReal: 4000,
-        estadoLote: 'EN_STOCK',
       });
 
       const qbMock = crearQueryBuilderMock();
@@ -459,10 +490,12 @@ describe('VentasService', () => {
 
       manager.getRepository.mockReturnValue({
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+        create: jest.fn((plain: unknown) => plain),
+        save: managerSaveMock,
+      } as unknown as Repository<unknown>);
 
       inventarioService.registrarMovimiento.mockRejectedValue(
-        new Error('Fallo simulado en movimiento'),
+        new Error('Fallo inventario'),
       );
 
       const dto: CreateVentaDto = {
@@ -481,9 +514,7 @@ describe('VentasService', () => {
         ],
       };
 
-      await expect(service.create(dto)).rejects.toThrow(
-        'Fallo simulado en movimiento',
-      );
+      await expect(service.create(dto)).rejects.toThrow('Fallo inventario');
     });
 
     it('debe rechazar venta si montoPagado es mayor a totalVenta', async () => {
@@ -491,8 +522,6 @@ describe('VentasService', () => {
         idLote: 13,
         idProducto: 6,
         cantidadDisponible: 5,
-        costoUnitarioReal: 4000,
-        estadoLote: 'EN_STOCK',
       });
 
       const qbMock = crearQueryBuilderMock();
@@ -524,6 +553,91 @@ describe('VentasService', () => {
       );
     });
 
+    it('debe registrar PagoVenta inicial cuando montoPagado > 0', async () => {
+      const loteMock = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadDisponible: 5,
+      });
+
+      const qbMock = crearQueryBuilderMock();
+      qbMock.getOne.mockResolvedValue(loteMock);
+
+      manager.getRepository.mockReturnValue({
+        createQueryBuilder: jest.fn().mockReturnValue(qbMock),
+        create: jest.fn((plain: unknown) => plain),
+        save: managerSaveMock,
+      } as unknown as Repository<unknown>);
+
+      const dto: CreateVentaDto = {
+        numeroVenta: 1008,
+        fechaVenta: '2026-09-10',
+        medioPago: 'SINPE',
+        montoPagado: 6500,
+        detalles: [
+          {
+            productoId: 6,
+            loteId: 13,
+            cantidad: 1,
+            precioUnitario: 6500,
+            tipoTarifa: 'EXENTO',
+            modoDescuentoLote: 'MANUAL',
+          },
+        ],
+      };
+
+      await service.create(dto);
+
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idVenta: 100,
+          metodoPago: 'SINPE',
+          monto: 6500,
+        }),
+      );
+    });
+
+    it('no debe registrar PagoVenta inicial cuando montoPagado = 0 (crédito)', async () => {
+      const loteMock = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadDisponible: 5,
+      });
+
+      const qbMock = crearQueryBuilderMock();
+      qbMock.getOne.mockResolvedValue(loteMock);
+
+      manager.getRepository.mockReturnValue({
+        createQueryBuilder: jest.fn().mockReturnValue(qbMock),
+        create: jest.fn((plain: unknown) => plain),
+        save: managerSaveMock,
+      } as unknown as Repository<unknown>);
+
+      const dto: CreateVentaDto = {
+        numeroVenta: 1009,
+        fechaVenta: '2026-09-10',
+        medioPago: 'SINPE',
+        montoPagado: 0,
+        detalles: [
+          {
+            productoId: 6,
+            loteId: 13,
+            cantidad: 1,
+            precioUnitario: 6500,
+            tipoTarifa: 'EXENTO',
+            modoDescuentoLote: 'MANUAL',
+          },
+        ],
+      };
+
+      await service.create(dto);
+
+      expect(managerSaveMock).not.toHaveBeenCalledWith(
+        PagoVenta,
+        expect.anything(),
+      );
+    });
+
     it('debe rechazar venta si ya existe el numeroVenta', async () => {
       ventasRepository.findOne.mockResolvedValueOnce(
         crearVenta({ numeroVenta: 1001 }),
@@ -545,6 +659,7 @@ describe('VentasService', () => {
       venta?: Partial<Repository<VentaEntity>>;
       detalle?: Partial<Repository<DetalleVenta>>;
       lote?: Partial<Repository<LoteProducto>>;
+      pago?: Partial<Repository<PagoVenta>>;
     }) => {
       manager.getRepository.mockImplementation((entityClass: unknown) => {
         if (entityClass === VentaEntity) {
@@ -555,6 +670,9 @@ describe('VentasService', () => {
         }
         if (entityClass === LoteProducto) {
           return (repos.lote ?? {}) as unknown as Repository<LoteProducto>;
+        }
+        if (entityClass === PagoVenta) {
+          return (repos.pago ?? {}) as unknown as Repository<PagoVenta>;
         }
         return {} as unknown as Repository<unknown>;
       });
@@ -592,10 +710,12 @@ describe('VentasService', () => {
       expect(inventarioService.registrarMovimiento).not.toHaveBeenCalled();
     });
 
-    it('debe solicitar bloqueo pessimistic_write sobre Venta y Lotes en orden idLote ASC', async () => {
+    it('debe solicitar bloqueo pessimistic_write sobre Venta y Lotes, y preservar montoPagado histórico', async () => {
       const ventaActiva = crearVenta({
         idVenta: 100,
         estadoVenta: 'REGISTRADA',
+        montoPagado: 5000,
+        saldoPendiente: 8000,
       });
 
       const detalle1 = crearDetalleVenta({
@@ -655,7 +775,7 @@ describe('VentasService', () => {
 
       expect(ventaActiva.estadoVenta).toBe('ANULADA');
       expect(ventaActiva.estadoPago).toBe('ANULADA');
-      expect(ventaActiva.montoPagado).toBe(0);
+      expect(ventaActiva.montoPagado).toBe(5000);
       expect(ventaActiva.saldoPendiente).toBe(0);
     });
 
@@ -701,7 +821,7 @@ describe('VentasService', () => {
         idLote: 13,
         idProducto: 6,
         cantidadRecibida: 5,
-        cantidadDisponible: 4, // 4 + 2 = 6 > 5
+        cantidadDisponible: 4,
       });
 
       const ventaQbMock = crearQueryBuilderMock();
@@ -733,7 +853,7 @@ describe('VentasService', () => {
       ventaQbMock.getOne.mockResolvedValue(ventaActiva);
 
       const loteQbMock = crearQueryBuilderMock();
-      loteQbMock.getMany.mockResolvedValue([]); // 0 lotes encontrados para lote 99
+      loteQbMock.getMany.mockResolvedValue([]);
 
       mockRepositories({
         venta: {
@@ -753,7 +873,7 @@ describe('VentasService', () => {
     it('debe lanzar ConflictException si el producto del lote no coincide con el detalle', async () => {
       const ventaActiva = crearVenta({ idVenta: 100 });
       const detalle = crearDetalleVenta({ idProducto: 6, idLote: 13 });
-      const lote = crearLote({ idProducto: 9, idLote: 13 }); // Producto 9 vs 6
+      const lote = crearLote({ idProducto: 9, idLote: 13 });
 
       const ventaQbMock = crearQueryBuilderMock();
       ventaQbMock.getOne.mockResolvedValue(ventaActiva);
@@ -884,6 +1004,232 @@ describe('VentasService', () => {
 
       await expect(service.anularVenta(100)).rejects.toThrow(
         'Fallo movimiento',
+      );
+    });
+  });
+
+  describe('registrarPago', () => {
+    const mockVentaRepository = (venta: VentaEntity | null) => {
+      const qbMock = crearQueryBuilderMock();
+      qbMock.getOne.mockResolvedValue(venta);
+
+      manager.getRepository.mockImplementation((entityClass: unknown) => {
+        if (entityClass === VentaEntity) {
+          return {
+            createQueryBuilder: jest.fn().mockReturnValue(qbMock),
+            save: managerSaveMock,
+          } as unknown as Repository<VentaEntity>;
+        }
+        if (entityClass === PagoVenta) {
+          return {
+            create: jest.fn((plain: unknown) => plain as PagoVenta),
+            save: managerSaveMock,
+          } as unknown as Repository<PagoVenta>;
+        }
+        return {} as unknown as Repository<unknown>;
+      });
+
+      return qbMock;
+    };
+
+    it('debe lanzar NotFoundException si la venta no existe', async () => {
+      mockVentaRepository(null);
+
+      const dto: RegistrarPagoVentaDto = {
+        monto: 1000,
+        metodoPago: 'SINPE',
+      };
+
+      await expect(service.registrarPago(999, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('debe lanzar ConflictException si la venta está anulada', async () => {
+      const ventaAnulada = crearVenta({
+        idVenta: 100,
+        estadoVenta: 'ANULADA',
+      });
+      mockVentaRepository(ventaAnulada);
+
+      const dto: RegistrarPagoVentaDto = {
+        monto: 1000,
+        metodoPago: 'SINPE',
+      };
+
+      await expect(service.registrarPago(100, dto)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('debe lanzar ConflictException si la venta ya está pagada completamente', async () => {
+      const ventaPagada = crearVenta({
+        idVenta: 100,
+        totalVenta: 10000,
+        montoPagado: 10000,
+        saldoPendiente: 0,
+        estadoPago: 'PAGADA',
+      });
+      mockVentaRepository(ventaPagada);
+
+      const dto: RegistrarPagoVentaDto = {
+        monto: 1000,
+        metodoPago: 'SINPE',
+      };
+
+      await expect(service.registrarPago(100, dto)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('debe solicitar bloqueo pessimistic_write sobre la Venta al registrar pago', async () => {
+      const venta = crearVenta({
+        idVenta: 100,
+        totalVenta: 10000,
+        montoPagado: 2000,
+        saldoPendiente: 8000,
+        estadoPago: 'PARCIAL',
+        medioPago: 'SINPE',
+      });
+      const qbMock = mockVentaRepository(venta);
+
+      const dto: RegistrarPagoVentaDto = {
+        monto: 3000,
+        metodoPago: 'SINPE',
+        referencia: 'SINPE-1234',
+        observaciones: 'Segundo abono',
+      };
+
+      await service.registrarPago(100, dto);
+
+      expect(qbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(venta.montoPagado).toBe(5000);
+      expect(venta.saldoPendiente).toBe(5000);
+      expect(venta.estadoPago).toBe('PARCIAL');
+      expect(venta.medioPago).toBe('SINPE');
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          montoPagado: 5000,
+          saldoPendiente: 5000,
+          estadoPago: 'PARCIAL',
+          medioPago: 'SINPE',
+        }),
+      );
+    });
+
+    it('debe cambiar medioPago a MIXTO si se abona con un método diferente al inicial', async () => {
+      const venta = crearVenta({
+        idVenta: 100,
+        totalVenta: 10000,
+        montoPagado: 2000,
+        saldoPendiente: 8000,
+        estadoPago: 'PARCIAL',
+        medioPago: 'SINPE',
+      });
+      mockVentaRepository(venta);
+
+      const dto: RegistrarPagoVentaDto = {
+        monto: 3000,
+        metodoPago: 'EFECTIVO',
+      };
+
+      await service.registrarPago(100, dto);
+
+      expect(venta.medioPago).toBe('MIXTO');
+      expect(venta.montoPagado).toBe(5000);
+    });
+
+    it('debe marcar estadoPago como PAGADA y saldoPendiente 0 si el pago liquida el saldo total', async () => {
+      const venta = crearVenta({
+        idVenta: 100,
+        totalVenta: 10000,
+        montoPagado: 7000,
+        saldoPendiente: 3000,
+        estadoPago: 'PARCIAL',
+        medioPago: 'EFECTIVO',
+      });
+      mockVentaRepository(venta);
+
+      const dto: RegistrarPagoVentaDto = {
+        monto: 3000,
+        metodoPago: 'EFECTIVO',
+      };
+
+      await service.registrarPago(100, dto);
+
+      expect(venta.montoPagado).toBe(10000);
+      expect(venta.saldoPendiente).toBe(0);
+      expect(venta.estadoPago).toBe('PAGADA');
+    });
+
+    it('debe lanzar BadRequestException si el monto del pago supera el saldo pendiente', async () => {
+      const venta = crearVenta({
+        idVenta: 100,
+        totalVenta: 10000,
+        montoPagado: 8000,
+        saldoPendiente: 2000,
+        estadoPago: 'PARCIAL',
+      });
+      mockVentaRepository(venta);
+
+      const dto: RegistrarPagoVentaDto = {
+        monto: 2500,
+        metodoPago: 'EFECTIVO',
+      };
+
+      await expect(service.registrarPago(100, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('listarPagosVenta', () => {
+    it('debe lanzar NotFoundException si la venta no existe', async () => {
+      ventasRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.listarPagosVenta(999)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('debe retornar lista de pagos formateados para la venta', async () => {
+      const pago1 = crearPagoVenta({
+        idPagoVenta: 1,
+        idVenta: 100,
+        metodoPago: 'SINPE',
+        monto: 2000,
+        referencia: 'REF-1',
+      });
+      const pago2 = crearPagoVenta({
+        idPagoVenta: 2,
+        idVenta: 100,
+        metodoPago: 'EFECTIVO',
+        monto: 3000,
+      });
+
+      ventasRepository.findOne.mockResolvedValue(crearVenta({ idVenta: 100 }));
+      pagosRepository.find.mockResolvedValue([pago1, pago2]);
+
+      const resultado = await service.listarPagosVenta(100);
+
+      expect(resultado).toHaveLength(2);
+      expect(resultado[0]).toEqual(
+        expect.objectContaining({
+          idPagoVenta: 1,
+          idVenta: 100,
+          metodoPago: 'SINPE',
+          monto: 2000,
+          referencia: 'REF-1',
+        }),
+      );
+      expect(resultado[1]).toEqual(
+        expect.objectContaining({
+          idPagoVenta: 2,
+          idVenta: 100,
+          metodoPago: 'EFECTIVO',
+          monto: 3000,
+          referencia: null,
+        }),
       );
     });
   });

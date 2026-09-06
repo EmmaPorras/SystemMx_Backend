@@ -9,10 +9,11 @@ import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
 
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
+import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
 import { InventarioService } from '../inventario/inventario.service';
 import { CreateVentaDetalleDto, CreateVentaDto } from './dto/create-venta.dto';
-import { UpdatePagoVentaDto } from './dto/update-pago-venta.dto';
+import { RegistrarPagoVentaDto } from './dto/registrar-pago-venta.dto';
 
 type FindAllVentasFilters = {
   papelera?: string;
@@ -58,6 +59,9 @@ export class VentasService {
 
     @InjectRepository(VentaEntity)
     private readonly ventasRepository: Repository<VentaEntity>,
+
+    @InjectRepository(PagoVenta)
+    private readonly pagosRepository: Repository<PagoVenta>,
 
     private readonly inventarioService: InventarioService,
   ) {}
@@ -246,12 +250,108 @@ export class VentasService {
           referenciaId: ventaGuardada.idVenta,
         });
       }
+
+      if (montoPagado > 0) {
+        await this.crearRegistroPago(manager, ventaGuardada, {
+          monto: montoPagado,
+          metodoPago: dto.medioPago,
+        });
+      }
     });
 
     return this.findOne(ventaIdCreada);
   }
 
-  async actualizarPago(id: number, dto: UpdatePagoVentaDto) {
+  async registrarPago(id: number, dto: RegistrarPagoVentaDto) {
+    const ventaId = this.validarId(id, 'ID de venta inválido.');
+
+    await this.dataSource.transaction(async (manager) => {
+      const ventaRepository = manager.getRepository(VentaEntity);
+
+      /*
+       * Bloqueo imprescindible:
+       * dos pagos simultáneos no pueden
+       * consumir el mismo saldo.
+       */
+      const venta = await ventaRepository
+        .createQueryBuilder('venta')
+        .setLock('pessimistic_write')
+        .where('venta.idVenta = :ventaId', {
+          ventaId,
+        })
+        .getOne();
+
+      if (!venta) {
+        throw new NotFoundException('Venta no encontrada.');
+      }
+
+      if (venta.estadoVenta === 'ANULADA') {
+        throw new ConflictException(
+          'No se pueden registrar pagos en una venta anulada.',
+        );
+      }
+
+      const totalVenta = Number(venta.totalVenta);
+      const montoAnterior = Number(venta.montoPagado);
+      const saldoActual = Number(venta.saldoPendiente);
+
+      if (
+        !Number.isFinite(totalVenta) ||
+        !Number.isFinite(montoAnterior) ||
+        !Number.isFinite(saldoActual) ||
+        totalVenta < 0 ||
+        montoAnterior < 0 ||
+        saldoActual < 0
+      ) {
+        throw new ConflictException(
+          'La venta contiene importes de pago inconsistentes.',
+        );
+      }
+
+      if (saldoActual <= 0) {
+        throw new ConflictException('La venta ya está pagada completamente.');
+      }
+
+      const monto = this.redondear(dto.monto);
+
+      if (monto <= 0) {
+        throw new BadRequestException(
+          'El monto del pago debe ser mayor que cero.',
+        );
+      }
+
+      if (monto > saldoActual) {
+        throw new BadRequestException(
+          `El pago no puede superar el saldo pendiente de ${saldoActual}.`,
+        );
+      }
+
+      await this.crearRegistroPago(manager, venta, {
+        monto,
+        metodoPago: dto.metodoPago,
+        referencia: dto.referencia,
+        observaciones: dto.observaciones,
+      });
+
+      const nuevoMontoPagado = this.redondear(montoAnterior + monto);
+      const nuevoSaldo = this.redondear(totalVenta - nuevoMontoPagado);
+
+      venta.montoPagado = nuevoMontoPagado;
+      venta.saldoPendiente = nuevoSaldo;
+      venta.estadoPago = this.calcularEstadoPago(totalVenta, nuevoMontoPagado);
+      venta.medioPago = this.calcularMedioPagoAgregado(
+        venta.medioPago,
+        montoAnterior,
+        dto.metodoPago,
+      );
+
+      await ventaRepository.save(venta);
+    });
+
+    return this.findOne(ventaId);
+  }
+
+  async listarPagosVenta(id: number) {
     const ventaId = this.validarId(id, 'ID de venta inválido.');
 
     const venta = await this.ventasRepository.findOne({
@@ -264,28 +364,25 @@ export class VentasService {
       throw new NotFoundException('Venta no encontrada.');
     }
 
-    if (venta.estadoVenta === 'ANULADA') {
-      throw new BadRequestException(
-        'No se puede actualizar el pago de una venta anulada.',
-      );
-    }
+    const pagos = await this.pagosRepository.find({
+      where: {
+        idVenta: ventaId,
+      },
+      order: {
+        createdAt: 'ASC',
+        idPagoVenta: 'ASC',
+      },
+    });
 
-    const totalVenta = Number(venta.totalVenta);
-    const montoPagado = this.redondear(dto.montoPagado);
-
-    if (montoPagado > totalVenta) {
-      throw new BadRequestException(
-        'El monto pagado no puede ser mayor al total de la venta.',
-      );
-    }
-
-    venta.montoPagado = montoPagado;
-    venta.saldoPendiente = this.redondear(totalVenta - montoPagado);
-    venta.estadoPago = this.calcularEstadoPago(totalVenta, montoPagado);
-
-    await this.ventasRepository.save(venta);
-
-    return this.findOne(ventaId);
+    return pagos.map((pago) => ({
+      idPagoVenta: pago.idPagoVenta,
+      idVenta: pago.idVenta,
+      metodoPago: pago.metodoPago,
+      monto: Number(pago.monto),
+      referencia: pago.referencia ?? null,
+      observaciones: pago.observaciones ?? null,
+      createdAt: pago.createdAt,
+    }));
   }
 
   async enviarAPapelera(id: number) {
@@ -434,7 +531,6 @@ export class VentasService {
        */
       venta.estadoVenta = 'ANULADA';
       venta.estadoPago = 'ANULADA';
-      venta.montoPagado = 0;
       venta.saldoPendiente = 0;
 
       await ventaRepository.save(venta);
@@ -917,5 +1013,68 @@ export class VentasService {
         detalle: detalle.detalle ?? '',
       })),
     };
+  }
+
+  private normalizarTextoOpcional(
+    value: string | null | undefined,
+  ): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalizado = value.trim();
+
+    return normalizado || null;
+  }
+
+  private calcularMedioPagoAgregado(
+    medioActual: string,
+    montoPagadoAnterior: number,
+    nuevoMetodo: string,
+  ): string {
+    if (montoPagadoAnterior <= 0) {
+      return nuevoMetodo;
+    }
+
+    if (medioActual === 'MIXTO') {
+      return 'MIXTO';
+    }
+
+    if (medioActual === nuevoMetodo) {
+      return medioActual;
+    }
+
+    return 'MIXTO';
+  }
+
+  private async crearRegistroPago(
+    manager: EntityManager,
+    venta: VentaEntity,
+    input: {
+      monto: number;
+      metodoPago: string;
+      referencia?: string | null;
+      observaciones?: string | null;
+    },
+  ): Promise<PagoVenta> {
+    const monto = this.redondear(input.monto);
+
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new BadRequestException(
+        'El monto del pago debe ser mayor que cero.',
+      );
+    }
+
+    const pagoRepository = manager.getRepository(PagoVenta);
+
+    const pago = pagoRepository.create({
+      idVenta: venta.idVenta,
+      metodoPago: input.metodoPago,
+      monto,
+      referencia: this.normalizarTextoOpcional(input.referencia),
+      observaciones: this.normalizarTextoOpcional(input.observaciones),
+    });
+
+    return pagoRepository.save(pago);
   }
 }

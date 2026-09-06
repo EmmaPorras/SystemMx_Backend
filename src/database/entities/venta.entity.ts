@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 
 import { DetalleVenta } from './detalle-venta.entity';
+import { PagoVenta } from './pago-venta.entity';
 
 @Entity({ name: 'venta' })
 export class VentaEntity {
@@ -134,4 +135,7 @@ export class VentaEntity {
 
   @OneToMany(() => DetalleVenta, (detalle) => detalle.venta)
   detalles!: DetalleVenta[];
+
+  @OneToMany(() => PagoVenta, (pago) => pago.venta)
+  pagos!: PagoVenta[];
 }
