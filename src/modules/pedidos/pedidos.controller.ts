@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
+import { RecepcionPedidoDto } from './dto/recepcion-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
 import { PedidosService } from './pedidos.service';
 
@@ -35,6 +36,14 @@ export class PedidosController {
   @Post()
   create(@Body() createPedidoDto: CreatePedidoDto) {
     return this.pedidosService.create(createPedidoDto);
+  }
+
+  @Patch(':id/recepcion')
+  recibir(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() recepcionPedidoDto: RecepcionPedidoDto,
+  ) {
+    return this.pedidosService.recibir(id, recepcionPedidoDto);
   }
 
   @Patch(':id')

@@ -17,13 +17,8 @@ import {
   CreatePedidoDetalleDto,
   CreatePedidoDto,
 } from './dto/create-pedido.dto';
+import { RecepcionPedidoDto } from './dto/recepcion-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
-
-type CantidadesLoteCalculadas = {
-  cantidadRecibida: number;
-  cantidadDisponible: number;
-  fechaEntrada: string | null;
-};
 
 @Injectable()
 export class PedidosService {
@@ -154,7 +149,7 @@ export class PedidosService {
         nombrePedido: `Pedido ${dto.numeroPedido}`,
         idOrigenCompra: dto.proveedorId,
         fechaPedido: dto.fecha,
-        fechaRecepcion: dto.estado === 'RECIBIDO' ? dto.fecha : null,
+        fechaRecepcion: null,
         estado: dto.estado,
         inversionTotal,
         costoEnvio: 0,
@@ -245,7 +240,7 @@ export class PedidosService {
         nombrePedido: `Pedido ${numeroPedido}`,
         idOrigenCompra: proveedorId,
         fechaPedido: fecha,
-        fechaRecepcion: estado === 'RECIBIDO' ? fecha : null,
+        fechaRecepcion: pedidoActual.fechaRecepcion,
         estado,
         inversionTotal,
         observaciones,
@@ -334,11 +329,6 @@ export class PedidosService {
     const costoTotalReal = totalColones;
     const costoUnitarioReal = costoTotalReal / detalleDto.cantidad;
 
-    const cantidadesLote = this.calcularCantidadesLote(
-      detalleDto,
-      pedidoDto.fecha,
-    );
-
     const detalle = manager.create(DetallePedidoCompra, {
       idPedido,
       idProducto: producto.idProducto,
@@ -367,12 +357,12 @@ export class PedidosService {
       idDetallePedido: detalleGuardado.idDetallePedido,
       codigoLote: detalleDto.loteCodigo,
       cantidadInicial: detalleDto.cantidad,
-      cantidadRecibida: cantidadesLote.cantidadRecibida,
-      cantidadDisponible: cantidadesLote.cantidadDisponible,
+      cantidadRecibida: 0,
+      cantidadDisponible: 0,
       costoUnitarioReal,
       precioVentaRecomendado: detalleDto.precioVentaRecomendado,
-      estadoLote: detalleDto.estadoLote,
-      fechaEntrada: cantidadesLote.fechaEntrada,
+      estadoLote: 'EN_PROCESO',
+      fechaEntrada: null,
       precioVentaFinal: null,
       tipoLote: 'COMPRA',
       costoPendienteAlVender: 0,
@@ -380,89 +370,6 @@ export class PedidosService {
     });
 
     await manager.save(LoteProducto, lote);
-  }
-
-  private calcularCantidadesLote(
-    detalleDto: CreatePedidoDetalleDto,
-    fechaPedido: string,
-  ): CantidadesLoteCalculadas {
-    const cantidad = Number(detalleDto.cantidad);
-    const estadoLote = detalleDto.estadoLote;
-    const cantidadRecibidaInput =
-      detalleDto.cantidadRecibida !== undefined &&
-      detalleDto.cantidadRecibida !== null
-        ? Number(detalleDto.cantidadRecibida)
-        : null;
-
-    if (!Number.isInteger(cantidad) || cantidad <= 0) {
-      throw new BadRequestException('La cantidad del lote debe ser mayor a 0.');
-    }
-
-    if (estadoLote === 'EN_PROCESO') {
-      return {
-        cantidadRecibida: 0,
-        cantidadDisponible: 0,
-        fechaEntrada: null,
-      };
-    }
-
-    if (estadoLote === 'EN_STOCK' || estadoLote === 'VENDIDO_PARCIAL') {
-      const cantidadRecibida = cantidadRecibidaInput ?? cantidad;
-
-      if (!Number.isInteger(cantidadRecibida)) {
-        throw new BadRequestException(
-          'La cantidad recibida debe ser un número entero.',
-        );
-      }
-
-      if (cantidadRecibida <= 0) {
-        throw new BadRequestException(
-          'Si el lote está en stock, la cantidad recibida debe ser mayor a 0.',
-        );
-      }
-
-      if (cantidadRecibida > cantidad) {
-        throw new BadRequestException(
-          'La cantidad recibida no puede ser mayor a la cantidad del lote.',
-        );
-      }
-
-      return {
-        cantidadRecibida,
-        cantidadDisponible: cantidadRecibida,
-        fechaEntrada: fechaPedido,
-      };
-    }
-
-    if (estadoLote === 'AGOTADO') {
-      const cantidadRecibida = cantidadRecibidaInput ?? cantidad;
-
-      if (!Number.isInteger(cantidadRecibida)) {
-        throw new BadRequestException(
-          'La cantidad recibida debe ser un número entero.',
-        );
-      }
-
-      if (cantidadRecibida < 0) {
-        throw new BadRequestException(
-          'La cantidad recibida no puede ser negativa.',
-        );
-      }
-
-      if (cantidadRecibida > cantidad) {
-        throw new BadRequestException(
-          'La cantidad recibida no puede ser mayor a la cantidad del lote.',
-        );
-      }
-
-      return {
-        cantidadRecibida,
-        cantidadDisponible: 0,
-        fechaEntrada: cantidadRecibida > 0 ? fechaPedido : null,
-      };
-    }
-
-    throw new BadRequestException('Estado de lote inválido.');
   }
 
   private async obtenerProductoParaDetalle(
@@ -715,6 +622,160 @@ export class PedidosService {
     }
   }
 
+  private normalizarFechaSql(fecha: string): string {
+    return fecha.slice(0, 10);
+  }
+
+  async recibir(id: number, dto: RecepcionPedidoDto) {
+    const pedidoId = Number(id);
+
+    if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
+      throw new BadRequestException('ID de pedido inválido.');
+    }
+
+    const fechaRecepcion = this.normalizarFechaSql(dto.fechaRecepcion);
+
+    await this.dataSource.transaction(async (manager) => {
+      const pedidoRepository = manager.getRepository(PedidoCompraEntity);
+      const loteRepository = manager.getRepository(LoteProducto);
+
+      const pedido = await pedidoRepository
+        .createQueryBuilder('pedido')
+        .setLock('pessimistic_write')
+        .where('pedido.idPedido = :pedidoId', {
+          pedidoId,
+        })
+        .getOne();
+
+      if (!pedido) {
+        throw new NotFoundException('Pedido no encontrado.');
+      }
+
+      if (pedido.estado === 'CANCELADO') {
+        throw new ConflictException(
+          'No se puede recibir mercancía de un pedido cancelado.',
+        );
+      }
+
+      if (pedido.estado === 'RECIBIDO') {
+        throw new ConflictException('El pedido ya fue recibido completamente.');
+      }
+
+      if (fechaRecepcion < pedido.fechaPedido) {
+        throw new BadRequestException(
+          'La fecha de recepción no puede ser anterior a la fecha del pedido.',
+        );
+      }
+
+      const loteIdsSolicitados = dto.detalles.map((detalle) => detalle.idLote);
+      const loteIdsUnicos = new Set(loteIdsSolicitados);
+
+      if (loteIdsUnicos.size !== loteIdsSolicitados.length) {
+        throw new BadRequestException(
+          'No se puede incluir el mismo lote más de una vez en una recepción.',
+        );
+      }
+
+      const lotes = await loteRepository
+        .createQueryBuilder('lote')
+        .setLock('pessimistic_write')
+        .where('lote.idPedido = :pedidoId', {
+          pedidoId,
+        })
+        .getMany();
+
+      if (lotes.length === 0) {
+        throw new ConflictException('El pedido no tiene lotes para recibir.');
+      }
+
+      const lotesPorId = new Map(lotes.map((lote) => [lote.idLote, lote]));
+
+      for (const detalleDto of dto.detalles) {
+        const lote = lotesPorId.get(detalleDto.idLote);
+
+        if (!lote) {
+          throw new BadRequestException(
+            `El lote con ID ${detalleDto.idLote} no pertenece al pedido ${pedidoId}.`,
+          );
+        }
+
+        const cantidadInicial = Number(lote.cantidadInicial);
+        const cantidadRecibidaAnterior = Number(lote.cantidadRecibida);
+        const cantidadDisponibleAnterior = Number(lote.cantidadDisponible);
+
+        if (
+          !Number.isInteger(cantidadInicial) ||
+          !Number.isInteger(cantidadRecibidaAnterior) ||
+          !Number.isInteger(cantidadDisponibleAnterior) ||
+          cantidadInicial <= 0 ||
+          cantidadRecibidaAnterior < 0 ||
+          cantidadDisponibleAnterior < 0 ||
+          cantidadRecibidaAnterior > cantidadInicial ||
+          cantidadDisponibleAnterior > cantidadRecibidaAnterior
+        ) {
+          throw new ConflictException(
+            `El lote ${lote.idLote} contiene cantidades inconsistentes.`,
+          );
+        }
+
+        if (lote.fechaEntrada && fechaRecepcion < lote.fechaEntrada) {
+          throw new BadRequestException(
+            `La nueva recepción del lote ${lote.idLote} no puede ser anterior a su primera entrada.`,
+          );
+        }
+
+        const nuevaCantidadRecibida =
+          cantidadRecibidaAnterior + detalleDto.cantidadRecibida;
+
+        if (nuevaCantidadRecibida > cantidadInicial) {
+          const pendiente = cantidadInicial - cantidadRecibidaAnterior;
+
+          throw new BadRequestException(
+            `El lote ${lote.idLote} solo tiene ${pendiente} unidades pendientes de recibir.`,
+          );
+        }
+      }
+
+      for (const detalleDto of dto.detalles) {
+        const lote = lotesPorId.get(detalleDto.idLote)!;
+
+        const cantidadRecibidaAnterior = Number(lote.cantidadRecibida);
+        const cantidadDisponibleAnterior = Number(lote.cantidadDisponible);
+
+        const nuevaCantidadRecibida =
+          cantidadRecibidaAnterior + detalleDto.cantidadRecibida;
+
+        const nuevaCantidadDisponible =
+          cantidadDisponibleAnterior + detalleDto.cantidadRecibida;
+
+        lote.cantidadRecibida = nuevaCantidadRecibida;
+        lote.cantidadDisponible = nuevaCantidadDisponible;
+        lote.fechaEntrada = lote.fechaEntrada ?? fechaRecepcion;
+
+        if (nuevaCantidadDisponible <= 0) {
+          lote.estadoLote = 'AGOTADO';
+        } else if (nuevaCantidadDisponible >= nuevaCantidadRecibida) {
+          lote.estadoLote = 'EN_STOCK';
+        } else {
+          lote.estadoLote = 'VENDIDO_PARCIAL';
+        }
+
+        await loteRepository.save(lote);
+      }
+
+      const todosRecibidos = lotes.every(
+        (lote) => Number(lote.cantidadRecibida) >= Number(lote.cantidadInicial),
+      );
+
+      pedido.estado = todosRecibidos ? 'RECIBIDO' : 'EN_TRANSITO';
+      pedido.fechaRecepcion = todosRecibidos ? fechaRecepcion : null;
+
+      await pedidoRepository.save(pedido);
+    });
+
+    return this.findOne(pedidoId);
+  }
+
   private mapPedidoToResponse(pedido: PedidoCompraEntity) {
     const detalles = (pedido.lotes ?? []).map((lote) => {
       const producto = lote.producto;
@@ -723,6 +784,7 @@ export class PedidosService {
 
       return {
         idTemporal: String(lote.idLote),
+        loteId: lote.idLote,
         productoId: lote.idProducto,
         productoNombre: producto?.nombre ?? `Producto ${lote.idProducto}`,
         loteCodigo: lote.codigoLote,
@@ -730,6 +792,7 @@ export class PedidosService {
         cantidadRecibida,
         cantidadPendiente: Math.max(cantidadInicial - cantidadRecibida, 0),
         cantidadDisponible: Number(lote.cantidadDisponible),
+        fechaEntrada: lote.fechaEntrada ?? null,
         costoUnitarioOrigen: Number(
           lote.detallePedido?.costoUnitarioOrigen ?? lote.costoUnitarioReal,
         ),

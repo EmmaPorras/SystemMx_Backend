@@ -43,7 +43,7 @@ export class CreatePedidoDetalleDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  @Max(99999)
+  @Max(0)
   cantidadRecibida?: number;
 
   @Type(() => Number)
@@ -59,7 +59,7 @@ export class CreatePedidoDetalleDto {
   precioVentaRecomendado!: number;
 
   @IsString()
-  @IsIn(['EN_PROCESO', 'EN_STOCK', 'VENDIDO_PARCIAL', 'AGOTADO'])
+  @IsIn(['EN_PROCESO'])
   estadoLote!: string;
 }
 
@@ -94,7 +94,7 @@ export class CreatePedidoDto {
   tipoCambio!: number;
 
   @IsString()
-  @IsIn(['REGISTRADO', 'EN_TRANSITO', 'RECIBIDO'])
+  @IsIn(['REGISTRADO', 'EN_TRANSITO'])
   estado!: string;
 
   @IsOptional()
