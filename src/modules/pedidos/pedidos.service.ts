@@ -13,6 +13,7 @@ import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
+import { InventarioService } from '../inventario/inventario.service';
 import {
   CreatePedidoDetalleDto,
   CreatePedidoDto,
@@ -27,6 +28,8 @@ export class PedidosService {
 
     @InjectRepository(PedidoCompraEntity)
     private readonly pedidosRepository: Repository<PedidoCompraEntity>,
+
+    private readonly inventarioService: InventarioService,
   ) {}
 
   async findAll() {
@@ -761,6 +764,13 @@ export class PedidosService {
         }
 
         await loteRepository.save(lote);
+
+        await this.inventarioService.registrarMovimiento(manager, {
+          lote,
+          tipoMovimiento: 'ENTRADA_COMPRA',
+          cantidad: detalleDto.cantidadRecibida,
+          referenciaId: pedido.idPedido,
+        });
       }
 
       const todosRecibidos = lotes.every(

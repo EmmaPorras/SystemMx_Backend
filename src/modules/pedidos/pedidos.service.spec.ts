@@ -13,6 +13,7 @@ import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
+import { InventarioService } from '../inventario/inventario.service';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { RecepcionPedidoDto } from './dto/recepcion-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
@@ -142,8 +143,16 @@ describe('PedidosService', () => {
     delete: jest.Mock;
   };
 
+  let inventarioServiceMock: {
+    registrarMovimiento: jest.Mock;
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    inventarioServiceMock = {
+      registrarMovimiento: jest.fn().mockResolvedValue({}),
+    };
 
     pedidosRepositoryMock = {
       find: jest.fn(),
@@ -231,6 +240,10 @@ describe('PedidosService', () => {
         {
           provide: getRepositoryToken(PedidoCompraEntity),
           useValue: pedidosRepositoryMock,
+        },
+        {
+          provide: InventarioService,
+          useValue: inventarioServiceMock,
         },
       ],
     }).compile();
@@ -1005,6 +1018,161 @@ describe('PedidosService', () => {
       expect(lote.cantidadRecibida).toBe(7);
       expect(lote.cantidadDisponible).toBe(5);
       expect(lote.estadoLote).toBe('VENDIDO_PARCIAL');
+    });
+
+    it('32 & 33. debe registrar movimiento ENTRADA_COMPRA con cantidad incremental', async () => {
+      const pedido = crearPedido({ idPedido: 1, fechaPedido: '2026-09-01' });
+      const lote = crearLote({
+        idLote: 10,
+        idProducto: 6,
+        cantidadInicial: 10,
+        cantidadRecibida: 3,
+        cantidadDisponible: 3,
+      });
+
+      const pedidoQb: MockQueryBuilder = crearQueryBuilderMock();
+      pedidoQb.getOne.mockResolvedValue(pedido);
+      pedidosRepositoryMock.createQueryBuilder.mockReturnValue(
+        qbWrapper(pedidoQb),
+      );
+
+      const loteQb: MockQueryBuilder = crearQueryBuilderMock();
+      loteQb.getMany.mockResolvedValue([lote]);
+      loteRepoMock.createQueryBuilder.mockReturnValue(qbWrapper(loteQb));
+
+      pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
+
+      await service.recibir(1, {
+        fechaRecepcion: '2026-09-05',
+        detalles: [{ idLote: 10, cantidadRecibida: 2 }],
+      });
+
+      expect(inventarioServiceMock.registrarMovimiento).toHaveBeenCalledWith(
+        managerMock,
+        {
+          lote,
+          tipoMovimiento: 'ENTRADA_COMPRA',
+          cantidad: 2,
+          referenciaId: 1,
+        },
+      );
+    });
+
+    it('34. debe registrar un movimiento por cada lote en recepciones multi-lote', async () => {
+      const pedido = crearPedido({ idPedido: 1, fechaPedido: '2026-09-01' });
+      const lote1 = crearLote({
+        idLote: 10,
+        cantidadInicial: 5,
+        cantidadRecibida: 0,
+        cantidadDisponible: 0,
+      });
+      const lote2 = crearLote({
+        idLote: 11,
+        cantidadInicial: 5,
+        cantidadRecibida: 0,
+        cantidadDisponible: 0,
+      });
+
+      const pedidoQb: MockQueryBuilder = crearQueryBuilderMock();
+      pedidoQb.getOne.mockResolvedValue(pedido);
+      pedidosRepositoryMock.createQueryBuilder.mockReturnValue(
+        qbWrapper(pedidoQb),
+      );
+
+      const loteQb: MockQueryBuilder = crearQueryBuilderMock();
+      loteQb.getMany.mockResolvedValue([lote1, lote2]);
+      loteRepoMock.createQueryBuilder.mockReturnValue(qbWrapper(loteQb));
+
+      pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
+
+      await service.recibir(1, {
+        fechaRecepcion: '2026-09-05',
+        detalles: [
+          { idLote: 10, cantidadRecibida: 3 },
+          { idLote: 11, cantidadRecibida: 2 },
+        ],
+      });
+
+      expect(inventarioServiceMock.registrarMovimiento).toHaveBeenCalledTimes(
+        2,
+      );
+      expect(inventarioServiceMock.registrarMovimiento).toHaveBeenCalledWith(
+        managerMock,
+        {
+          lote: lote1,
+          tipoMovimiento: 'ENTRADA_COMPRA',
+          cantidad: 3,
+          referenciaId: 1,
+        },
+      );
+      expect(inventarioServiceMock.registrarMovimiento).toHaveBeenCalledWith(
+        managerMock,
+        {
+          lote: lote2,
+          tipoMovimiento: 'ENTRADA_COMPRA',
+          cantidad: 2,
+          referenciaId: 1,
+        },
+      );
+    });
+
+    it('35 & 36. no debe llamar a registrarMovimiento si la validación falla (sobre-recepción o lote ajeno)', async () => {
+      const pedido = crearPedido({ idPedido: 1, fechaPedido: '2026-09-01' });
+      const lote = crearLote({
+        idLote: 10,
+        cantidadInicial: 5,
+        cantidadRecibida: 3,
+      });
+
+      const pedidoQb: MockQueryBuilder = crearQueryBuilderMock();
+      pedidoQb.getOne.mockResolvedValue(pedido);
+      pedidosRepositoryMock.createQueryBuilder.mockReturnValue(
+        qbWrapper(pedidoQb),
+      );
+
+      const loteQb: MockQueryBuilder = crearQueryBuilderMock();
+      loteQb.getMany.mockResolvedValue([lote]);
+      loteRepoMock.createQueryBuilder.mockReturnValue(qbWrapper(loteQb));
+
+      await expect(
+        service.recibir(1, {
+          fechaRecepcion: '2026-09-05',
+          detalles: [{ idLote: 10, cantidadRecibida: 5 }],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(inventarioServiceMock.registrarMovimiento).not.toHaveBeenCalled();
+    });
+
+    it('39. si falla registrarMovimiento debe propagar el error para provocar rollback', async () => {
+      const pedido = crearPedido({ idPedido: 1, fechaPedido: '2026-09-01' });
+      const lote = crearLote({
+        idLote: 10,
+        cantidadInicial: 10,
+        cantidadRecibida: 0,
+        cantidadDisponible: 0,
+      });
+
+      const pedidoQb: MockQueryBuilder = crearQueryBuilderMock();
+      pedidoQb.getOne.mockResolvedValue(pedido);
+      pedidosRepositoryMock.createQueryBuilder.mockReturnValue(
+        qbWrapper(pedidoQb),
+      );
+
+      const loteQb: MockQueryBuilder = crearQueryBuilderMock();
+      loteQb.getMany.mockResolvedValue([lote]);
+      loteRepoMock.createQueryBuilder.mockReturnValue(qbWrapper(loteQb));
+
+      inventarioServiceMock.registrarMovimiento.mockRejectedValue(
+        new Error('Error simulado de movimiento'),
+      );
+
+      await expect(
+        service.recibir(1, {
+          fechaRecepcion: '2026-09-05',
+          detalles: [{ idLote: 10, cantidadRecibida: 3 }],
+        }),
+      ).rejects.toThrow('Error simulado de movimiento');
     });
   });
 });
