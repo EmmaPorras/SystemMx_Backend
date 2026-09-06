@@ -332,58 +332,112 @@ export class VentasService {
     const ventaId = this.validarId(id, 'ID de venta inválido.');
 
     await this.dataSource.transaction(async (manager) => {
-      const venta = await manager.getRepository(VentaEntity).findOne({
-        where: {
-          idVenta: ventaId,
-        },
-        relations: {
-          detalles: {
-            lote: true,
-          },
-        },
-      });
+      const ventaRepository = manager.getRepository(VentaEntity);
+      const detalleRepository = manager.getRepository(DetalleVenta);
+      const loteRepository = manager.getRepository(LoteProducto);
+
+      /*
+       * 1. Bloqueamos primero la Venta.
+       * Esto evita que dos anulaciones puedan procesarla al mismo tiempo.
+       */
+      const venta = await ventaRepository
+        .createQueryBuilder('venta')
+        .setLock('pessimistic_write')
+        .where('venta.idVenta = :ventaId', {
+          ventaId,
+        })
+        .getOne();
 
       if (!venta) {
         throw new NotFoundException('Venta no encontrada.');
       }
 
       if (venta.estadoVenta === 'ANULADA') {
-        throw new BadRequestException('La venta ya está anulada.');
+        throw new ConflictException('La venta ya está anulada.');
       }
 
-      for (const detalle of venta.detalles ?? []) {
-        const lote = detalle.lote;
+      /*
+       * 2. Los detalles son históricos. No los modificamos.
+       */
+      const detalles = await detalleRepository.find({
+        where: {
+          idVenta: ventaId,
+        },
+        order: {
+          idDetalleVenta: 'ASC',
+        },
+      });
+
+      if (detalles.length === 0) {
+        throw new ConflictException(
+          'La venta no contiene detalles para revertir.',
+        );
+      }
+
+      /*
+       * 3. Obtenemos los lotes únicos.
+       */
+      const loteIds = [...new Set(detalles.map((detalle) => detalle.idLote))];
+
+      /*
+       * 4. Bloqueamos TODOS los lotes en un orden determinista.
+       */
+      const lotes = await loteRepository
+        .createQueryBuilder('lote')
+        .setLock('pessimistic_write')
+        .where('lote.idLote IN (:...loteIds)', {
+          loteIds,
+        })
+        .orderBy('lote.idLote', 'ASC')
+        .getMany();
+
+      if (lotes.length !== loteIds.length) {
+        throw new ConflictException(
+          'Uno o más lotes asociados a la venta no existen.',
+        );
+      }
+
+      const lotesPorId = new Map(lotes.map((lote) => [lote.idLote, lote]));
+
+      /*
+       * 5. Reponemos cada DetalleVenta y registramos su movimiento.
+       */
+      for (const detalle of detalles) {
+        const lote = lotesPorId.get(detalle.idLote);
 
         if (!lote) {
-          throw new BadRequestException(
+          throw new ConflictException(
             `No se encontró el lote asociado al detalle ${detalle.idDetalleVenta}.`,
           );
         }
 
-        lote.cantidadDisponible =
-          Number(lote.cantidadDisponible) + Number(detalle.cantidad);
-
-        const cantidadRecibida = Number(
-          lote.cantidadRecibida ?? lote.cantidadInicial,
-        );
-
-        if (lote.cantidadDisponible <= 0) {
-          lote.estadoLote = 'AGOTADO';
-        } else if (lote.cantidadDisponible >= cantidadRecibida) {
-          lote.estadoLote = 'EN_STOCK';
-        } else {
-          lote.estadoLote = 'VENDIDO_PARCIAL';
+        if (lote.idProducto !== detalle.idProducto) {
+          throw new ConflictException(
+            `El lote ${lote.idLote} no corresponde al producto del detalle ${detalle.idDetalleVenta}.`,
+          );
         }
 
-        await manager.save(LoteProducto, lote);
+        const cantidad = Number(detalle.cantidad);
+
+        await this.reingresarStockLote(manager, lote, cantidad);
+
+        await this.inventarioService.registrarMovimiento(manager, {
+          lote,
+          tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
+          cantidad,
+          referenciaId: venta.idVenta,
+        });
       }
 
+      /*
+       * 6. Finalmente anulamos la Venta.
+       */
       venta.estadoVenta = 'ANULADA';
       venta.estadoPago = 'ANULADA';
       venta.montoPagado = 0;
       venta.saldoPendiente = 0;
 
-      await manager.save(VentaEntity, venta);
+      await ventaRepository.save(venta);
     });
 
     return this.findOne(ventaId);
@@ -610,6 +664,53 @@ export class VentasService {
 
     lote.cantidadDisponible = nuevoDisponible;
     lote.estadoLote = nuevoDisponible === 0 ? 'AGOTADO' : 'VENDIDO_PARCIAL';
+
+    await manager.save(LoteProducto, lote);
+  }
+
+  private async reingresarStockLote(
+    manager: EntityManager,
+    lote: LoteProducto,
+    cantidadReingreso: number,
+  ): Promise<void> {
+    if (!Number.isInteger(cantidadReingreso) || cantidadReingreso <= 0) {
+      throw new ConflictException(
+        'La cantidad a reingresar debe ser un entero positivo.',
+      );
+    }
+
+    const cantidadRecibida = Number(lote.cantidadRecibida);
+    const cantidadDisponible = Number(lote.cantidadDisponible);
+
+    if (
+      !Number.isInteger(cantidadRecibida) ||
+      !Number.isInteger(cantidadDisponible) ||
+      cantidadRecibida < 0 ||
+      cantidadDisponible < 0 ||
+      cantidadDisponible > cantidadRecibida
+    ) {
+      throw new ConflictException(
+        `El lote ${lote.idLote} contiene cantidades inconsistentes.`,
+      );
+    }
+
+    const nuevoDisponible = cantidadDisponible + cantidadReingreso;
+
+    if (nuevoDisponible > cantidadRecibida) {
+      throw new ConflictException(
+        `La anulación excedería la cantidad recibida del lote ${lote.idLote}.`,
+      );
+    }
+
+    lote.cantidadDisponible = nuevoDisponible;
+
+    if (nuevoDisponible === 0) {
+      lote.estadoLote = 'AGOTADO';
+    } else if (nuevoDisponible === cantidadRecibida) {
+      lote.estadoLote = 'EN_STOCK';
+    } else {
+      lote.estadoLote = 'VENDIDO_PARCIAL';
+    }
 
     await manager.save(LoteProducto, lote);
   }

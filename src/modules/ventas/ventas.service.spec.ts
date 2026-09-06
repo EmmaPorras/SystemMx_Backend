@@ -1,9 +1,15 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
+import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
+import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
 import { InventarioService } from '../inventario/inventario.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
@@ -64,6 +70,36 @@ describe('VentasService', () => {
     createdAt: new Date('2026-09-10'),
     updatedAt: new Date('2026-09-10'),
     detalles: [],
+    ...overrides,
+  });
+
+  const crearDetalleVenta = (
+    overrides: Partial<DetalleVenta> = {},
+  ): DetalleVenta => ({
+    idDetalleVenta: 201,
+    idVenta: 100,
+    idProducto: 6,
+    idLote: 13,
+    cantidad: 2,
+    precioUnitario: 6500,
+    subtotal: 13000,
+    descuento: 0,
+    baseImponible: 13000,
+    tipoTarifa: 'EXENTO',
+    idTarifaIva: null,
+    porcentajeIva: 0,
+    iva: 0,
+    totalLinea: 13000,
+    costoUnitarioReal: 4000,
+    costoTotal: 8000,
+    gananciaBruta: 5000,
+    modoDescuentoLote: 'MANUAL',
+    detalle: null,
+    createdAt: new Date('2026-09-10'),
+    updatedAt: new Date('2026-09-10'),
+    venta: null as unknown as VentaEntity,
+    producto: null as unknown as Producto,
+    lote: null as unknown as LoteProducto,
     ...overrides,
   });
 
@@ -501,6 +537,354 @@ describe('VentasService', () => {
       };
 
       await expect(service.create(dto)).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('anularVenta', () => {
+    const mockRepositories = (repos: {
+      venta?: Partial<Repository<VentaEntity>>;
+      detalle?: Partial<Repository<DetalleVenta>>;
+      lote?: Partial<Repository<LoteProducto>>;
+    }) => {
+      manager.getRepository.mockImplementation((entityClass: unknown) => {
+        if (entityClass === VentaEntity) {
+          return (repos.venta ?? {}) as unknown as Repository<VentaEntity>;
+        }
+        if (entityClass === DetalleVenta) {
+          return (repos.detalle ?? {}) as unknown as Repository<DetalleVenta>;
+        }
+        if (entityClass === LoteProducto) {
+          return (repos.lote ?? {}) as unknown as Repository<LoteProducto>;
+        }
+        return {} as unknown as Repository<unknown>;
+      });
+    };
+
+    it('debe lanzar NotFoundException si la venta no existe', async () => {
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(null);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+        },
+      });
+
+      await expect(service.anularVenta(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar ConflictException si la venta ya está anulada y no registrar movimientos', async () => {
+      const ventaAnulada = crearVenta({
+        idVenta: 100,
+        estadoVenta: 'ANULADA',
+      });
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaAnulada);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+        },
+      });
+
+      await expect(service.anularVenta(100)).rejects.toThrow(ConflictException);
+      expect(inventarioService.registrarMovimiento).not.toHaveBeenCalled();
+    });
+
+    it('debe solicitar bloqueo pessimistic_write sobre Venta y Lotes en orden idLote ASC', async () => {
+      const ventaActiva = crearVenta({
+        idVenta: 100,
+        estadoVenta: 'REGISTRADA',
+      });
+
+      const detalle1 = crearDetalleVenta({
+        idDetalleVenta: 1,
+        idVenta: 100,
+        idProducto: 6,
+        idLote: 13,
+        cantidad: 2,
+      });
+
+      const lote13 = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadRecibida: 10,
+        cantidadDisponible: 8,
+        estadoLote: 'VENDIDO_PARCIAL',
+      });
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaActiva);
+
+      const loteQbMock = crearQueryBuilderMock();
+      loteQbMock.getMany.mockResolvedValue([lote13]);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+          save: managerSaveMock,
+        },
+        detalle: {
+          find: jest.fn().mockResolvedValue([detalle1]),
+        },
+        lote: {
+          createQueryBuilder: jest.fn().mockReturnValue(loteQbMock),
+        },
+      });
+
+      await service.anularVenta(100);
+
+      expect(ventaQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(loteQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(loteQbMock.orderBy).toHaveBeenCalledWith('lote.idLote', 'ASC');
+
+      expect(lote13.cantidadDisponible).toBe(10);
+      expect(lote13.estadoLote).toBe('EN_STOCK');
+      expect(managerSaveMock).toHaveBeenCalledWith(LoteProducto, lote13);
+
+      expect(inventarioService.registrarMovimiento).toHaveBeenCalledWith(
+        manager,
+        expect.objectContaining({
+          lote: lote13,
+          tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
+          cantidad: 2,
+          referenciaId: 100,
+        }),
+      );
+
+      expect(ventaActiva.estadoVenta).toBe('ANULADA');
+      expect(ventaActiva.estadoPago).toBe('ANULADA');
+      expect(ventaActiva.montoPagado).toBe(0);
+      expect(ventaActiva.saldoPendiente).toBe(0);
+    });
+
+    it('debe mantener estadoLote VENDIDO_PARCIAL si el reingreso no completa la cantidadRecibida', async () => {
+      const ventaActiva = crearVenta({ idVenta: 100 });
+      const detalle = crearDetalleVenta({ idLote: 13, cantidad: 2 });
+      const lote = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadRecibida: 10,
+        cantidadDisponible: 5,
+      });
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaActiva);
+
+      const loteQbMock = crearQueryBuilderMock();
+      loteQbMock.getMany.mockResolvedValue([lote]);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+          save: managerSaveMock,
+        },
+        detalle: {
+          find: jest.fn().mockResolvedValue([detalle]),
+        },
+        lote: {
+          createQueryBuilder: jest.fn().mockReturnValue(loteQbMock),
+        },
+      });
+
+      await service.anularVenta(100);
+
+      expect(lote.cantidadDisponible).toBe(7);
+      expect(lote.estadoLote).toBe('VENDIDO_PARCIAL');
+    });
+
+    it('debe lanzar ConflictException si el reingreso superaría la cantidadRecibida', async () => {
+      const ventaActiva = crearVenta({ idVenta: 100 });
+      const detalle = crearDetalleVenta({ idLote: 13, cantidad: 2 });
+      const lote = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadRecibida: 5,
+        cantidadDisponible: 4, // 4 + 2 = 6 > 5
+      });
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaActiva);
+
+      const loteQbMock = crearQueryBuilderMock();
+      loteQbMock.getMany.mockResolvedValue([lote]);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+        },
+        detalle: {
+          find: jest.fn().mockResolvedValue([detalle]),
+        },
+        lote: {
+          createQueryBuilder: jest.fn().mockReturnValue(loteQbMock),
+        },
+      });
+
+      await expect(service.anularVenta(100)).rejects.toThrow(ConflictException);
+    });
+
+    it('debe lanzar ConflictException si un lote referenciado no existe', async () => {
+      const ventaActiva = crearVenta({ idVenta: 100 });
+      const detalle = crearDetalleVenta({ idLote: 99 });
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaActiva);
+
+      const loteQbMock = crearQueryBuilderMock();
+      loteQbMock.getMany.mockResolvedValue([]); // 0 lotes encontrados para lote 99
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+        },
+        detalle: {
+          find: jest.fn().mockResolvedValue([detalle]),
+        },
+        lote: {
+          createQueryBuilder: jest.fn().mockReturnValue(loteQbMock),
+        },
+      });
+
+      await expect(service.anularVenta(100)).rejects.toThrow(ConflictException);
+    });
+
+    it('debe lanzar ConflictException si el producto del lote no coincide con el detalle', async () => {
+      const ventaActiva = crearVenta({ idVenta: 100 });
+      const detalle = crearDetalleVenta({ idProducto: 6, idLote: 13 });
+      const lote = crearLote({ idProducto: 9, idLote: 13 }); // Producto 9 vs 6
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaActiva);
+
+      const loteQbMock = crearQueryBuilderMock();
+      loteQbMock.getMany.mockResolvedValue([lote]);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+        },
+        detalle: {
+          find: jest.fn().mockResolvedValue([detalle]),
+        },
+        lote: {
+          createQueryBuilder: jest.fn().mockReturnValue(loteQbMock),
+        },
+      });
+
+      await expect(service.anularVenta(100)).rejects.toThrow(ConflictException);
+    });
+
+    it('debe registrar múltiples movimientos de reingreso al anular una venta FIFO con varios lotes', async () => {
+      const ventaActiva = crearVenta({ idVenta: 100 });
+      const detalle1 = crearDetalleVenta({
+        idDetalleVenta: 1,
+        idLote: 16,
+        idProducto: 9,
+        cantidad: 10,
+      });
+      const detalle2 = crearDetalleVenta({
+        idDetalleVenta: 2,
+        idLote: 17,
+        idProducto: 9,
+        cantidad: 2,
+      });
+
+      const lote1 = crearLote({
+        idLote: 16,
+        idProducto: 9,
+        cantidadRecibida: 10,
+        cantidadDisponible: 0,
+      });
+      const lote2 = crearLote({
+        idLote: 17,
+        idProducto: 9,
+        cantidadRecibida: 5,
+        cantidadDisponible: 3,
+      });
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaActiva);
+
+      const loteQbMock = crearQueryBuilderMock();
+      loteQbMock.getMany.mockResolvedValue([lote1, lote2]);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+          save: managerSaveMock,
+        },
+        detalle: {
+          find: jest.fn().mockResolvedValue([detalle1, detalle2]),
+        },
+        lote: {
+          createQueryBuilder: jest.fn().mockReturnValue(loteQbMock),
+        },
+      });
+
+      await service.anularVenta(100);
+
+      expect(inventarioService.registrarMovimiento).toHaveBeenCalledTimes(2);
+
+      expect(inventarioService.registrarMovimiento).toHaveBeenNthCalledWith(
+        1,
+        manager,
+        expect.objectContaining({
+          lote: lote1,
+          tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
+          cantidad: 10,
+          referenciaId: 100,
+        }),
+      );
+
+      expect(inventarioService.registrarMovimiento).toHaveBeenNthCalledWith(
+        2,
+        manager,
+        expect.objectContaining({
+          lote: lote2,
+          tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
+          cantidad: 2,
+          referenciaId: 100,
+        }),
+      );
+    });
+
+    it('debe propagar error y no anular la venta si registrarMovimiento falla', async () => {
+      const ventaActiva = crearVenta({ idVenta: 100 });
+      const detalle = crearDetalleVenta({ idLote: 13, cantidad: 2 });
+      const lote = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadRecibida: 10,
+        cantidadDisponible: 8,
+      });
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaActiva);
+
+      const loteQbMock = crearQueryBuilderMock();
+      loteQbMock.getMany.mockResolvedValue([lote]);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+        },
+        detalle: {
+          find: jest.fn().mockResolvedValue([detalle]),
+        },
+        lote: {
+          createQueryBuilder: jest.fn().mockReturnValue(loteQbMock),
+        },
+      });
+
+      inventarioService.registrarMovimiento.mockRejectedValue(
+        new Error('Fallo movimiento'),
+      );
+
+      await expect(service.anularVenta(100)).rejects.toThrow(
+        'Fallo movimiento',
+      );
     });
   });
 });
