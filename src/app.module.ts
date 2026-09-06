@@ -9,6 +9,7 @@ import { ProveedoresModule } from './modules/proveedores/proveedores.module';
 import { TarifasIvaModule } from './modules/tarifas/tarifas-iva.module';
 import { PedidosModule } from './modules/pedidos/pedidos.module';
 import { VentasModule } from './modules/ventas/ventas.module';
+import { UsuariosModule } from './modules/usuarios/usuarios.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { VentasModule } from './modules/ventas/ventas.module';
     PedidosModule,
     VentasModule,
     InventarioModule,
+    UsuariosModule,
   ],
 })
 export class AppModule {}
