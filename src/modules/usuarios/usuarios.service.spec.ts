@@ -386,4 +386,15 @@ describe('UsuariosService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('contarUsuarios()', () => {
+    it('debe delegar el conteo al repositorio de usuarios', async () => {
+      usuariosRepositoryMock.count = jest.fn().mockResolvedValue(3);
+
+      const total = await service.contarUsuarios();
+
+      expect(usuariosRepositoryMock.count).toHaveBeenCalled();
+      expect(total).toBe(3);
+    });
+  });
 });

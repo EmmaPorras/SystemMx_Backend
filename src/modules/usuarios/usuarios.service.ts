@@ -202,4 +202,8 @@ export class UsuariosService {
 
     return this.mapearUsuario(guardado);
   }
+
+  async contarUsuarios(): Promise<number> {
+    return this.usuariosRepository.count();
+  }
 }

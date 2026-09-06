@@ -10,6 +10,7 @@ import { TarifasIvaModule } from './modules/tarifas/tarifas-iva.module';
 import { PedidosModule } from './modules/pedidos/pedidos.module';
 import { VentasModule } from './modules/ventas/ventas.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { UsuariosModule } from './modules/usuarios/usuarios.module';
     VentasModule,
     InventarioModule,
     UsuariosModule,
+    AuthModule,
   ],
 })
 export class AppModule {}
