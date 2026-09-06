@@ -30,6 +30,7 @@ interface MockQueryBuilder {
 describe('VentasService', () => {
   let service: VentasService;
   let ventasRepository: jest.Mocked<Repository<VentaEntity>>;
+  let ventasRepoSaveMock: jest.Mock;
   let pagosRepository: jest.Mocked<Repository<PagoVenta>>;
   let inventarioService: { registrarMovimiento: jest.Mock };
   let dataSource: { transaction: jest.Mock };
@@ -179,6 +180,8 @@ describe('VentasService', () => {
       ),
     };
 
+    ventasRepoSaveMock = jest.fn();
+
     ventasRepository = {
       findOne: jest.fn((options?: { where?: Record<string, unknown> }) => {
         if (options?.where && 'numeroVenta' in options.where) {
@@ -190,7 +193,7 @@ describe('VentasService', () => {
         return Promise.resolve(null);
       }),
       find: jest.fn(),
-      save: jest.fn(),
+      save: ventasRepoSaveMock,
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<VentaEntity>>;
 
@@ -1231,6 +1234,120 @@ describe('VentasService', () => {
           referencia: null,
         }),
       );
+    });
+  });
+
+  describe('clienteNombre - Normalización y Venta Mostrador (ETAPA 7E)', () => {
+    it('debe aplicar trim a clienteNombre con espacios', async () => {
+      const loteMock = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadDisponible: 5,
+      });
+
+      const qbMock = crearQueryBuilderMock();
+      qbMock.getOne.mockResolvedValue(loteMock);
+
+      manager.getRepository.mockReturnValue({
+        createQueryBuilder: jest.fn().mockReturnValue(qbMock),
+        create: jest.fn((plain: unknown) => plain),
+        save: managerSaveMock,
+      } as unknown as Repository<unknown>);
+
+      const dto: CreateVentaDto = {
+        numeroVenta: 1020,
+        fechaVenta: '2026-09-10',
+        clienteNombre: '   Juan Pérez   ',
+        medioPago: 'EFECTIVO',
+        detalles: [
+          {
+            productoId: 6,
+            loteId: 13,
+            cantidad: 1,
+            precioUnitario: 6500,
+            tipoTarifa: 'EXENTO',
+            modoDescuentoLote: 'MANUAL',
+          },
+        ],
+      };
+
+      await service.create(dto);
+
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        VentaEntity,
+        expect.objectContaining({
+          clienteNombre: 'Juan Pérez',
+        }),
+      );
+    });
+
+    it('debe convertir clienteNombre de sólo espacios a null (Venta mostrador)', async () => {
+      const loteMock = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadDisponible: 5,
+      });
+
+      const qbMock = crearQueryBuilderMock();
+      qbMock.getOne.mockResolvedValue(loteMock);
+
+      manager.getRepository.mockReturnValue({
+        createQueryBuilder: jest.fn().mockReturnValue(qbMock),
+        create: jest.fn((plain: unknown) => plain),
+        save: managerSaveMock,
+      } as unknown as Repository<unknown>);
+
+      const dto: CreateVentaDto = {
+        numeroVenta: 1021,
+        fechaVenta: '2026-09-10',
+        clienteNombre: '     ',
+        medioPago: 'EFECTIVO',
+        detalles: [
+          {
+            productoId: 6,
+            loteId: 13,
+            cantidad: 1,
+            precioUnitario: 6500,
+            tipoTarifa: 'EXENTO',
+            modoDescuentoLote: 'MANUAL',
+          },
+        ],
+      };
+
+      await service.create(dto);
+
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        VentaEntity,
+        expect.objectContaining({
+          clienteNombre: null,
+        }),
+      );
+    });
+  });
+
+  describe('papelera - No altera inventario ni lotes', () => {
+    it('enviarAPapelera debe actualizar solo enPapelera = true sin tocar movimientos ni lotes', async () => {
+      const venta = crearVenta({ idVenta: 100, enPapelera: false });
+      ventasRepository.findOne.mockResolvedValue(venta);
+
+      const resultado = await service.enviarAPapelera(100);
+
+      expect(venta.enPapelera).toBe(true);
+      expect(ventasRepoSaveMock).toHaveBeenCalledWith(venta);
+      expect(inventarioService.registrarMovimiento).not.toHaveBeenCalled();
+      expect(resultado).toBeDefined();
+    });
+
+    it('restaurarDePapelera debe actualizar solo enPapelera = false sin tocar movimientos ni lotes', async () => {
+      const venta = crearVenta({ idVenta: 100, enPapelera: true });
+      ventasRepository.findOne.mockResolvedValue(venta);
+
+      const resultado = await service.restaurarDePapelera(100);
+
+      expect(venta.enPapelera).toBe(false);
+      expect(ventasRepoSaveMock).toHaveBeenCalledWith(venta);
+      expect(inventarioService.registrarMovimiento).not.toHaveBeenCalled();
+      expect(resultado).toBeDefined();
     });
   });
 });

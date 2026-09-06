@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { CreateVentaDto } from './dto/create-venta.dto';
 import { RegistrarPagoVentaDto } from './dto/registrar-pago-venta.dto';
 import { VentasController } from './ventas.controller';
 import { VentasService } from './ventas.service';
@@ -34,7 +35,7 @@ describe('VentasController', () => {
     controller = module.get<VentasController>(VentasController);
   });
 
-  it('debe listar todas las ventas', async () => {
+  it('debe listar todas las ventas con filtros', async () => {
     (service.findAll as jest.Mock).mockResolvedValue([]);
     const result = await controller.findAll('false', 'false');
     expect(service.findAll).toHaveBeenCalledWith({
@@ -42,6 +43,41 @@ describe('VentasController', () => {
       deudores: 'false',
     });
     expect(result).toEqual([]);
+  });
+
+  it('debe obtener inventario disponible', async () => {
+    (service.obtenerInventarioDisponible as jest.Mock).mockResolvedValue([]);
+    const result = await controller.obtenerInventarioDisponible();
+    expect(service.obtenerInventarioDisponible).toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
+  it('debe obtener una venta por ID', async () => {
+    (service.findOne as jest.Mock).mockResolvedValue({ id: 1 });
+    const result = await controller.findOne(1);
+    expect(service.findOne).toHaveBeenCalledWith(1);
+    expect(result).toEqual({ id: 1 });
+  });
+
+  it('debe crear una nueva venta', async () => {
+    const dto: CreateVentaDto = {
+      numeroVenta: 1001,
+      fechaVenta: '2026-09-12',
+      medioPago: 'EFECTIVO',
+      detalles: [
+        {
+          productoId: 1,
+          cantidad: 2,
+          precioUnitario: 5000,
+          tipoTarifa: 'EXENTO',
+        },
+      ],
+    };
+    (service.create as jest.Mock).mockResolvedValue({ id: 1 });
+
+    const result = await controller.create(dto);
+    expect(service.create).toHaveBeenCalledWith(dto);
+    expect(result).toEqual({ id: 1 });
   });
 
   it('debe registrar un pago', async () => {
@@ -64,10 +100,33 @@ describe('VentasController', () => {
     expect(result).toEqual([]);
   });
 
+  it('debe enviar una venta a la papelera', async () => {
+    (service.enviarAPapelera as jest.Mock).mockResolvedValue({
+      id: 1,
+      enPapelera: true,
+    });
+    const result = await controller.enviarAPapelera(1);
+    expect(service.enviarAPapelera).toHaveBeenCalledWith(1);
+    expect(result).toEqual({ id: 1, enPapelera: true });
+  });
+
+  it('debe restaurar una venta de la papelera', async () => {
+    (service.restaurarDePapelera as jest.Mock).mockResolvedValue({
+      id: 1,
+      enPapelera: false,
+    });
+    const result = await controller.restaurarDePapelera(1);
+    expect(service.restaurarDePapelera).toHaveBeenCalledWith(1);
+    expect(result).toEqual({ id: 1, enPapelera: false });
+  });
+
   it('debe anular una venta', async () => {
-    (service.anularVenta as jest.Mock).mockResolvedValue({ id: 1 });
+    (service.anularVenta as jest.Mock).mockResolvedValue({
+      id: 1,
+      estadoVenta: 'ANULADA',
+    });
     const result = await controller.anularVenta(1);
     expect(service.anularVenta).toHaveBeenCalledWith(1);
-    expect(result).toEqual({ id: 1 });
+    expect(result).toEqual({ id: 1, estadoVenta: 'ANULADA' });
   });
 });
