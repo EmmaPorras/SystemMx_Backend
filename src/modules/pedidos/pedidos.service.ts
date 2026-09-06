@@ -307,13 +307,16 @@ export class PedidosService {
     }
 
     await this.dataSource.transaction(async (manager) => {
-      await manager.delete(LoteProducto, { idPedido: pedidoId });
-      await manager.delete(DetallePedidoCompra, { idPedido: pedidoId });
-      await manager.delete(PedidoCompraEntity, { idPedido: pedidoId });
+      await this.validarCancelacionSegura(manager, pedido);
+
+      await manager.update(PedidoCompraEntity, pedidoId, {
+        estado: 'CANCELADO',
+        fechaRecepcion: null,
+      });
     });
 
     return {
-      message: 'Pedido eliminado correctamente.',
+      message: 'Pedido cancelado correctamente.',
       id: pedidoId,
     };
   }
@@ -660,6 +663,54 @@ export class PedidosService {
     if ((cambiaMoneda || cambiaTipoCambio) && dto.detalles === undefined) {
       throw new BadRequestException(
         'Para cambiar la moneda o el tipo de cambio debe enviar también los detalles del pedido para recalcular sus costos.',
+      );
+    }
+  }
+
+  private async validarCancelacionSegura(
+    manager: EntityManager,
+    pedido: PedidoCompraEntity,
+  ): Promise<void> {
+    if (pedido.estado === 'CANCELADO') {
+      throw new ConflictException('El pedido ya se encuentra cancelado.');
+    }
+
+    const lotes = await manager.getRepository(LoteProducto).find({
+      where: {
+        idPedido: pedido.idPedido,
+      },
+    });
+
+    const loteIds = lotes.map((lote) => lote.idLote);
+
+    if (loteIds.length > 0) {
+      const ventasAsociadas = await manager.getRepository(DetalleVenta).count({
+        where: {
+          idLote: In(loteIds),
+        },
+      });
+
+      if (ventasAsociadas > 0) {
+        throw new ConflictException(
+          'No se puede cancelar el pedido porque uno o más lotes ya fueron utilizados en ventas.',
+        );
+      }
+    }
+
+    const tieneInventarioMaterializado = lotes.some((lote) =>
+      this.loteTieneInventarioMaterializado(lote),
+    );
+
+    const tieneFechaRecepcion =
+      pedido.fechaRecepcion !== null && pedido.fechaRecepcion !== undefined;
+
+    if (
+      pedido.estado === 'RECIBIDO' ||
+      tieneFechaRecepcion ||
+      tieneInventarioMaterializado
+    ) {
+      throw new ConflictException(
+        'No se puede cancelar el pedido porque ya tiene mercancía recibida o inventario generado.',
       );
     }
   }

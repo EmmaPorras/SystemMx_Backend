@@ -94,7 +94,7 @@ export class CreatePedidoDto {
   tipoCambio!: number;
 
   @IsString()
-  @IsIn(['REGISTRADO', 'EN_TRANSITO', 'RECIBIDO', 'CANCELADO'])
+  @IsIn(['REGISTRADO', 'EN_TRANSITO', 'RECIBIDO'])
   estado!: string;
 
   @IsOptional()
