@@ -10,10 +10,7 @@ import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
-import {
-  CreateVentaDetalleDto,
-  CreateVentaDto,
-} from './dto/create-venta.dto';
+import { CreateVentaDetalleDto, CreateVentaDto } from './dto/create-venta.dto';
 import { UpdatePagoVentaDto } from './dto/update-pago-venta.dto';
 
 type FindAllVentasFilters = {
@@ -423,9 +420,7 @@ export class VentasService {
       descuentoPendiente = this.redondear(descuentoPendiente - descuento);
 
       const baseImponible = this.redondear(subtotal - descuento);
-      const iva = this.redondear(
-        baseImponible * (tarifa.porcentajeIva / 100),
-      );
+      const iva = this.redondear(baseImponible * (tarifa.porcentajeIva / 100));
       const totalLinea = this.redondear(baseImponible + iva);
       const costoTotal = this.redondear(
         asignacion.cantidad * asignacion.costoUnitarioReal,
@@ -644,8 +639,10 @@ export class VentasService {
         throw new NotFoundException('Tarifa IVA no encontrada.');
       }
 
-      if (!Boolean(tarifa.activo)) {
-        throw new BadRequestException('La tarifa IVA seleccionada no está activa.');
+      if (!tarifa.activo) {
+        throw new BadRequestException(
+          'La tarifa IVA seleccionada no está activa.',
+        );
       }
 
       return {

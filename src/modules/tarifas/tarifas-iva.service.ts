@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TarifaIva } from '../../database/entities/tarifa-iva.entity';
@@ -11,6 +15,37 @@ export class TarifasIvaService {
     @InjectRepository(TarifaIva)
     private readonly tarifasRepository: Repository<TarifaIva>,
   ) {}
+
+  private normalizarCodigo(codigo: string): string {
+    return codigo.trim().toUpperCase();
+  }
+
+  private async validarCodigoDisponible(
+    codigo: string,
+    idExcluir?: number,
+  ): Promise<void> {
+    const codigoNormalizado = this.normalizarCodigo(codigo);
+
+    const query = this.tarifasRepository
+      .createQueryBuilder('tarifa')
+      .where('UPPER(LTRIM(RTRIM(tarifa.codigo))) = :codigo', {
+        codigo: codigoNormalizado,
+      });
+
+    if (idExcluir !== undefined) {
+      query.andWhere('tarifa.idTarifaIva <> :idExcluir', {
+        idExcluir,
+      });
+    }
+
+    const existente = await query.getOne();
+
+    if (existente) {
+      throw new ConflictException(
+        `Ya existe una tarifa IVA con el código ${codigoNormalizado}`,
+      );
+    }
+  }
 
   findAll() {
     return this.tarifasRepository.find({
@@ -35,8 +70,12 @@ export class TarifasIvaService {
   }
 
   async create(createTarifaIvaDto: CreateTarifaIvaDto) {
+    const codigo = this.normalizarCodigo(createTarifaIvaDto.codigo);
+
+    await this.validarCodigoDisponible(codigo);
+
     const tarifa = this.tarifasRepository.create({
-      codigo: createTarifaIvaDto.codigo.trim().toUpperCase(),
+      codigo,
       porcentaje: Number(createTarifaIvaDto.porcentaje),
       descripcion: createTarifaIvaDto.descripcion.trim(),
       estado: createTarifaIvaDto.estado,
@@ -48,19 +87,26 @@ export class TarifasIvaService {
   async update(id: number, updateTarifaIvaDto: UpdateTarifaIvaDto) {
     const tarifa = await this.findOne(id);
 
-    if (updateTarifaIvaDto.codigo !== undefined) {
-      tarifa.codigo = updateTarifaIvaDto.codigo.trim().toUpperCase();
+    if (typeof updateTarifaIvaDto.codigo === 'string') {
+      const codigo = this.normalizarCodigo(updateTarifaIvaDto.codigo);
+
+      await this.validarCodigoDisponible(codigo, id);
+
+      tarifa.codigo = codigo;
     }
 
-    if (updateTarifaIvaDto.porcentaje !== undefined) {
+    if (
+      updateTarifaIvaDto.porcentaje !== undefined &&
+      updateTarifaIvaDto.porcentaje !== null
+    ) {
       tarifa.porcentaje = Number(updateTarifaIvaDto.porcentaje);
     }
 
-    if (updateTarifaIvaDto.descripcion !== undefined) {
+    if (typeof updateTarifaIvaDto.descripcion === 'string') {
       tarifa.descripcion = updateTarifaIvaDto.descripcion.trim();
     }
 
-    if (updateTarifaIvaDto.estado !== undefined) {
+    if (typeof updateTarifaIvaDto.estado === 'string') {
       tarifa.estado = updateTarifaIvaDto.estado;
     }
 
@@ -70,10 +116,12 @@ export class TarifasIvaService {
   async remove(id: number) {
     const tarifa = await this.findOne(id);
 
-    await this.tarifasRepository.remove(tarifa);
+    tarifa.estado = 'INACTIVA';
+
+    await this.tarifasRepository.save(tarifa);
 
     return {
-      message: 'Tarifa IVA eliminada correctamente',
+      message: 'Tarifa IVA desactivada correctamente',
       id,
     };
   }

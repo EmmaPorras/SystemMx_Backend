@@ -63,23 +63,38 @@ export class ProveedoresService {
   async update(id: number, updateProveedorDto: UpdateProveedorDto) {
     const proveedor = await this.findOne(id);
 
-    if (updateProveedorDto.tipoOrigen !== undefined) {
+    if (
+      updateProveedorDto.tipoOrigen !== undefined &&
+      updateProveedorDto.tipoOrigen !== null
+    ) {
       proveedor.tipoOrigen = updateProveedorDto.tipoOrigen.trim();
     }
 
-    if (updateProveedorDto.nombreReferencia !== undefined) {
+    if (
+      updateProveedorDto.nombreReferencia !== undefined &&
+      updateProveedorDto.nombreReferencia !== null
+    ) {
       proveedor.nombreReferencia = updateProveedorDto.nombreReferencia.trim();
     }
 
-    if (updateProveedorDto.telefono !== undefined) {
+    if (
+      updateProveedorDto.telefono !== undefined &&
+      updateProveedorDto.telefono !== null
+    ) {
       proveedor.telefono = updateProveedorDto.telefono.trim();
     }
 
-    if (updateProveedorDto.correo !== undefined) {
+    if (
+      updateProveedorDto.correo !== undefined &&
+      updateProveedorDto.correo !== null
+    ) {
       proveedor.correo = updateProveedorDto.correo.trim().toLowerCase();
     }
 
-    if (updateProveedorDto.pais !== undefined) {
+    if (
+      updateProveedorDto.pais !== undefined &&
+      updateProveedorDto.pais !== null
+    ) {
       proveedor.pais = updateProveedorDto.pais.trim();
     }
 
@@ -89,7 +104,10 @@ export class ProveedoresService {
       );
     }
 
-    if (updateProveedorDto.estado !== undefined) {
+    if (
+      updateProveedorDto.estado !== undefined &&
+      updateProveedorDto.estado !== null
+    ) {
       proveedor.estado = updateProveedorDto.estado;
     }
 
@@ -116,10 +134,11 @@ export class ProveedoresService {
   async remove(id: number) {
     const proveedor = await this.findOne(id);
 
-    await this.proveedoresRepository.remove(proveedor);
+    proveedor.estado = 'INACTIVO';
+    await this.proveedoresRepository.save(proveedor);
 
     return {
-      message: 'Proveedor eliminado correctamente',
+      message: 'Proveedor desactivado correctamente',
       id,
     };
   }

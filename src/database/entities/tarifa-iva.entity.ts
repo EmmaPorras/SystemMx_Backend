@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -21,6 +22,7 @@ const estadoTarifaTransformer = {
 };
 
 @Entity({ name: 'tarifa_iva' })
+@Index('UX_tarifa_iva_codigo', ['codigo'], { unique: true })
 export class TarifaIva {
   @PrimaryGeneratedColumn({ name: 'id_tarifa_iva' })
   idTarifaIva!: number;

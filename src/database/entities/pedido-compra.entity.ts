@@ -63,7 +63,12 @@ export class PedidoCompraEntity {
   @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
   observaciones?: string | null;
 
-  @Column({ name: 'pais_compra', type: 'nvarchar', length: 100, nullable: true })
+  @Column({
+    name: 'pais_compra',
+    type: 'nvarchar',
+    length: 100,
+    nullable: true,
+  })
   paisCompra?: string | null;
 
   @Column({ name: 'moneda_compra', type: 'nvarchar', length: 10 })

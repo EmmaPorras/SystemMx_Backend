@@ -129,8 +129,7 @@ export class PedidosService {
 
     await this.dataSource.transaction(async (manager) => {
       const subtotalProductos = dto.detalles.reduce(
-        (acc, detalle) =>
-          acc + detalle.cantidad * detalle.costoUnitarioOrigen,
+        (acc, detalle) => acc + detalle.cantidad * detalle.costoUnitarioOrigen,
         0,
       );
 
@@ -344,10 +343,7 @@ export class PedidosService {
       observaciones: null,
     });
 
-    const detalleGuardado = await manager.save(
-      DetallePedidoCompra,
-      detalle,
-    );
+    const detalleGuardado = await manager.save(DetallePedidoCompra, detalle);
 
     const lote = manager.create(LoteProducto, {
       idPedido,

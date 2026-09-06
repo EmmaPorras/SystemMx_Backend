@@ -27,13 +27,18 @@ import { VentasModule } from './modules/ventas/ventas.module';
 
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
 
-        synchronize: false,
-        logging: true,
+        synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
+        logging: config.get<string>('DB_LOGGING') === 'true',
 
         options: {
           encrypt: config.get<string>('DB_ENCRYPT') === 'true',
           trustServerCertificate:
             config.get<string>('DB_TRUST_SERVER_CERTIFICATE') === 'true',
+          requestTimeout: 60000,
+        },
+        extra: {
+          requestTimeout: 60000,
+          connectionTimeout: 60000,
         },
       }),
     }),
