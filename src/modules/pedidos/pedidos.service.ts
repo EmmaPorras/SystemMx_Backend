@@ -18,14 +18,6 @@ import {
 } from './dto/create-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
 
-type ProductoSugeridoSql = {
-  idProducto: number;
-  nombre: string;
-  nombreBusqueda: string;
-  precioVentaSugerido: number | string | null;
-  activo: boolean | number;
-};
-
 type CantidadesLoteCalculadas = {
   cantidadRecibida: number;
   cantidadDisponible: number;
@@ -90,17 +82,35 @@ export class PedidosService {
       return [];
     }
 
-    const resultados = await this.dataSource.query<ProductoSugeridoSql[]>(
-      'EXEC dbo.sp_buscar_productos_sugeridos @texto = @0',
-      [textoBusqueda],
-    );
+    const terminos = textoBusqueda.toLowerCase().split(' ').filter(Boolean);
 
-    return resultados.map((producto) => ({
-      id: Number(producto.idProducto),
+    const productosRepository = this.dataSource.getRepository(Producto);
+
+    const query = productosRepository
+      .createQueryBuilder('producto')
+      .where('producto.activo = :activo', {
+        activo: true,
+      });
+
+    terminos.forEach((termino, index) => {
+      query.andWhere(`LOWER(producto.nombre) LIKE :termino${index}`, {
+        [`termino${index}`]: `%${termino}%`,
+      });
+    });
+
+    const productos = await query
+      .orderBy('producto.nombre', 'ASC')
+      .take(10)
+      .getMany();
+
+    return productos.map((producto) => ({
+      id: producto.idProducto,
       nombre: producto.nombre,
-      nombreBusqueda: producto.nombreBusqueda,
-      precioVentaSugerido: Number(producto.precioVentaSugerido ?? 0),
-      activo: Boolean(producto.activo),
+      nombreBusqueda: this.normalizarNombreProducto(
+        producto.nombre,
+      ).toLowerCase(),
+      precioVentaSugerido: Number(producto.precioVentaSugeridoSinIva ?? 0),
+      activo: producto.activo,
     }));
   }
 
@@ -534,6 +544,12 @@ export class PedidosService {
     if (!proveedor) {
       throw new NotFoundException(
         `El proveedor con ID ${proveedorId} no existe.`,
+      );
+    }
+
+    if (proveedor.estado !== 'ACTIVO') {
+      throw new ConflictException(
+        `El proveedor con ID ${proveedorId} está inactivo.`,
       );
     }
   }

@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -14,6 +15,9 @@ import { LoteProducto } from './lote-producto.entity';
 import { OrigenCompra } from './origen-compra.entity';
 
 @Entity({ name: 'pedido_compra' })
+@Index('UX_pedido_compra_numero_pedido', ['numeroPedido'], {
+  unique: true,
+})
 export class PedidoCompraEntity {
   @PrimaryGeneratedColumn({ name: 'id_pedido' })
   idPedido!: number;

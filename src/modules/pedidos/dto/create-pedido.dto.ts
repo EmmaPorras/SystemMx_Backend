@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -24,7 +25,7 @@ export class CreatePedidoDetalleDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
+  @MaxLength(150)
   productoNombre!: string;
 
   @IsString()
@@ -69,8 +70,7 @@ export class CreatePedidoDto {
   @Max(999)
   numeroPedido!: number;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsDateString()
   fecha!: string;
 
   @IsString()
