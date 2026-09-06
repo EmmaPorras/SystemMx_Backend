@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { CategoriasModule } from './modules/categorias/categorias.module';
+import { InventarioModule } from './modules/inventario/inventario.module';
 import { ProductosModule } from './modules/productos/productos.module';
 import { ProveedoresModule } from './modules/proveedores/proveedores.module';
 import { TarifasIvaModule } from './modules/tarifas/tarifas-iva.module';
@@ -49,6 +50,7 @@ import { VentasModule } from './modules/ventas/ventas.module';
     TarifasIvaModule,
     PedidosModule,
     VentasModule,
+    InventarioModule,
   ],
 })
 export class AppModule {}
