@@ -5,9 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
 
 import { DetallePedidoCompra } from '../../database/entities/detalle-pedido-compra.entity';
+import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
@@ -208,6 +209,8 @@ export class PedidosService {
     }
 
     await this.dataSource.transaction(async (manager) => {
+      await this.validarEdicionSegura(manager, pedidoActual, dto);
+
       const numeroPedido = dto.numeroPedido ?? pedidoActual.numeroPedido;
       const fecha = dto.fecha ?? pedidoActual.fechaPedido;
       const estado = dto.estado ?? pedidoActual.estado;
@@ -571,6 +574,93 @@ export class PedidosService {
 
     if (pedidoExistente) {
       throw new ConflictException(`Ya existe el Pedido ${numeroPedido}.`);
+    }
+  }
+
+  private tieneCambiosEstructurales(dto: UpdatePedidoDto): boolean {
+    return (
+      dto.numeroPedido !== undefined ||
+      dto.fecha !== undefined ||
+      dto.origen !== undefined ||
+      dto.proveedorId !== undefined ||
+      dto.monedaCompra !== undefined ||
+      dto.tipoCambio !== undefined ||
+      dto.estado !== undefined ||
+      dto.detalles !== undefined
+    );
+  }
+
+  private loteTieneInventarioMaterializado(lote: LoteProducto): boolean {
+    const tieneFechaEntrada =
+      lote.fechaEntrada !== null && lote.fechaEntrada !== undefined;
+
+    return (
+      Number(lote.cantidadRecibida) > 0 ||
+      Number(lote.cantidadDisponible) > 0 ||
+      tieneFechaEntrada ||
+      ['EN_STOCK', 'VENDIDO_PARCIAL', 'AGOTADO'].includes(lote.estadoLote)
+    );
+  }
+
+  private async validarEdicionSegura(
+    manager: EntityManager,
+    pedidoActual: PedidoCompraEntity,
+    dto: UpdatePedidoDto,
+  ): Promise<void> {
+    if (pedidoActual.estado === 'CANCELADO') {
+      throw new ConflictException('No se puede modificar un pedido cancelado.');
+    }
+
+    if (!this.tieneCambiosEstructurales(dto)) {
+      return;
+    }
+
+    const lotes = await manager.getRepository(LoteProducto).find({
+      where: {
+        idPedido: pedidoActual.idPedido,
+      },
+    });
+
+    const loteIds = lotes.map((lote) => lote.idLote);
+
+    let cantidadDetallesVenta = 0;
+
+    if (loteIds.length > 0) {
+      cantidadDetallesVenta = await manager.getRepository(DetalleVenta).count({
+        where: {
+          idLote: In(loteIds),
+        },
+      });
+    }
+
+    if (cantidadDetallesVenta > 0) {
+      throw new ConflictException(
+        'No se puede modificar estructuralmente el pedido porque uno o más lotes ya fueron utilizados en ventas.',
+      );
+    }
+
+    const tieneInventarioMaterializado = lotes.some((lote) =>
+      this.loteTieneInventarioMaterializado(lote),
+    );
+
+    if (pedidoActual.estado === 'RECIBIDO' || tieneInventarioMaterializado) {
+      throw new ConflictException(
+        'No se puede modificar estructuralmente el pedido porque ya tiene mercancía recibida o inventario generado.',
+      );
+    }
+
+    const cambiaMoneda =
+      dto.monedaCompra !== undefined &&
+      dto.monedaCompra !== pedidoActual.monedaCompra;
+
+    const cambiaTipoCambio =
+      dto.tipoCambio !== undefined &&
+      Number(dto.tipoCambio) !== Number(pedidoActual.tipoCambio);
+
+    if ((cambiaMoneda || cambiaTipoCambio) && dto.detalles === undefined) {
+      throw new BadRequestException(
+        'Para cambiar la moneda o el tipo de cambio debe enviar también los detalles del pedido para recalcular sus costos.',
+      );
     }
   }
 
