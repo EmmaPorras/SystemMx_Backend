@@ -10,6 +10,7 @@ import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
+import { InventarioService } from '../inventario/inventario.service';
 import { CreateVentaDetalleDto, CreateVentaDto } from './dto/create-venta.dto';
 import { UpdatePagoVentaDto } from './dto/update-pago-venta.dto';
 
@@ -30,6 +31,7 @@ type LoteAsignado = {
 };
 
 type DetalleVentaCalculado = {
+  lote: LoteProducto;
   idProducto: number;
   idLote: number;
   cantidad: number;
@@ -56,6 +58,8 @@ export class VentasService {
 
     @InjectRepository(VentaEntity)
     private readonly ventasRepository: Repository<VentaEntity>,
+
+    private readonly inventarioService: InventarioService,
   ) {}
 
   async findAll(filters: FindAllVentasFilters = {}) {
@@ -234,6 +238,13 @@ export class VentasService {
         });
 
         await manager.save(DetalleVenta, detalle);
+
+        await this.inventarioService.registrarMovimiento(manager, {
+          lote: detalleCalculado.lote,
+          tipoMovimiento: 'SALIDA_VENTA',
+          cantidad: detalleCalculado.cantidad,
+          referenciaId: ventaGuardada.idVenta,
+        });
       }
     });
 
@@ -428,6 +439,7 @@ export class VentasService {
       const gananciaBruta = this.redondear(baseImponible - costoTotal);
 
       return {
+        lote: asignacion.lote,
         idProducto: detalleDto.productoId,
         idLote: asignacion.lote.idLote,
         cantidad: asignacion.cantidad,
@@ -471,15 +483,17 @@ export class VentasService {
       );
     }
 
-    const lote = await manager.getRepository(LoteProducto).findOne({
-      where: {
-        idLote: detalleDto.loteId,
-        idProducto: detalleDto.productoId,
-      },
-      relations: {
-        producto: true,
-      },
-    });
+    const lote = await manager
+      .getRepository(LoteProducto)
+      .createQueryBuilder('lote')
+      .setLock('pessimistic_write')
+      .where('lote.idLote = :loteId', {
+        loteId: detalleDto.loteId,
+      })
+      .andWhere('lote.idProducto = :productoId', {
+        productoId: detalleDto.productoId,
+      })
+      .getOne();
 
     if (!lote) {
       throw new NotFoundException('Lote no encontrado para ese producto.');
@@ -516,20 +530,20 @@ export class VentasService {
     manager: EntityManager,
     detalleDto: CreateVentaDetalleDto,
   ): Promise<LoteAsignado[]> {
-    const lotesDisponibles = await manager.getRepository(LoteProducto).find({
-      where: {
-        idProducto: detalleDto.productoId,
-        cantidadDisponible: MoreThan(0),
-        estadoLote: In(['EN_STOCK', 'VENDIDO_PARCIAL']),
-      },
-      relations: {
-        producto: true,
-      },
-      order: {
-        fechaEntrada: 'ASC',
-        idLote: 'ASC',
-      },
-    });
+    const lotesDisponibles = await manager
+      .getRepository(LoteProducto)
+      .createQueryBuilder('lote')
+      .setLock('pessimistic_write')
+      .where('lote.idProducto = :productoId', {
+        productoId: detalleDto.productoId,
+      })
+      .andWhere('lote.cantidadDisponible > 0')
+      .andWhere('lote.estadoLote IN (:...estados)', {
+        estados: ['EN_STOCK', 'VENDIDO_PARCIAL'],
+      })
+      .orderBy('lote.fechaEntrada', 'ASC')
+      .addOrderBy('lote.idLote', 'ASC')
+      .getMany();
 
     if (lotesDisponibles.length === 0) {
       throw new BadRequestException(
@@ -572,7 +586,20 @@ export class VentasService {
     lote: LoteProducto,
     cantidadVendida: number,
   ) {
+    if (!Number.isInteger(cantidadVendida) || cantidadVendida <= 0) {
+      throw new BadRequestException(
+        'La cantidad vendida debe ser un entero positivo.',
+      );
+    }
+
     const disponibleActual = Number(lote.cantidadDisponible);
+
+    if (!Number.isInteger(disponibleActual) || disponibleActual < 0) {
+      throw new ConflictException(
+        `El lote ${lote.idLote} contiene un stock inválido.`,
+      );
+    }
+
     const nuevoDisponible = disponibleActual - cantidadVendida;
 
     if (nuevoDisponible < 0) {
