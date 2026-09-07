@@ -69,6 +69,7 @@ describe('AuthService', () => {
         passwordHash: '$argon2id$v=19$hashReal',
         rol: RolUsuario.ADMIN,
         activo: true,
+        versionCredenciales: 1,
       };
 
       usuariosServiceMock.buscarParaAutenticacion.mockResolvedValue(
@@ -94,10 +95,17 @@ describe('AuthService', () => {
         {
           sub: 1,
           username: 'admin',
+          ver: 1,
         },
         {
           expiresIn: 3600,
         },
+      );
+      expect(jwtServiceMock.signAsync).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          rol: expect.anything() as unknown,
+        }),
+        expect.anything(),
       );
 
       expect(resultado).toEqual({

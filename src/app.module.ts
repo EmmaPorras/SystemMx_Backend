@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { validateEnvironment } from './config/env.validation';
 import { CategoriasModule } from './modules/categorias/categorias.module';
 import { InventarioModule } from './modules/inventario/inventario.module';
 import { ProductosModule } from './modules/productos/productos.module';
@@ -16,6 +17,7 @@ import { AuthModule } from './modules/auth/auth.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnvironment,
     }),
 
     TypeOrmModule.forRootAsync({

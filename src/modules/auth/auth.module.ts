@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { obtenerJwtExpiresSeconds, obtenerJwtSecret } from './auth.config';
@@ -13,6 +14,15 @@ import { RolesGuard } from './roles.guard';
 @Module({
   imports: [
     UsuariosModule,
+
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60_000,
+          limit: 120,
+        },
+      ],
+    }),
 
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -33,6 +43,10 @@ import { RolesGuard } from './roles.guard';
     AuthService,
     JwtAuthGuard,
     RolesGuard,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useExisting: JwtAuthGuard,

@@ -8,12 +8,13 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 
+import { UsuarioPublico } from '../usuarios/usuarios.types';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { JwtPayload } from './auth.types';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
 type AuthenticatedRequest = Request & {
-  user?: Awaited<ReturnType<UsuariosService['findOne']>>;
+  user?: UsuarioPublico;
 };
 
 @Injectable()
@@ -50,18 +51,24 @@ export class JwtAuthGuard implements CanActivate {
       if (
         !Number.isInteger(payload.sub) ||
         payload.sub <= 0 ||
-        typeof payload.username !== 'string'
+        typeof payload.username !== 'string' ||
+        !Number.isInteger(payload.ver) ||
+        payload.ver <= 0
       ) {
         throw new Error('Payload inválido');
       }
 
-      const usuario = await this.usuariosService.findOne(payload.sub);
+      const sesion = await this.usuariosService.buscarParaSesion(payload.sub);
 
-      if (!usuario.activo) {
-        throw new Error('Usuario inactivo');
+      if (!sesion || !sesion.usuario.activo) {
+        throw new Error('Usuario inválido');
       }
 
-      request.user = usuario;
+      if (payload.ver !== sesion.versionCredenciales) {
+        throw new Error('Token revocado');
+      }
+
+      request.user = sesion.usuario;
 
       return true;
     } catch {

@@ -168,6 +168,32 @@ export class UsuariosService {
       .getOne();
   }
 
+  async buscarParaSesion(id: number): Promise<{
+    usuario: UsuarioPublico;
+    versionCredenciales: number;
+  } | null> {
+    const usuarioId = Number(id);
+
+    if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+      return null;
+    }
+
+    const usuario = await this.usuariosRepository.findOne({
+      where: {
+        idUsuario: usuarioId,
+      },
+    });
+
+    if (!usuario) {
+      return null;
+    }
+
+    return {
+      usuario: this.mapearUsuario(usuario),
+      versionCredenciales: Number(usuario.versionCredenciales),
+    };
+  }
+
   async cambiarPassword(
     id: number,
     nuevaPassword: string,
@@ -184,21 +210,30 @@ export class UsuariosService {
       );
     }
 
-    const usuario = await this.usuariosRepository.findOne({
-      where: {
-        idUsuario: usuarioId,
-      },
+    const passwordHash = await this.passwordHasher.hash(nuevaPassword);
+
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(Usuario);
+
+      const usuario = await repository
+        .createQueryBuilder('usuario')
+        .setLock('pessimistic_write')
+        .where('usuario.idUsuario = :usuarioId', {
+          usuarioId,
+        })
+        .getOne();
+
+      if (!usuario) {
+        throw new NotFoundException('Usuario no encontrado.');
+      }
+
+      usuario.passwordHash = passwordHash;
+      usuario.versionCredenciales = Number(usuario.versionCredenciales) + 1;
+
+      const guardado = await repository.save(usuario);
+
+      return this.mapearUsuario(guardado);
     });
-
-    if (!usuario) {
-      throw new NotFoundException('Usuario no encontrado.');
-    }
-
-    usuario.passwordHash = await this.passwordHasher.hash(nuevaPassword);
-
-    const guardado = await this.usuariosRepository.save(usuario);
-
-    return this.mapearUsuario(guardado);
   }
 
   async cambiarEstado(id: number, activo: boolean): Promise<UsuarioPublico> {
@@ -238,6 +273,10 @@ export class UsuariosService {
         throw new ConflictException(
           'No se puede desactivar el último administrador activo.',
         );
+      }
+
+      if (usuario.activo && !activo) {
+        usuario.versionCredenciales = Number(usuario.versionCredenciales) + 1;
       }
 
       usuario.activo = activo;

@@ -43,6 +43,7 @@ export class AuthService {
       {
         sub: usuario.idUsuario,
         username: usuario.username,
+        ver: usuario.versionCredenciales,
       },
       {
         expiresIn,

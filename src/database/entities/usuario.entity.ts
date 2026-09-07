@@ -20,6 +20,7 @@ import { RolUsuario } from '../../modules/usuarios/rol-usuario.enum';
   'LEN(LTRIM(RTRIM([username_normalizado]))) >= 3',
 )
 @Check('CK_usuario_rol_valido', "[rol] IN ('ADMIN', 'OPERADOR', 'CONSULTA')")
+@Check('CK_usuario_version_credenciales', '[version_credenciales] >= 1')
 export class Usuario {
   @PrimaryGeneratedColumn({
     name: 'id_usuario',
@@ -69,6 +70,13 @@ export class Usuario {
     default: () => '1',
   })
   activo!: boolean;
+
+  @Column({
+    name: 'version_credenciales',
+    type: 'int',
+    default: 1,
+  })
+  versionCredenciales!: number;
 
   @CreateDateColumn({
     name: 'created_at',

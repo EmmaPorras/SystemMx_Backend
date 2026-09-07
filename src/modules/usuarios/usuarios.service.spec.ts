@@ -312,8 +312,66 @@ describe('UsuariosService', () => {
     });
   });
 
+  describe('buscarParaSesion()', () => {
+    it('debe retornar usuario público y versionCredenciales sin exponer passwordHash', async () => {
+      const usuario: Usuario = {
+        idUsuario: 1,
+        username: 'admin',
+        usernameNormalizado: 'admin',
+        nombre: 'Administrador',
+        passwordHash: '$argon2id$hash-secreto',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        versionCredenciales: 3,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      usuariosRepositoryMock.findOne.mockResolvedValue(usuario);
+
+      const resultado = await service.buscarParaSesion(1);
+
+      expect(resultado).toBeDefined();
+      expect(resultado?.usuario.idUsuario).toBe(1);
+      expect(resultado?.usuario.username).toBe('admin');
+      expect(resultado?.usuario.rol).toBe(RolUsuario.ADMIN);
+      expect(resultado?.versionCredenciales).toBe(3);
+      expect(resultado).not.toHaveProperty('passwordHash');
+      expect(resultado?.usuario).not.toHaveProperty('passwordHash');
+    });
+
+    it('debe retornar null si el usuario no existe', async () => {
+      usuariosRepositoryMock.findOne.mockResolvedValue(null);
+
+      const resultado = await service.buscarParaSesion(999);
+      expect(resultado).toBeNull();
+    });
+
+    it('debe retornar null si el ID es 0, negativo o inválido', async () => {
+      expect(await service.buscarParaSesion(0)).toBeNull();
+      expect(await service.buscarParaSesion(-5)).toBeNull();
+      expect(await service.buscarParaSesion(1.5)).toBeNull();
+    });
+  });
+
   describe('cambiarPassword()', () => {
-    it('debe re-hashear la nueva contraseña y actualizar el usuario', async () => {
+    const setupPasswordRepoTransaction = (targetUsuario: Usuario | null) => {
+      const qb = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(targetUsuario),
+      };
+
+      const repoMock = {
+        createQueryBuilder: jest.fn().mockReturnValue(qb),
+        save: jest.fn().mockImplementation((u: Usuario) => Promise.resolve(u)),
+      };
+
+      mockTransactionManager.getRepository.mockReturnValue(repoMock);
+      return { repoMock, qb };
+    };
+
+    it('debe re-hashear la nueva contraseña, aplicar pessimistic_write lock e incrementar versionCredenciales', async () => {
       const usuario: Usuario = {
         idUsuario: 1,
         username: 'admin',
@@ -322,15 +380,13 @@ describe('UsuariosService', () => {
         passwordHash: '$argon2id$hashAnterior',
         rol: RolUsuario.ADMIN,
         activo: true,
+        versionCredenciales: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      usuariosRepositoryMock.findOne.mockResolvedValue(usuario);
+      const { repoMock, qb } = setupPasswordRepoTransaction(usuario);
       passwordHasherMock.hash.mockResolvedValue('$argon2id$hashNuevo');
-      usuariosRepositoryMock.save.mockImplementation((u: Usuario) =>
-        Promise.resolve(u),
-      );
 
       const resultado = await service.cambiarPassword(
         1,
@@ -340,9 +396,36 @@ describe('UsuariosService', () => {
       expect(passwordHasherMock.hash).toHaveBeenCalledWith(
         'NuevaClaveSuperSegura123',
       );
+      expect(qb.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(usuario.passwordHash).toBe('$argon2id$hashNuevo');
-      expect(usuariosRepositoryMock.save).toHaveBeenCalledWith(usuario);
+      expect(usuario.versionCredenciales).toBe(2);
+      expect(repoMock.save).toHaveBeenCalledWith(usuario);
       expect(resultado).not.toHaveProperty('passwordHash');
+    });
+
+    it('debe incrementar versionCredenciales consecutivamente en múltiples cambios (1 -> 2 -> 3)', async () => {
+      const usuario: Usuario = {
+        idUsuario: 1,
+        username: 'admin',
+        usernameNormalizado: 'admin',
+        nombre: 'Admin',
+        passwordHash: '$argon2id$hash1',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        versionCredenciales: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      setupPasswordRepoTransaction(usuario);
+      passwordHasherMock.hash.mockResolvedValue('$argon2id$hash2');
+
+      await service.cambiarPassword(1, 'NuevaClaveSuperSegura123');
+      expect(usuario.versionCredenciales).toBe(2);
+
+      passwordHasherMock.hash.mockResolvedValue('$argon2id$hash3');
+      await service.cambiarPassword(1, 'OtraClaveSuperSegura456');
+      expect(usuario.versionCredenciales).toBe(3);
     });
 
     it('debe lanzar BadRequestException si la contraseña tiene menos de 12 caracteres', async () => {
@@ -358,7 +441,8 @@ describe('UsuariosService', () => {
     });
 
     it('debe lanzar NotFoundException si el usuario no existe al cambiar contraseña', async () => {
-      usuariosRepositoryMock.findOne.mockResolvedValue(null);
+      setupPasswordRepoTransaction(null);
+      passwordHasherMock.hash.mockResolvedValue('$argon2id$hash');
 
       await expect(
         service.cambiarPassword(999, 'NuevaClaveSuperSegura123'),
@@ -411,7 +495,7 @@ describe('UsuariosService', () => {
       return repoMock;
     };
 
-    it('debe desactivar un operador sin afectar el conteo de admins', async () => {
+    it('debe desactivar un operador, incrementar versionCredenciales y no afectar el conteo de admins', async () => {
       const adminActivo: Usuario = {
         idUsuario: 1,
         username: 'admin',
@@ -420,6 +504,7 @@ describe('UsuariosService', () => {
         passwordHash: '$argon2id$hash',
         rol: RolUsuario.ADMIN,
         activo: true,
+        versionCredenciales: 3,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -432,6 +517,7 @@ describe('UsuariosService', () => {
         passwordHash: '$argon2id$hash',
         rol: RolUsuario.OPERADOR,
         activo: true,
+        versionCredenciales: 3,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -441,8 +527,46 @@ describe('UsuariosService', () => {
       const resultado = await service.cambiarEstado(2, false);
 
       expect(operador.activo).toBe(false);
+      expect(operador.versionCredenciales).toBe(4);
       expect(repoMock.save).toHaveBeenCalledWith(operador);
       expect(resultado.activo).toBe(false);
+    });
+
+    it('al reactivar usuario no debe incrementar versionCredenciales (mantiene versión)', async () => {
+      const adminActivo: Usuario = {
+        idUsuario: 1,
+        username: 'admin',
+        usernameNormalizado: 'admin',
+        nombre: 'Admin',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        versionCredenciales: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const operadorInactivo: Usuario = {
+        idUsuario: 2,
+        username: 'operador',
+        usernameNormalizado: 'operador',
+        nombre: 'Operador',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.OPERADOR,
+        activo: false,
+        versionCredenciales: 4,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const repoMock = setupRepoTransaction([adminActivo], operadorInactivo);
+
+      const resultado = await service.cambiarEstado(2, true);
+
+      expect(operadorInactivo.activo).toBe(true);
+      expect(operadorInactivo.versionCredenciales).toBe(4);
+      expect(repoMock.save).toHaveBeenCalledWith(operadorInactivo);
+      expect(resultado.activo).toBe(true);
     });
 
     it('debe lanzar ConflictException si se intenta desactivar el último ADMIN activo', async () => {
@@ -454,6 +578,7 @@ describe('UsuariosService', () => {
         passwordHash: '$argon2id$hash',
         rol: RolUsuario.ADMIN,
         activo: true,
+        versionCredenciales: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -474,6 +599,7 @@ describe('UsuariosService', () => {
         passwordHash: '$argon2id$hash',
         rol: RolUsuario.ADMIN,
         activo: true,
+        versionCredenciales: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -486,6 +612,7 @@ describe('UsuariosService', () => {
         passwordHash: '$argon2id$hash',
         rol: RolUsuario.ADMIN,
         activo: true,
+        versionCredenciales: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -495,6 +622,7 @@ describe('UsuariosService', () => {
       const resultado = await service.cambiarEstado(1, false);
 
       expect(admin1.activo).toBe(false);
+      expect(admin1.versionCredenciales).toBe(2);
       expect(repoMock.save).toHaveBeenCalledWith(admin1);
       expect(resultado.activo).toBe(false);
     });

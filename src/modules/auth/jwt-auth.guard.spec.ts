@@ -15,7 +15,7 @@ describe('JwtAuthGuard', () => {
   };
 
   const usuariosServiceMock = {
-    findOne: jest.fn(),
+    buscarParaSesion: jest.fn(),
   };
 
   const reflectorMock = {
@@ -82,7 +82,7 @@ describe('JwtAuthGuard', () => {
       [mockHandler, mockClass],
     );
     expect(jwtServiceMock.verifyAsync).not.toHaveBeenCalled();
-    expect(usuariosServiceMock.findOne).not.toHaveBeenCalled();
+    expect(usuariosServiceMock.buscarParaSesion).not.toHaveBeenCalled();
   });
 
   it('debe rechazar si no es pública y no existe header Authorization', async () => {
@@ -133,6 +133,38 @@ describe('JwtAuthGuard', () => {
     jwtServiceMock.verifyAsync.mockResolvedValue({
       sub: -1,
       username: 'admin',
+      ver: 1,
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('debe rechazar si el payload no tiene versión (token anterior a 8G)', async () => {
+    const context = crearContexto({
+      authorization: 'Bearer token.sin.ver',
+    });
+
+    jwtServiceMock.verifyAsync.mockResolvedValue({
+      sub: 1,
+      username: 'admin',
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('debe rechazar si el payload tiene ver <= 0', async () => {
+    const context = crearContexto({
+      authorization: 'Bearer token.ver.cero',
+    });
+
+    jwtServiceMock.verifyAsync.mockResolvedValue({
+      sub: 1,
+      username: 'admin',
+      ver: 0,
     });
 
     await expect(guard.canActivate(context)).rejects.toThrow(
@@ -148,10 +180,9 @@ describe('JwtAuthGuard', () => {
     jwtServiceMock.verifyAsync.mockResolvedValue({
       sub: 999,
       username: 'admin',
+      ver: 1,
     });
-    usuariosServiceMock.findOne.mockRejectedValue(
-      new Error('Usuario no encontrado'),
-    );
+    usuariosServiceMock.buscarParaSesion.mockResolvedValue(null);
 
     await expect(guard.canActivate(context)).rejects.toThrow(
       UnauthorizedException,
@@ -166,11 +197,15 @@ describe('JwtAuthGuard', () => {
     jwtServiceMock.verifyAsync.mockResolvedValue({
       sub: 1,
       username: 'admin',
+      ver: 1,
     });
-    usuariosServiceMock.findOne.mockResolvedValue({
-      idUsuario: 1,
-      username: 'admin',
-      activo: false,
+    usuariosServiceMock.buscarParaSesion.mockResolvedValue({
+      usuario: {
+        idUsuario: 1,
+        username: 'admin',
+        activo: false,
+      },
+      versionCredenciales: 1,
     });
 
     await expect(guard.canActivate(context)).rejects.toThrow(
@@ -178,7 +213,31 @@ describe('JwtAuthGuard', () => {
     );
   });
 
-  it('debe permitir acceso y asignar request.user si token es válido y usuario activo', async () => {
+  it('debe rechazar con 401 si la versión del token no coincide con versionCredenciales (Token revocado)', async () => {
+    const context = crearContexto({
+      authorization: 'Bearer token.revocado',
+    });
+
+    jwtServiceMock.verifyAsync.mockResolvedValue({
+      sub: 1,
+      username: 'admin',
+      ver: 1,
+    });
+    usuariosServiceMock.buscarParaSesion.mockResolvedValue({
+      usuario: {
+        idUsuario: 1,
+        username: 'admin',
+        activo: true,
+      },
+      versionCredenciales: 2,
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('debe permitir acceso y asignar request.user si token es válido, versión coincide y usuario activo', async () => {
     const context = crearContexto({
       authorization: 'Bearer token.valido.jwt',
     });
@@ -195,13 +254,17 @@ describe('JwtAuthGuard', () => {
     jwtServiceMock.verifyAsync.mockResolvedValue({
       sub: 1,
       username: 'admin',
+      ver: 2,
     });
-    usuariosServiceMock.findOne.mockResolvedValue(usuarioPublico);
+    usuariosServiceMock.buscarParaSesion.mockResolvedValue({
+      usuario: usuarioPublico,
+      versionCredenciales: 2,
+    });
 
     const resultado = await guard.canActivate(context);
 
     expect(resultado).toBe(true);
-    expect(usuariosServiceMock.findOne).toHaveBeenCalledWith(1);
+    expect(usuariosServiceMock.buscarParaSesion).toHaveBeenCalledWith(1);
 
     const request = context.switchToHttp().getRequest<{ user?: unknown }>();
     expect(request.user).toEqual(usuarioPublico);
