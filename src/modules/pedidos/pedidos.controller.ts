@@ -13,8 +13,10 @@ import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { RecepcionPedidoDto } from './dto/recepcion-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
 import { PedidosService } from './pedidos.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolUsuario } from '../usuarios/rol-usuario.enum';
+import type { UsuarioPublico } from '../usuarios/usuarios.types';
 
 @Controller('pedidos')
 export class PedidosController {
@@ -46,8 +48,9 @@ export class PedidosController {
   recibir(
     @Param('id', ParseIntPipe) id: number,
     @Body() recepcionPedidoDto: RecepcionPedidoDto,
+    @CurrentUser() usuario: UsuarioPublico,
   ) {
-    return this.pedidosService.recibir(id, recepcionPedidoDto);
+    return this.pedidosService.recibir(id, recepcionPedidoDto, usuario);
   }
 
   @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)

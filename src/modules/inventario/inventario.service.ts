@@ -141,6 +141,7 @@ export class InventarioService {
       cantidad: Number(movimiento.cantidad),
       referenciaTipo: movimiento.referenciaTipo,
       referenciaId: movimiento.referenciaId,
+      idUsuario: movimiento.idUsuario ?? null,
       usuario: movimiento.usuario ?? null,
       motivo: movimiento.motivo,
       observaciones: movimiento.observaciones ?? null,
@@ -338,6 +339,12 @@ export class InventarioService {
       });
     }
 
+    if (dto.usuarioId !== undefined) {
+      query.andWhere('movimiento.idUsuario = :usuarioId', {
+        usuarioId: dto.usuarioId,
+      });
+    }
+
     if (dto.desde) {
       query.andWhere('CONVERT(date, movimiento.fechaMovimiento) >= :desde', {
         desde: dto.desde.slice(0, 10),
@@ -472,6 +479,20 @@ export class InventarioService {
       );
     }
 
+    if (
+      !input.actor ||
+      !Number.isInteger(input.actor.idUsuario) ||
+      input.actor.idUsuario <= 0
+    ) {
+      throw new ConflictException('El usuario de auditoría es inválido.');
+    }
+
+    const username = input.actor.username?.trim();
+
+    if (!username) {
+      throw new ConflictException('El usuario de auditoría es inválido.');
+    }
+
     const costoUnitario = Number(lote.costoUnitarioReal);
 
     if (!Number.isFinite(costoUnitario) || costoUnitario < 0) {
@@ -495,7 +516,8 @@ export class InventarioService {
 
       referenciaId,
 
-      usuario: this.normalizarTextoOpcional(input.usuario),
+      idUsuario: input.actor.idUsuario,
+      usuario: username,
 
       motivo:
         this.normalizarTextoOpcional(input.motivo) ??

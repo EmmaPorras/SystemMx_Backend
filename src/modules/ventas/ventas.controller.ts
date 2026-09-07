@@ -12,8 +12,10 @@ import {
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { RegistrarPagoVentaDto } from './dto/registrar-pago-venta.dto';
 import { VentasService } from './ventas.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolUsuario } from '../usuarios/rol-usuario.enum';
+import type { UsuarioPublico } from '../usuarios/usuarios.types';
 
 @Controller('ventas')
 export class VentasController {
@@ -47,8 +49,8 @@ export class VentasController {
 
   @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
   @Post()
-  create(@Body() dto: CreateVentaDto) {
-    return this.ventasService.create(dto);
+  create(@Body() dto: CreateVentaDto, @CurrentUser() usuario: UsuarioPublico) {
+    return this.ventasService.create(dto, usuario);
   }
 
   @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
@@ -56,8 +58,9 @@ export class VentasController {
   registrarPago(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: RegistrarPagoVentaDto,
+    @CurrentUser() usuario: UsuarioPublico,
   ) {
-    return this.ventasService.registrarPago(id, dto);
+    return this.ventasService.registrarPago(id, dto, usuario);
   }
 
   @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
@@ -74,7 +77,10 @@ export class VentasController {
 
   @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
   @Patch(':id/anular')
-  anularVenta(@Param('id', ParseIntPipe) id: number) {
-    return this.ventasService.anularVenta(id);
+  anularVenta(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() usuario: UsuarioPublico,
+  ) {
+    return this.ventasService.anularVenta(id, usuario);
   }
 }

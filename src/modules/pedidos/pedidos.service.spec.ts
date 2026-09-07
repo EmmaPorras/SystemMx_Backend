@@ -716,6 +716,11 @@ describe('PedidosService', () => {
   });
 
   describe('recibir', () => {
+    const actor = {
+      idUsuario: 2,
+      username: 'operador1',
+    };
+
     const recepcionDto: RecepcionPedidoDto = {
       fechaRecepcion: '2026-09-03',
       detalles: [{ idLote: 10, cantidadRecibida: 3 }],
@@ -747,7 +752,7 @@ describe('PedidosService', () => {
 
       pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
 
-      const resultado = await service.recibir(1, recepcionDto);
+      const resultado = await service.recibir(1, recepcionDto, actor);
       expect(resultado).toBeDefined();
       expect(lote.cantidadRecibida).toBe(3);
       expect(lote.cantidadDisponible).toBe(3);
@@ -785,10 +790,14 @@ describe('PedidosService', () => {
 
       pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
 
-      await service.recibir(1, {
-        fechaRecepcion: '2026-09-05',
-        detalles: [{ idLote: 10, cantidadRecibida: 2 }],
-      });
+      await service.recibir(
+        1,
+        {
+          fechaRecepcion: '2026-09-05',
+          detalles: [{ idLote: 10, cantidadRecibida: 2 }],
+        },
+        actor,
+      );
 
       expect(lote.cantidadRecibida).toBe(5);
       expect(lote.cantidadDisponible).toBe(5);
@@ -814,10 +823,14 @@ describe('PedidosService', () => {
       loteRepoMock.createQueryBuilder.mockReturnValue(qbWrapper(loteQb));
 
       await expect(
-        service.recibir(1, {
-          fechaRecepcion: '2026-09-05',
-          detalles: [{ idLote: 10, cantidadRecibida: 4 }],
-        }),
+        service.recibir(
+          1,
+          {
+            fechaRecepcion: '2026-09-05',
+            detalles: [{ idLote: 10, cantidadRecibida: 4 }],
+          },
+          actor,
+        ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -847,10 +860,14 @@ describe('PedidosService', () => {
 
       pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
 
-      await service.recibir(1, {
-        fechaRecepcion: '2026-09-08',
-        detalles: [{ idLote: 10, cantidadRecibida: 5 }],
-      });
+      await service.recibir(
+        1,
+        {
+          fechaRecepcion: '2026-09-08',
+          detalles: [{ idLote: 10, cantidadRecibida: 5 }],
+        },
+        actor,
+      );
 
       expect(pedido.estado).toBe('RECIBIDO');
       expect(pedido.fechaRecepcion).toBe('2026-09-08');
@@ -864,9 +881,9 @@ describe('PedidosService', () => {
         qbWrapper(pedidoQb),
       );
 
-      await expect(service.recibir(1, recepcionDto)).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.recibir(1, recepcionDto, actor),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('debe rechazar recepción en pedido ya completamente RECIBIDO con 409', async () => {
@@ -877,9 +894,9 @@ describe('PedidosService', () => {
         qbWrapper(pedidoQb),
       );
 
-      await expect(service.recibir(1, recepcionDto)).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.recibir(1, recepcionDto, actor),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('debe rechazar lote duplicado en el mismo DTO con 400', async () => {
@@ -891,13 +908,17 @@ describe('PedidosService', () => {
       );
 
       await expect(
-        service.recibir(1, {
-          fechaRecepcion: '2026-09-05',
-          detalles: [
-            { idLote: 10, cantidadRecibida: 1 },
-            { idLote: 10, cantidadRecibida: 1 },
-          ],
-        }),
+        service.recibir(
+          1,
+          {
+            fechaRecepcion: '2026-09-05',
+            detalles: [
+              { idLote: 10, cantidadRecibida: 1 },
+              { idLote: 10, cantidadRecibida: 1 },
+            ],
+          },
+          actor,
+        ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -916,10 +937,14 @@ describe('PedidosService', () => {
       loteRepoMock.createQueryBuilder.mockReturnValue(qbWrapper(loteQb));
 
       await expect(
-        service.recibir(1, {
-          fechaRecepcion: '2026-09-05',
-          detalles: [{ idLote: 999, cantidadRecibida: 1 }],
-        }),
+        service.recibir(
+          1,
+          {
+            fechaRecepcion: '2026-09-05',
+            detalles: [{ idLote: 999, cantidadRecibida: 1 }],
+          },
+          actor,
+        ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -932,10 +957,14 @@ describe('PedidosService', () => {
       );
 
       await expect(
-        service.recibir(1, {
-          fechaRecepcion: '2026-09-04',
-          detalles: [{ idLote: 10, cantidadRecibida: 1 }],
-        }),
+        service.recibir(
+          1,
+          {
+            fechaRecepcion: '2026-09-04',
+            detalles: [{ idLote: 10, cantidadRecibida: 1 }],
+          },
+          actor,
+        ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -959,10 +988,14 @@ describe('PedidosService', () => {
       loteRepoMock.createQueryBuilder.mockReturnValue(qbWrapper(loteQb));
 
       await expect(
-        service.recibir(1, {
-          fechaRecepcion: '2026-09-04',
-          detalles: [{ idLote: 10, cantidadRecibida: 1 }],
-        }),
+        service.recibir(
+          1,
+          {
+            fechaRecepcion: '2026-09-04',
+            detalles: [{ idLote: 10, cantidadRecibida: 1 }],
+          },
+          actor,
+        ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -982,7 +1015,7 @@ describe('PedidosService', () => {
 
       pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
 
-      await service.recibir(1, recepcionDto);
+      await service.recibir(1, recepcionDto, actor);
       expect(pedidoQb.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(loteQb.setLock).toHaveBeenCalledWith('pessimistic_write');
     });
@@ -1010,17 +1043,21 @@ describe('PedidosService', () => {
 
       pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
 
-      await service.recibir(1, {
-        fechaRecepcion: '2026-09-05',
-        detalles: [{ idLote: 10, cantidadRecibida: 2 }],
-      });
+      await service.recibir(
+        1,
+        {
+          fechaRecepcion: '2026-09-05',
+          detalles: [{ idLote: 10, cantidadRecibida: 2 }],
+        },
+        actor,
+      );
 
       expect(lote.cantidadRecibida).toBe(7);
       expect(lote.cantidadDisponible).toBe(5);
       expect(lote.estadoLote).toBe('VENDIDO_PARCIAL');
     });
 
-    it('32 & 33. debe registrar movimiento ENTRADA_COMPRA con cantidad incremental', async () => {
+    it('32 & 33. debe registrar movimiento ENTRADA_COMPRA con cantidad incremental y actor', async () => {
       const pedido = crearPedido({ idPedido: 1, fechaPedido: '2026-09-01' });
       const lote = crearLote({
         idLote: 10,
@@ -1042,10 +1079,14 @@ describe('PedidosService', () => {
 
       pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
 
-      await service.recibir(1, {
-        fechaRecepcion: '2026-09-05',
-        detalles: [{ idLote: 10, cantidadRecibida: 2 }],
-      });
+      await service.recibir(
+        1,
+        {
+          fechaRecepcion: '2026-09-05',
+          detalles: [{ idLote: 10, cantidadRecibida: 2 }],
+        },
+        actor,
+      );
 
       expect(inventarioServiceMock.registrarMovimiento).toHaveBeenCalledWith(
         managerMock,
@@ -1054,6 +1095,7 @@ describe('PedidosService', () => {
           tipoMovimiento: 'ENTRADA_COMPRA',
           cantidad: 2,
           referenciaId: 1,
+          actor,
         },
       );
     });
@@ -1085,13 +1127,17 @@ describe('PedidosService', () => {
 
       pedidosRepositoryMock.findOne.mockResolvedValue(pedido);
 
-      await service.recibir(1, {
-        fechaRecepcion: '2026-09-05',
-        detalles: [
-          { idLote: 10, cantidadRecibida: 3 },
-          { idLote: 11, cantidadRecibida: 2 },
-        ],
-      });
+      await service.recibir(
+        1,
+        {
+          fechaRecepcion: '2026-09-05',
+          detalles: [
+            { idLote: 10, cantidadRecibida: 3 },
+            { idLote: 11, cantidadRecibida: 2 },
+          ],
+        },
+        actor,
+      );
 
       expect(inventarioServiceMock.registrarMovimiento).toHaveBeenCalledTimes(
         2,
@@ -1103,6 +1149,7 @@ describe('PedidosService', () => {
           tipoMovimiento: 'ENTRADA_COMPRA',
           cantidad: 3,
           referenciaId: 1,
+          actor,
         },
       );
       expect(inventarioServiceMock.registrarMovimiento).toHaveBeenCalledWith(
@@ -1112,6 +1159,7 @@ describe('PedidosService', () => {
           tipoMovimiento: 'ENTRADA_COMPRA',
           cantidad: 2,
           referenciaId: 1,
+          actor,
         },
       );
     });
@@ -1135,10 +1183,14 @@ describe('PedidosService', () => {
       loteRepoMock.createQueryBuilder.mockReturnValue(qbWrapper(loteQb));
 
       await expect(
-        service.recibir(1, {
-          fechaRecepcion: '2026-09-05',
-          detalles: [{ idLote: 10, cantidadRecibida: 5 }],
-        }),
+        service.recibir(
+          1,
+          {
+            fechaRecepcion: '2026-09-05',
+            detalles: [{ idLote: 10, cantidadRecibida: 5 }],
+          },
+          actor,
+        ),
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(inventarioServiceMock.registrarMovimiento).not.toHaveBeenCalled();
@@ -1168,10 +1220,14 @@ describe('PedidosService', () => {
       );
 
       await expect(
-        service.recibir(1, {
-          fechaRecepcion: '2026-09-05',
-          detalles: [{ idLote: 10, cantidadRecibida: 3 }],
-        }),
+        service.recibir(
+          1,
+          {
+            fechaRecepcion: '2026-09-05',
+            detalles: [{ idLote: 10, cantidadRecibida: 3 }],
+          },
+          actor,
+        ),
       ).rejects.toThrow('Error simulado de movimiento');
     });
   });

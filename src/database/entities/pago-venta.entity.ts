@@ -10,10 +10,12 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+import { Usuario } from './usuario.entity';
 import { VentaEntity } from './venta.entity';
 
 @Entity({ name: 'pago_venta' })
 @Index('IX_pago_venta_id_venta_created', ['idVenta', 'createdAt'])
+@Index('IX_pago_venta_usuario_created', ['idUsuario', 'createdAt'])
 @Check('CK_pago_venta_monto_positivo', '[monto] > 0')
 export class PagoVenta {
   @PrimaryGeneratedColumn({
@@ -26,6 +28,21 @@ export class PagoVenta {
     type: 'int',
   })
   idVenta!: number;
+
+  @Column({
+    name: 'id_usuario',
+    type: 'int',
+    nullable: true,
+  })
+  idUsuario?: number | null;
+
+  @Column({
+    name: 'usuario',
+    type: 'nvarchar',
+    length: 100,
+    nullable: true,
+  })
+  usuario?: string | null;
 
   @Column({
     name: 'metodo_pago',
@@ -80,4 +97,14 @@ export class PagoVenta {
     referencedColumnName: 'idVenta',
   })
   venta!: VentaEntity;
+
+  @ManyToOne(() => Usuario, {
+    nullable: true,
+    onDelete: 'NO ACTION',
+  })
+  @JoinColumn({
+    name: 'id_usuario',
+    referencedColumnName: 'idUsuario',
+  })
+  usuarioSistema?: Usuario | null;
 }

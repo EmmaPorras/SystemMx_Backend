@@ -49,6 +49,12 @@ export class ConsultaMovimientosDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  usuarioId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   pagina?: number = 1;
 
   @IsOptional()

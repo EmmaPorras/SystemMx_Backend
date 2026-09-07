@@ -86,16 +86,29 @@ describe('PedidosController', () => {
     expect(resultado).toEqual(pedidoActualizado);
   });
 
-  it('recibir debe delegar a service.recibir', async () => {
+  it('recibir debe delegar a service.recibir con usuario actor', async () => {
     const dto = {
       fechaRecepcion: '2026-09-06',
       detalles: [{ idLote: 10, cantidadRecibida: 5 }],
     };
+    const usuarioMock = {
+      idUsuario: 2,
+      username: 'operador1',
+      nombre: 'Operador Uno',
+      rol: 'OPERADOR' as const,
+      activo: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
     const pedidoRecibido = { id: 5, estado: 'RECIBIDO' };
     pedidosServiceMock.recibir.mockResolvedValue(pedidoRecibido);
 
-    const resultado = await controller.recibir(5, dto);
-    expect(pedidosServiceMock.recibir).toHaveBeenCalledWith(5, dto);
+    const resultado = await controller.recibir(5, dto, usuarioMock);
+    expect(pedidosServiceMock.recibir).toHaveBeenCalledWith(
+      5,
+      dto,
+      usuarioMock,
+    );
     expect(resultado).toEqual(pedidoRecibido);
   });
 

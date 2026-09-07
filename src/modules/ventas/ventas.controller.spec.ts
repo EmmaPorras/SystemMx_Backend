@@ -59,6 +59,16 @@ describe('VentasController', () => {
     expect(result).toEqual({ id: 1 });
   });
 
+  const mockUsuario = {
+    idUsuario: 2,
+    username: 'operador1',
+    nombre: 'Operador Uno',
+    rol: 'OPERADOR' as const,
+    activo: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
   it('debe crear una nueva venta', async () => {
     const dto: CreateVentaDto = {
       numeroVenta: 1001,
@@ -75,8 +85,8 @@ describe('VentasController', () => {
     };
     (service.create as jest.Mock).mockResolvedValue({ id: 1 });
 
-    const result = await controller.create(dto);
-    expect(service.create).toHaveBeenCalledWith(dto);
+    const result = await controller.create(dto, mockUsuario);
+    expect(service.create).toHaveBeenCalledWith(dto, mockUsuario);
     expect(result).toEqual({ id: 1 });
   });
 
@@ -88,8 +98,8 @@ describe('VentasController', () => {
     };
     (service.registrarPago as jest.Mock).mockResolvedValue({ id: 1 });
 
-    const result = await controller.registrarPago(1, dto);
-    expect(service.registrarPago).toHaveBeenCalledWith(1, dto);
+    const result = await controller.registrarPago(1, dto, mockUsuario);
+    expect(service.registrarPago).toHaveBeenCalledWith(1, dto, mockUsuario);
     expect(result).toEqual({ id: 1 });
   });
 
@@ -125,8 +135,8 @@ describe('VentasController', () => {
       id: 1,
       estadoVenta: 'ANULADA',
     });
-    const result = await controller.anularVenta(1);
-    expect(service.anularVenta).toHaveBeenCalledWith(1);
+    const result = await controller.anularVenta(1, mockUsuario);
+    expect(service.anularVenta).toHaveBeenCalledWith(1, mockUsuario);
     expect(result).toEqual({ id: 1, estadoVenta: 'ANULADA' });
   });
 });

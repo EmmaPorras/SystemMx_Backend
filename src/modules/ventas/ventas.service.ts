@@ -11,6 +11,7 @@ import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
+import { ActorAuditoria } from '../auth/auth.types';
 import { InventarioService } from '../inventario/inventario.service';
 import { CreateVentaDetalleDto, CreateVentaDto } from './dto/create-venta.dto';
 import { RegistrarPagoVentaDto } from './dto/registrar-pago-venta.dto';
@@ -159,7 +160,7 @@ export class VentasService {
     }));
   }
 
-  async create(dto: CreateVentaDto) {
+  async create(dto: CreateVentaDto, actor: ActorAuditoria) {
     await this.validarNumeroVentaDisponible(dto.numeroVenta);
 
     let ventaIdCreada = 0;
@@ -248,11 +249,12 @@ export class VentasService {
           tipoMovimiento: 'SALIDA_VENTA',
           cantidad: detalleCalculado.cantidad,
           referenciaId: ventaGuardada.idVenta,
+          actor,
         });
       }
 
       if (montoPagado > 0) {
-        await this.crearRegistroPago(manager, ventaGuardada, {
+        await this.crearRegistroPago(manager, ventaGuardada, actor, {
           monto: montoPagado,
           metodoPago: dto.medioPago,
         });
@@ -262,7 +264,11 @@ export class VentasService {
     return this.findOne(ventaIdCreada);
   }
 
-  async registrarPago(id: number, dto: RegistrarPagoVentaDto) {
+  async registrarPago(
+    id: number,
+    dto: RegistrarPagoVentaDto,
+    actor: ActorAuditoria,
+  ) {
     const ventaId = this.validarId(id, 'ID de venta inválido.');
 
     await this.dataSource.transaction(async (manager) => {
@@ -326,7 +332,7 @@ export class VentasService {
         );
       }
 
-      await this.crearRegistroPago(manager, venta, {
+      await this.crearRegistroPago(manager, venta, actor, {
         monto,
         metodoPago: dto.metodoPago,
         referencia: dto.referencia,
@@ -377,6 +383,8 @@ export class VentasService {
     return pagos.map((pago) => ({
       idPagoVenta: pago.idPagoVenta,
       idVenta: pago.idVenta,
+      idUsuario: pago.idUsuario ?? null,
+      usuario: pago.usuario ?? null,
       metodoPago: pago.metodoPago,
       monto: Number(pago.monto),
       referencia: pago.referencia ?? null,
@@ -425,7 +433,7 @@ export class VentasService {
     return this.findOne(ventaId);
   }
 
-  async anularVenta(id: number) {
+  async anularVenta(id: number, actor: ActorAuditoria) {
     const ventaId = this.validarId(id, 'ID de venta inválido.');
 
     await this.dataSource.transaction(async (manager) => {
@@ -523,6 +531,7 @@ export class VentasService {
           tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
           cantidad,
           referenciaId: venta.idVenta,
+          actor,
         });
       }
 
@@ -1050,6 +1059,7 @@ export class VentasService {
   private async crearRegistroPago(
     manager: EntityManager,
     venta: VentaEntity,
+    actor: ActorAuditoria,
     input: {
       monto: number;
       metodoPago: string;
@@ -1057,6 +1067,16 @@ export class VentasService {
       observaciones?: string | null;
     },
   ): Promise<PagoVenta> {
+    if (!actor || !Number.isInteger(actor.idUsuario) || actor.idUsuario <= 0) {
+      throw new ConflictException('El usuario de auditoría es inválido.');
+    }
+
+    const username = actor.username?.trim();
+
+    if (!username) {
+      throw new ConflictException('El usuario de auditoría es inválido.');
+    }
+
     const monto = this.redondear(input.monto);
 
     if (!Number.isFinite(monto) || monto <= 0) {
@@ -1069,6 +1089,8 @@ export class VentasService {
 
     const pago = pagoRepository.create({
       idVenta: venta.idVenta,
+      idUsuario: actor.idUsuario,
+      usuario: username,
       metodoPago: input.metodoPago,
       monto,
       referencia: this.normalizarTextoOpcional(input.referencia),

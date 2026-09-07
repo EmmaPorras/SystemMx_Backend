@@ -1,4 +1,5 @@
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
+import { ActorAuditoria } from '../auth/auth.types';
 
 export const TIPOS_MOVIMIENTO_INVENTARIO = [
   'ENTRADA_COMPRA',
@@ -27,13 +28,9 @@ export type RegistrarMovimientoInventarioInput = {
    */
   referenciaId: number;
 
-  observaciones?: string | null;
+  actor: ActorAuditoria;
 
-  /**
-   * Hasta que exista Seguridad/Usuarios,
-   * puede mantenerse null.
-   */
-  usuario?: string | null;
+  observaciones?: string | null;
 
   /**
    * Si no viene, InventarioService utiliza

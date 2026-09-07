@@ -8,3 +8,8 @@ export type JwtPayload = {
 export type RequestAutenticado = {
   user: UsuarioPublico;
 };
+
+export type ActorAuditoria = {
+  idUsuario: number;
+  username: string;
+};

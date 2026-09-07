@@ -12,6 +12,7 @@ import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
+import { ActorAuditoria } from '../auth/auth.types';
 import { InventarioService } from '../inventario/inventario.service';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { RegistrarPagoVentaDto } from './dto/registrar-pago-venta.dto';
@@ -36,6 +37,11 @@ describe('VentasService', () => {
   let dataSource: { transaction: jest.Mock };
   let manager: jest.Mocked<EntityManager>;
   let managerSaveMock: jest.Mock;
+
+  const actor: ActorAuditoria = {
+    idUsuario: 2,
+    username: 'operador1',
+  };
 
   const crearQueryBuilderMock = (): MockQueryBuilder => {
     const qb: MockQueryBuilder = {
@@ -133,6 +139,8 @@ describe('VentasService', () => {
   const crearPagoVenta = (overrides: Partial<PagoVenta> = {}): PagoVenta => ({
     idPagoVenta: 1,
     idVenta: 100,
+    idUsuario: 2,
+    usuario: 'operador1',
     metodoPago: 'EFECTIVO',
     monto: 13000,
     referencia: null,
@@ -271,7 +279,7 @@ describe('VentasService', () => {
         ],
       };
 
-      await service.create(dto);
+      await service.create(dto, actor);
 
       expect(qbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(loteMock.cantidadDisponible).toBe(3);
@@ -285,6 +293,7 @@ describe('VentasService', () => {
           tipoMovimiento: 'SALIDA_VENTA',
           cantidad: 2,
           referenciaId: 100,
+          actor,
         }),
       );
     });
@@ -322,7 +331,7 @@ describe('VentasService', () => {
         ],
       };
 
-      await service.create(dto);
+      await service.create(dto, actor);
 
       expect(loteMock.cantidadDisponible).toBe(0);
       expect(loteMock.estadoLote).toBe('AGOTADO');
@@ -359,7 +368,9 @@ describe('VentasService', () => {
         ],
       };
 
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(dto, actor)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(inventarioService.registrarMovimiento).not.toHaveBeenCalled();
     });
   });
@@ -405,7 +416,7 @@ describe('VentasService', () => {
         ],
       };
 
-      await service.create(dto);
+      await service.create(dto, actor);
 
       expect(qbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(lote1.cantidadDisponible).toBe(0);
@@ -423,6 +434,7 @@ describe('VentasService', () => {
           tipoMovimiento: 'SALIDA_VENTA',
           cantidad: 3,
           referenciaId: 100,
+          actor,
         }),
       );
 
@@ -434,6 +446,7 @@ describe('VentasService', () => {
           tipoMovimiento: 'SALIDA_VENTA',
           cantidad: 3,
           referenciaId: 100,
+          actor,
         }),
       );
     });
@@ -476,7 +489,9 @@ describe('VentasService', () => {
         ],
       };
 
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(dto, actor)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -517,7 +532,9 @@ describe('VentasService', () => {
         ],
       };
 
-      await expect(service.create(dto)).rejects.toThrow('Fallo inventario');
+      await expect(service.create(dto, actor)).rejects.toThrow(
+        'Fallo inventario',
+      );
     });
 
     it('debe rechazar venta si montoPagado es mayor a totalVenta', async () => {
@@ -551,7 +568,7 @@ describe('VentasService', () => {
         ],
       };
 
-      await expect(service.create(dto)).rejects.toThrow(
+      await expect(service.create(dto, actor)).rejects.toThrow(
         'El monto pagado no puede ser mayor al total de la venta.',
       );
     });
@@ -589,13 +606,15 @@ describe('VentasService', () => {
         ],
       };
 
-      await service.create(dto);
+      await service.create(dto, actor);
 
       expect(managerSaveMock).toHaveBeenCalledWith(
         expect.objectContaining({
           idVenta: 100,
           metodoPago: 'SINPE',
           monto: 6500,
+          idUsuario: 2,
+          usuario: 'operador1',
         }),
       );
     });
@@ -633,7 +652,7 @@ describe('VentasService', () => {
         ],
       };
 
-      await service.create(dto);
+      await service.create(dto, actor);
 
       expect(managerSaveMock).not.toHaveBeenCalledWith(
         PagoVenta,
@@ -653,7 +672,9 @@ describe('VentasService', () => {
         detalles: [],
       };
 
-      await expect(service.create(dto)).rejects.toThrow(ConflictException);
+      await expect(service.create(dto, actor)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -691,7 +712,9 @@ describe('VentasService', () => {
         },
       });
 
-      await expect(service.anularVenta(999)).rejects.toThrow(NotFoundException);
+      await expect(service.anularVenta(999, actor)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('debe lanzar ConflictException si la venta ya está anulada y no registrar movimientos', async () => {
@@ -709,7 +732,9 @@ describe('VentasService', () => {
         },
       });
 
-      await expect(service.anularVenta(100)).rejects.toThrow(ConflictException);
+      await expect(service.anularVenta(100, actor)).rejects.toThrow(
+        ConflictException,
+      );
       expect(inventarioService.registrarMovimiento).not.toHaveBeenCalled();
     });
 
@@ -756,7 +781,7 @@ describe('VentasService', () => {
         },
       });
 
-      await service.anularVenta(100);
+      await service.anularVenta(100, actor);
 
       expect(ventaQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(loteQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
@@ -773,6 +798,7 @@ describe('VentasService', () => {
           tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
           cantidad: 2,
           referenciaId: 100,
+          actor,
         }),
       );
 
@@ -811,7 +837,7 @@ describe('VentasService', () => {
         },
       });
 
-      await service.anularVenta(100);
+      await service.anularVenta(100, actor);
 
       expect(lote.cantidadDisponible).toBe(7);
       expect(lote.estadoLote).toBe('VENDIDO_PARCIAL');
@@ -845,7 +871,9 @@ describe('VentasService', () => {
         },
       });
 
-      await expect(service.anularVenta(100)).rejects.toThrow(ConflictException);
+      await expect(service.anularVenta(100, actor)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('debe lanzar ConflictException si un lote referenciado no existe', async () => {
@@ -870,7 +898,9 @@ describe('VentasService', () => {
         },
       });
 
-      await expect(service.anularVenta(100)).rejects.toThrow(ConflictException);
+      await expect(service.anularVenta(100, actor)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('debe lanzar ConflictException si el producto del lote no coincide con el detalle', async () => {
@@ -896,7 +926,9 @@ describe('VentasService', () => {
         },
       });
 
-      await expect(service.anularVenta(100)).rejects.toThrow(ConflictException);
+      await expect(service.anularVenta(100, actor)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('debe registrar múltiples movimientos de reingreso al anular una venta FIFO con varios lotes', async () => {
@@ -946,7 +978,7 @@ describe('VentasService', () => {
         },
       });
 
-      await service.anularVenta(100);
+      await service.anularVenta(100, actor);
 
       expect(inventarioService.registrarMovimiento).toHaveBeenCalledTimes(2);
 
@@ -958,6 +990,7 @@ describe('VentasService', () => {
           tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
           cantidad: 10,
           referenciaId: 100,
+          actor,
         }),
       );
 
@@ -969,6 +1002,55 @@ describe('VentasService', () => {
           tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
           cantidad: 2,
           referenciaId: 100,
+          actor,
+        }),
+      );
+    });
+
+    it('debe registrar el reingreso con el actor de anulación (no con el de creación)', async () => {
+      const actorAnulacion: ActorAuditoria = {
+        idUsuario: 1,
+        username: 'admin',
+      };
+
+      const ventaActiva = crearVenta({ idVenta: 100 });
+      const detalle = crearDetalleVenta({ idLote: 13, cantidad: 2 });
+      const lote = crearLote({
+        idLote: 13,
+        idProducto: 6,
+        cantidadRecibida: 10,
+        cantidadDisponible: 8,
+      });
+
+      const ventaQbMock = crearQueryBuilderMock();
+      ventaQbMock.getOne.mockResolvedValue(ventaActiva);
+
+      const loteQbMock = crearQueryBuilderMock();
+      loteQbMock.getMany.mockResolvedValue([lote]);
+
+      mockRepositories({
+        venta: {
+          createQueryBuilder: jest.fn().mockReturnValue(ventaQbMock),
+          save: managerSaveMock,
+        },
+        detalle: {
+          find: jest.fn().mockResolvedValue([detalle]),
+        },
+        lote: {
+          createQueryBuilder: jest.fn().mockReturnValue(loteQbMock),
+        },
+      });
+
+      await service.anularVenta(100, actorAnulacion);
+
+      expect(inventarioService.registrarMovimiento).toHaveBeenCalledWith(
+        manager,
+        expect.objectContaining({
+          lote,
+          tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
+          cantidad: 2,
+          referenciaId: 100,
+          actor: actorAnulacion,
         }),
       );
     });
@@ -1005,7 +1087,7 @@ describe('VentasService', () => {
         new Error('Fallo movimiento'),
       );
 
-      await expect(service.anularVenta(100)).rejects.toThrow(
+      await expect(service.anularVenta(100, actor)).rejects.toThrow(
         'Fallo movimiento',
       );
     });
@@ -1043,7 +1125,7 @@ describe('VentasService', () => {
         metodoPago: 'SINPE',
       };
 
-      await expect(service.registrarPago(999, dto)).rejects.toThrow(
+      await expect(service.registrarPago(999, dto, actor)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -1060,7 +1142,7 @@ describe('VentasService', () => {
         metodoPago: 'SINPE',
       };
 
-      await expect(service.registrarPago(100, dto)).rejects.toThrow(
+      await expect(service.registrarPago(100, dto, actor)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -1080,12 +1162,12 @@ describe('VentasService', () => {
         metodoPago: 'SINPE',
       };
 
-      await expect(service.registrarPago(100, dto)).rejects.toThrow(
+      await expect(service.registrarPago(100, dto, actor)).rejects.toThrow(
         ConflictException,
       );
     });
 
-    it('debe solicitar bloqueo pessimistic_write sobre la Venta al registrar pago', async () => {
+    it('debe solicitar bloqueo pessimistic_write sobre la Venta al registrar pago y guardar actor', async () => {
       const venta = crearVenta({
         idVenta: 100,
         totalVenta: 10000,
@@ -1103,7 +1185,7 @@ describe('VentasService', () => {
         observaciones: 'Segundo abono',
       };
 
-      await service.registrarPago(100, dto);
+      await service.registrarPago(100, dto, actor);
 
       expect(qbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(venta.montoPagado).toBe(5000);
@@ -1116,6 +1198,15 @@ describe('VentasService', () => {
           saldoPendiente: 5000,
           estadoPago: 'PARCIAL',
           medioPago: 'SINPE',
+        }),
+      );
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idVenta: 100,
+          monto: 3000,
+          metodoPago: 'SINPE',
+          idUsuario: 2,
+          usuario: 'operador1',
         }),
       );
     });
@@ -1136,7 +1227,7 @@ describe('VentasService', () => {
         metodoPago: 'EFECTIVO',
       };
 
-      await service.registrarPago(100, dto);
+      await service.registrarPago(100, dto, actor);
 
       expect(venta.medioPago).toBe('MIXTO');
       expect(venta.montoPagado).toBe(5000);
@@ -1158,7 +1249,7 @@ describe('VentasService', () => {
         metodoPago: 'EFECTIVO',
       };
 
-      await service.registrarPago(100, dto);
+      await service.registrarPago(100, dto, actor);
 
       expect(venta.montoPagado).toBe(10000);
       expect(venta.saldoPendiente).toBe(0);
@@ -1180,7 +1271,7 @@ describe('VentasService', () => {
         metodoPago: 'EFECTIVO',
       };
 
-      await expect(service.registrarPago(100, dto)).rejects.toThrow(
+      await expect(service.registrarPago(100, dto, actor)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -1199,6 +1290,8 @@ describe('VentasService', () => {
       const pago1 = crearPagoVenta({
         idPagoVenta: 1,
         idVenta: 100,
+        idUsuario: 2,
+        usuario: 'operador1',
         metodoPago: 'SINPE',
         monto: 2000,
         referencia: 'REF-1',
@@ -1206,6 +1299,8 @@ describe('VentasService', () => {
       const pago2 = crearPagoVenta({
         idPagoVenta: 2,
         idVenta: 100,
+        idUsuario: 1,
+        usuario: 'admin',
         metodoPago: 'EFECTIVO',
         monto: 3000,
       });
@@ -1220,6 +1315,8 @@ describe('VentasService', () => {
         expect.objectContaining({
           idPagoVenta: 1,
           idVenta: 100,
+          idUsuario: 2,
+          usuario: 'operador1',
           metodoPago: 'SINPE',
           monto: 2000,
           referencia: 'REF-1',
@@ -1229,6 +1326,8 @@ describe('VentasService', () => {
         expect.objectContaining({
           idPagoVenta: 2,
           idVenta: 100,
+          idUsuario: 1,
+          usuario: 'admin',
           metodoPago: 'EFECTIVO',
           monto: 3000,
           referencia: null,
@@ -1271,7 +1370,7 @@ describe('VentasService', () => {
         ],
       };
 
-      await service.create(dto);
+      await service.create(dto, actor);
 
       expect(managerSaveMock).toHaveBeenCalledWith(
         VentaEntity,
@@ -1314,7 +1413,7 @@ describe('VentasService', () => {
         ],
       };
 
-      await service.create(dto);
+      await service.create(dto, actor);
 
       expect(managerSaveMock).toHaveBeenCalledWith(
         VentaEntity,

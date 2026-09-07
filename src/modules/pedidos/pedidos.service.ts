@@ -13,6 +13,7 @@ import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
+import { ActorAuditoria } from '../auth/auth.types';
 import { InventarioService } from '../inventario/inventario.service';
 import {
   CreatePedidoDetalleDto,
@@ -629,7 +630,7 @@ export class PedidosService {
     return fecha.slice(0, 10);
   }
 
-  async recibir(id: number, dto: RecepcionPedidoDto) {
+  async recibir(id: number, dto: RecepcionPedidoDto, actor: ActorAuditoria) {
     const pedidoId = Number(id);
 
     if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
@@ -770,6 +771,7 @@ export class PedidosService {
           tipoMovimiento: 'ENTRADA_COMPRA',
           cantidad: detalleDto.cantidadRecibida,
           referenciaId: pedido.idPedido,
+          actor,
         });
       }
 

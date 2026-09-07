@@ -10,6 +10,7 @@ import {
 
 import { LoteProducto } from './lote-producto.entity';
 import { Producto } from './producto.entity';
+import { Usuario } from './usuario.entity';
 
 @Entity({ name: 'movimiento_inventario' })
 @Index('IX_movimiento_inventario_fecha', ['fechaMovimiento'])
@@ -18,6 +19,10 @@ import { Producto } from './producto.entity';
   'fechaMovimiento',
 ])
 @Index('IX_movimiento_inventario_lote_fecha', ['idLote', 'fechaMovimiento'])
+@Index('IX_movimiento_inventario_usuario_fecha', [
+  'idUsuario',
+  'fechaMovimiento',
+])
 @Index('IX_movimiento_inventario_referencia', [
   'referenciaTipo',
   'referenciaId',
@@ -85,6 +90,13 @@ export class MovimientoInventario {
   referenciaId!: number;
 
   @Column({
+    name: 'id_usuario',
+    type: 'int',
+    nullable: true,
+  })
+  idUsuario?: number | null;
+
+  @Column({
     name: 'usuario',
     type: 'nvarchar',
     length: 100,
@@ -134,4 +146,14 @@ export class MovimientoInventario {
     referencedColumnName: 'idLote',
   })
   lote!: LoteProducto;
+
+  @ManyToOne(() => Usuario, {
+    nullable: true,
+    onDelete: 'NO ACTION',
+  })
+  @JoinColumn({
+    name: 'id_usuario',
+    referencedColumnName: 'idUsuario',
+  })
+  usuarioSistema?: Usuario | null;
 }

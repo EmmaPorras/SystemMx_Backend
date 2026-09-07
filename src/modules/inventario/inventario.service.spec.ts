@@ -342,7 +342,7 @@ describe('InventarioService', () => {
       );
     });
 
-    it('debe aplicar filtros por productoId, loteId, tipoMovimiento, referenciaTipo, referenciaId y fechas', async () => {
+    it('debe aplicar filtros por productoId, loteId, tipoMovimiento, referenciaTipo, referenciaId, usuarioId y fechas', async () => {
       movimientosQueryBuilderMock.getManyAndCount.mockResolvedValue([[], 0]);
 
       await service.listarMovimientos({
@@ -351,6 +351,7 @@ describe('InventarioService', () => {
         tipoMovimiento: 'ENTRADA_COMPRA',
         referenciaTipo: 'PEDIDO',
         referenciaId: 13,
+        usuarioId: 2,
         desde: '2026-09-01',
         hasta: '2026-09-08',
       });
@@ -374,6 +375,10 @@ describe('InventarioService', () => {
       expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
         'movimiento.referenciaId = :referenciaId',
         { referenciaId: 13 },
+      );
+      expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'movimiento.idUsuario = :usuarioId',
+        { usuarioId: 2 },
       );
       expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
         'CONVERT(date, movimiento.fechaMovimiento) >= :desde',
@@ -406,6 +411,8 @@ describe('InventarioService', () => {
         cantidad: 3,
         referenciaTipo: 'PEDIDO',
         referenciaId: 13,
+        idUsuario: 2,
+        usuario: 'operador1',
         costoUnitario: 4000,
         totalMovimiento: 12000,
       } as MovimientoInventario;
@@ -422,6 +429,8 @@ describe('InventarioService', () => {
       const resultado = await service.buscarMovimientoPorId(1);
 
       expect(resultado.idMovimiento).toBe(1);
+      expect(resultado.idUsuario).toBe(2);
+      expect(resultado.usuario).toBe('operador1');
       expect(resultado.producto?.nombre).toBe('Aceite');
       expect(resultado.lote?.codigoLote).toBe('L1');
     });
@@ -441,8 +450,13 @@ describe('InventarioService', () => {
     });
   });
 
-  describe('registrarMovimiento (infraestructura)', () => {
-    it('ENTRADA_COMPRA genera referenciaTipo PEDIDO y calcula total', async () => {
+  describe('registrarMovimiento (infraestructura y auditoría)', () => {
+    const actorValido = {
+      idUsuario: 2,
+      username: 'operador1',
+    };
+
+    it('ENTRADA_COMPRA genera referenciaTipo PEDIDO, guarda actor y calcula total', async () => {
       const lote = crearLote({
         idLote: 10,
         idProducto: 6,
@@ -456,6 +470,7 @@ describe('InventarioService', () => {
           tipoMovimiento: 'ENTRADA_COMPRA',
           cantidad: 5,
           referenciaId: 30,
+          actor: actorValido,
         },
       );
 
@@ -466,7 +481,8 @@ describe('InventarioService', () => {
         cantidad: 5,
         referenciaTipo: 'PEDIDO',
         referenciaId: 30,
-        usuario: null,
+        idUsuario: 2,
+        usuario: 'operador1',
         motivo: 'Recepción de mercancía por compra',
         observaciones: null,
         costoUnitario: 4000,
@@ -475,7 +491,7 @@ describe('InventarioService', () => {
       expect(resultado).toBeDefined();
     });
 
-    it('SALIDA_VENTA genera referenciaTipo VENTA', async () => {
+    it('SALIDA_VENTA genera referenciaTipo VENTA y asigna actor', async () => {
       const lote = crearLote({
         idLote: 10,
         idProducto: 6,
@@ -489,6 +505,7 @@ describe('InventarioService', () => {
           tipoMovimiento: 'SALIDA_VENTA',
           cantidad: 2,
           referenciaId: 50,
+          actor: actorValido,
         },
       );
 
@@ -498,13 +515,15 @@ describe('InventarioService', () => {
           cantidad: 2,
           referenciaTipo: 'VENTA',
           referenciaId: 50,
+          idUsuario: 2,
+          usuario: 'operador1',
           motivo: 'Salida de inventario por venta',
           totalMovimiento: 8000,
         }),
       );
     });
 
-    it('REINGRESO_ANULACION_VENTA genera referenciaTipo VENTA', async () => {
+    it('REINGRESO_ANULACION_VENTA genera referenciaTipo VENTA y asigna actor', async () => {
       const lote = crearLote({
         idLote: 10,
         idProducto: 6,
@@ -518,6 +537,10 @@ describe('InventarioService', () => {
           tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
           cantidad: 2,
           referenciaId: 50,
+          actor: {
+            idUsuario: 1,
+            username: 'admin',
+          },
         },
       );
 
@@ -527,10 +550,79 @@ describe('InventarioService', () => {
           cantidad: 2,
           referenciaTipo: 'VENTA',
           referenciaId: 50,
+          idUsuario: 1,
+          usuario: 'admin',
           motivo: 'Reingreso de inventario por anulación de venta',
           totalMovimiento: 8000,
         }),
       );
+    });
+
+    it('aplica trim al snapshot de username del actor', async () => {
+      const lote = crearLote({
+        idLote: 10,
+        idProducto: 6,
+        costoUnitarioReal: 4000,
+      });
+
+      await service.registrarMovimiento(
+        managerMock as unknown as EntityManager,
+        {
+          lote,
+          tipoMovimiento: 'SALIDA_VENTA',
+          cantidad: 1,
+          referenciaId: 10,
+          actor: {
+            idUsuario: 2,
+            username: '   operador1   ',
+          },
+        },
+      );
+
+      expect(managerMovimientoRepoMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idUsuario: 2,
+          usuario: 'operador1',
+        }),
+      );
+    });
+
+    it('debe rechazar con 409 ConflictException si idUsuario es 0, negativo o inválido', async () => {
+      const lote = crearLote();
+
+      await expect(
+        service.registrarMovimiento(managerMock as unknown as EntityManager, {
+          lote,
+          tipoMovimiento: 'ENTRADA_COMPRA',
+          cantidad: 1,
+          referenciaId: 1,
+          actor: { idUsuario: 0, username: 'admin' },
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      await expect(
+        service.registrarMovimiento(managerMock as unknown as EntityManager, {
+          lote,
+          tipoMovimiento: 'ENTRADA_COMPRA',
+          cantidad: 1,
+          referenciaId: 1,
+          actor: { idUsuario: -1, username: 'admin' },
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe rechazar con 409 ConflictException si username está vacío o son solo espacios', async () => {
+      const lote = crearLote();
+
+      await expect(
+        service.registrarMovimiento(managerMock as unknown as EntityManager, {
+          lote,
+          tipoMovimiento: 'ENTRADA_COMPRA',
+          cantidad: 1,
+          referenciaId: 1,
+          actor: { idUsuario: 1, username: '   ' },
+        }),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('Cantidad 0 lanza 400 BadRequestException', async () => {
@@ -540,6 +632,7 @@ describe('InventarioService', () => {
           tipoMovimiento: 'ENTRADA_COMPRA',
           cantidad: 0,
           referenciaId: 1,
+          actor: actorValido,
         }),
       ).rejects.toThrow(BadRequestException);
     });
@@ -551,6 +644,7 @@ describe('InventarioService', () => {
           tipoMovimiento: 'ENTRADA_COMPRA',
           cantidad: 1,
           referenciaId: 1,
+          actor: actorValido,
         }),
       ).rejects.toThrow(ConflictException);
     });
