@@ -46,9 +46,43 @@ function portValue(env: NodeJS.ProcessEnv): number {
   return port;
 }
 
+function optional(env: NodeJS.ProcessEnv, name: string): string | undefined {
+  const value = env[name]?.trim();
+
+  return value || undefined;
+}
+
+function migrationCredentials(env: NodeJS.ProcessEnv): {
+  username: string;
+  password: string;
+} {
+  const migrationUsername = optional(env, 'DB_MIGRATION_USERNAME');
+  const migrationPassword = optional(env, 'DB_MIGRATION_PASSWORD');
+
+  if (Boolean(migrationUsername) !== Boolean(migrationPassword)) {
+    throw new Error(
+      'DB_MIGRATION_USERNAME y DB_MIGRATION_PASSWORD deben configurarse juntos.',
+    );
+  }
+
+  if (migrationUsername && migrationPassword) {
+    return {
+      username: migrationUsername,
+      password: migrationPassword,
+    };
+  }
+
+  return {
+    username: required(env, 'DB_USERNAME'),
+    password: required(env, 'DB_PASSWORD'),
+  };
+}
+
 export function createMigrationDataSourceOptions(
   env: NodeJS.ProcessEnv = process.env,
 ): DataSourceOptions {
+  const credentials = migrationCredentials(env);
+
   return {
     type: 'mssql',
 
@@ -56,9 +90,9 @@ export function createMigrationDataSourceOptions(
 
     port: portValue(env),
 
-    username: required(env, 'DB_USERNAME'),
+    username: credentials.username,
 
-    password: required(env, 'DB_PASSWORD'),
+    password: credentials.password,
 
     database: required(env, 'DB_DATABASE'),
 

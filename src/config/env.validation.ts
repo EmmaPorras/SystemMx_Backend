@@ -42,17 +42,5 @@ export function validateEnvironment(
     throw new Error('CORS_ORIGINS debe contener al menos un origen.');
   }
 
-  const synchronize = asString(config.DB_SYNCHRONIZE, 'false')
-    .trim()
-    .toLowerCase();
-
-  if (!['true', 'false'].includes(synchronize)) {
-    throw new Error('DB_SYNCHRONIZE debe ser true o false.');
-  }
-
-  if (nodeEnv === 'production' && synchronize === 'true') {
-    throw new Error('DB_SYNCHRONIZE no puede estar habilitado en producción.');
-  }
-
   return config;
 }

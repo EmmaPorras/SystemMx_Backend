@@ -18,12 +18,16 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "bootstrap:user": "npm run build && node dist/scripts/bootstrap-user.js",
+    "bootstrap:user:dist": "node dist/scripts/bootstrap-user.js",
+    "bootstrap:user": "npm run build && npm run bootstrap:user:dist",
     "typeorm": "typeorm",
-    "migration:show": "npm run build && typeorm migration:show -d dist/database/data-source.js",
+    "migration:show:dist": "typeorm migration:show -d dist/database/data-source.js",
+    "migration:show": "npm run build && npm run migration:show:dist",
     "migration:generate": "npm run build && typeorm migration:generate -d dist/database/data-source.js",
-    "migration:run": "npm run build && typeorm migration:run -d dist/database/data-source.js",
-    "migration:revert": "npm run build && typeorm migration:revert -d dist/database/data-source.js"
+    "migration:run:dist": "typeorm migration:run -d dist/database/data-source.js",
+    "migration:run": "npm run build && npm run migration:run:dist",
+    "migration:revert:dist": "typeorm migration:revert -d dist/database/data-source.js",
+    "migration:revert": "npm run build && npm run migration:revert:dist"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

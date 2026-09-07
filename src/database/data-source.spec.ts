@@ -10,10 +10,9 @@ describe('ETAPA 10B — DataSource de Migrations', () => {
     DB_LOGGING: 'false',
     DB_ENCRYPT: 'false',
     DB_TRUST_SERVER_CERTIFICATE: 'true',
-    DB_SYNCHRONIZE: 'true', // deliberadamente true para verificar que el DataSource lo ignora
   };
 
-  it('mantiene synchronize desactivado (false) aunque DB_SYNCHRONIZE sea true', () => {
+  it('mantiene synchronize desactivado (false) estrictamente', () => {
     const options = createMigrationDataSourceOptions(validEnv);
     expect(options.synchronize).toBe(false);
   });
@@ -156,5 +155,45 @@ describe('ETAPA 10B — DataSource de Migrations', () => {
         DB_LOGGING: '1',
       }),
     ).toThrow('DB_LOGGING debe ser true o false.');
+  });
+
+  describe('Credenciales de migraciones separadas', () => {
+    it('utiliza DB_USERNAME y DB_PASSWORD como fallback cuando no se definen credenciales específicas', () => {
+      const options = createMigrationDataSourceOptions(validEnv);
+      expect(options.username).toBe('test_user');
+      expect(options.password).toBe('test_password');
+    });
+
+    it('utiliza DB_MIGRATION_USERNAME y DB_MIGRATION_PASSWORD cuando ambos están configurados', () => {
+      const options = createMigrationDataSourceOptions({
+        ...validEnv,
+        DB_MIGRATION_USERNAME: 'migrator_admin',
+        DB_MIGRATION_PASSWORD: 'migrator_secret_password',
+      });
+      expect(options.username).toBe('migrator_admin');
+      expect(options.password).toBe('migrator_secret_password');
+    });
+
+    it('lanza error si solo se define DB_MIGRATION_USERNAME', () => {
+      expect(() =>
+        createMigrationDataSourceOptions({
+          ...validEnv,
+          DB_MIGRATION_USERNAME: 'migrator_admin',
+        }),
+      ).toThrow(
+        'DB_MIGRATION_USERNAME y DB_MIGRATION_PASSWORD deben configurarse juntos.',
+      );
+    });
+
+    it('lanza error si solo se define DB_MIGRATION_PASSWORD', () => {
+      expect(() =>
+        createMigrationDataSourceOptions({
+          ...validEnv,
+          DB_MIGRATION_PASSWORD: 'migrator_secret_password',
+        }),
+      ).toThrow(
+        'DB_MIGRATION_USERNAME y DB_MIGRATION_PASSWORD deben configurarse juntos.',
+      );
+    });
   });
 });

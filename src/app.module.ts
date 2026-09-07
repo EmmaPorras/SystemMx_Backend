@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { validateEnvironment } from './config/env.validation';
+import { createRuntimeTypeOrmOptions } from './database/runtime-typeorm.options';
 import { CategoriasModule } from './modules/categorias/categorias.module';
 import { InventarioModule } from './modules/inventario/inventario.module';
 import { ProductosModule } from './modules/productos/productos.module';
@@ -23,30 +24,7 @@ import { ReportesModule } from './modules/reportes/reportes.module';
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'mssql',
-        host: config.get<string>('DB_HOST'),
-        port: Number(config.get<string>('DB_PORT')),
-        username: config.get<string>('DB_USERNAME'),
-        password: config.get<string>('DB_PASSWORD'),
-        database: config.get<string>('DB_DATABASE'),
-
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-
-        synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
-        logging: config.get<string>('DB_LOGGING') === 'true',
-
-        options: {
-          encrypt: config.get<string>('DB_ENCRYPT') === 'true',
-          trustServerCertificate:
-            config.get<string>('DB_TRUST_SERVER_CERTIFICATE') === 'true',
-          requestTimeout: 60000,
-        },
-        extra: {
-          requestTimeout: 60000,
-          connectionTimeout: 60000,
-        },
-      }),
+      useFactory: createRuntimeTypeOrmOptions,
     }),
 
     CategoriasModule,

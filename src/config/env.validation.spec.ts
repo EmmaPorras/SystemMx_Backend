@@ -7,7 +7,6 @@ describe('validateEnvironment', () => {
     JWT_SECRET: '12345678901234567890123456789012',
     JWT_EXPIRES_SECONDS: 3600,
     CORS_ORIGINS: 'http://localhost:3000,http://localhost:5173',
-    DB_SYNCHRONIZE: 'true',
   };
 
   it('debe aceptar configuración válida en development', () => {
@@ -20,12 +19,11 @@ describe('validateEnvironment', () => {
     ).not.toThrow();
   });
 
-  it('debe aceptar configuración válida en production con synchronize=false', () => {
+  it('debe aceptar configuración válida en production', () => {
     expect(() =>
       validateEnvironment({
         ...baseValido,
         NODE_ENV: 'production',
-        DB_SYNCHRONIZE: 'false',
       }),
     ).not.toThrow();
   });
@@ -90,21 +88,5 @@ describe('validateEnvironment', () => {
     expect(() =>
       validateEnvironment({ ...baseValido, CORS_ORIGINS: '   ,   ' }),
     ).toThrow('CORS_ORIGINS debe contener al menos un origen.');
-  });
-
-  it('debe rechazar DB_SYNCHRONIZE que no sea true o false', () => {
-    expect(() =>
-      validateEnvironment({ ...baseValido, DB_SYNCHRONIZE: 'yes' }),
-    ).toThrow('DB_SYNCHRONIZE debe ser true o false.');
-  });
-
-  it('debe rechazar en production con DB_SYNCHRONIZE=true', () => {
-    expect(() =>
-      validateEnvironment({
-        ...baseValido,
-        NODE_ENV: 'production',
-        DB_SYNCHRONIZE: 'true',
-      }),
-    ).toThrow('DB_SYNCHRONIZE no puede estar habilitado en producción.');
   });
 });
