@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { Categoria } from '../../database/entities/categoria.entity';
+import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
+import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
 
 import { ReportesController } from './reportes.controller';
@@ -10,7 +13,14 @@ import { ReportesService } from './reportes.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([VentaEntity, LoteProducto, PedidoCompraEntity]),
+    TypeOrmModule.forFeature([
+      VentaEntity,
+      DetalleVenta,
+      LoteProducto,
+      PedidoCompraEntity,
+      Producto,
+      Categoria,
+    ]),
   ],
   controllers: [ReportesController],
   providers: [ReportesService],

@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 
+import { ConsultaPeriodoDto } from './dto/consulta-periodo.dto';
 import { ConsultaResumenDto } from './dto/consulta-resumen.dto';
 import { ReportesService } from './reportes.service';
 
@@ -10,5 +11,30 @@ export class ReportesController {
   @Get('resumen')
   resumen(@Query() dto: ConsultaResumenDto) {
     return this.reportesService.resumen(dto);
+  }
+
+  @Get('ventas/resumen')
+  resumenVentas(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.resumenVentas(dto);
+  }
+
+  @Get('ventas/evolucion')
+  evolucionVentas(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.evolucionVentas(dto);
+  }
+
+  @Get('ventas/productos')
+  ventasPorProducto(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.ventasPorProducto(dto);
+  }
+
+  @Get('ventas/lotes')
+  ventasPorLote(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.ventasPorLote(dto);
+  }
+
+  @Get('ventas/anuladas')
+  ventasAnuladas(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.ventasAnuladas(dto);
   }
 }

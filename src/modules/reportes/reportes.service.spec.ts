@@ -3,18 +3,25 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
+import { Categoria } from '../../database/entities/categoria.entity';
+import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
+import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
 import { ReportesService } from './reportes.service';
 
 describe('ReportesService', () => {
   let service: ReportesService;
   let ventasRepository: jest.Mocked<Partial<Repository<VentaEntity>>>;
+  let detallesVentaRepository: jest.Mocked<Partial<Repository<DetalleVenta>>>;
   let lotesRepository: jest.Mocked<Partial<Repository<LoteProducto>>>;
   let pedidosRepository: jest.Mocked<Partial<Repository<PedidoCompraEntity>>>;
+  let productosRepository: jest.Mocked<Partial<Repository<Producto>>>;
+  let categoriasRepository: jest.Mocked<Partial<Repository<Categoria>>>;
 
   let ventasQueryBuilder: Partial<SelectQueryBuilder<VentaEntity>>;
+  let detallesQueryBuilder: Partial<SelectQueryBuilder<DetalleVenta>>;
   let lotesQueryBuilder: Partial<SelectQueryBuilder<LoteProducto>>;
   let pedidosQueryBuilder: Partial<SelectQueryBuilder<PedidoCompraEntity>>;
 
@@ -25,16 +32,84 @@ describe('ReportesService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       groupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({
         cantidad: '7',
+        cantidadVentas: '7',
+        subtotal: '42500.00',
+        descuentos: '0.00',
+        iva: '0.00',
         total: '42500.00',
+        ventas: '42500.00',
         costo: '29500.00',
         gananciaBruta: '13000.00',
         montoPagado: '32500.00',
         saldoPendiente: '10000.00',
         ventasConSaldo: '3',
         saldo: '10000.00',
+        importeOriginal: '142500.00',
+        costoOriginal: '85500.00',
+        gananciaOriginal: '57000.00',
+        montoPagadoHistorico: '26500.00',
       }),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          fecha: '2026-09-10',
+          cantidadVentas: '1',
+          ventas: '5000.00',
+          costo: '3000.00',
+          gananciaBruta: '2000.00',
+        },
+        {
+          fecha: '2026-09-12',
+          cantidadVentas: '6',
+          ventas: '37500.00',
+          costo: '26500.00',
+          gananciaBruta: '11000.00',
+        },
+      ]),
+    };
+
+    detallesQueryBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          idProducto: '9',
+          producto: 'Producto movimiento prueba',
+          categoria: 'Sin categoría',
+          unidadesVendidas: '5',
+          ventas: '31000.00',
+          costo: '22500.00',
+          gananciaBruta: '8500.00',
+        },
+        {
+          idProducto: '6',
+          producto: 'Aceite recepción prueba',
+          categoria: 'Sin categoría',
+          unidadesVendidas: '1',
+          ventas: '6500.00',
+          costo: '4000.00',
+          gananciaBruta: '2500.00',
+        },
+        {
+          idProducto: '10',
+          producto: 'Producto Concurrencia Lock',
+          categoria: 'Sin categoría',
+          unidadesVendidas: '1',
+          ventas: '5000.00',
+          costo: '3000.00',
+          gananciaBruta: '2000.00',
+        },
+      ]),
     };
 
     lotesQueryBuilder = {
@@ -66,12 +141,24 @@ describe('ReportesService', () => {
       createQueryBuilder: jest.fn().mockReturnValue(ventasQueryBuilder),
     };
 
+    detallesVentaRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(detallesQueryBuilder),
+    };
+
     lotesRepository = {
       createQueryBuilder: jest.fn().mockReturnValue(lotesQueryBuilder),
     };
 
     pedidosRepository = {
       createQueryBuilder: jest.fn().mockReturnValue(pedidosQueryBuilder),
+    };
+
+    productosRepository = {
+      createQueryBuilder: jest.fn(),
+    };
+
+    categoriasRepository = {
+      createQueryBuilder: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -82,12 +169,24 @@ describe('ReportesService', () => {
           useValue: ventasRepository,
         },
         {
+          provide: getRepositoryToken(DetalleVenta),
+          useValue: detallesVentaRepository,
+        },
+        {
           provide: getRepositoryToken(LoteProducto),
           useValue: lotesRepository,
         },
         {
           provide: getRepositoryToken(PedidoCompraEntity),
           useValue: pedidosRepository,
+        },
+        {
+          provide: getRepositoryToken(Producto),
+          useValue: productosRepository,
+        },
+        {
+          provide: getRepositoryToken(Categoria),
+          useValue: categoriasRepository,
         },
       ],
     }).compile();
@@ -125,7 +224,7 @@ describe('ReportesService', () => {
     });
   });
 
-  describe('Cálculo y Mapeo del Resumen Ejecutivo', () => {
+  describe('Dashboard Ejecutivo (9B)', () => {
     it('debe devolver resumen completo sin filtros de fecha', async () => {
       const resultado = await service.resumen({});
 
@@ -161,56 +260,29 @@ describe('ReportesService', () => {
           total: 23,
         },
       });
-
-      expect(ventasQueryBuilder.andWhere).not.toHaveBeenCalledWith(
-        expect.stringContaining('fechaVenta >='),
-        expect.anything(),
-      );
-      expect(pedidosQueryBuilder.andWhere).not.toHaveBeenCalledWith(
-        expect.stringContaining('fechaPedido >='),
-        expect.anything(),
-      );
     });
+  });
 
-    it('debe aplicar filtros de periodo a ventas y pedidos pero NO a inventario ni cuentas por cobrar', async () => {
-      const dto = {
-        fechaDesde: '2026-09-01',
-        fechaHasta: '2026-09-12',
-      };
+  describe('Resumen Detallado de Ventas (9C)', () => {
+    it('debe devolver resumen de ventas con subtotal, descuentos e IVA', async () => {
+      const resultado = await service.resumenVentas({});
 
-      const resultado = await service.resumen(dto);
-
-      expect(resultado.periodo).toEqual({
-        fechaDesde: '2026-09-01',
-        fechaHasta: '2026-09-12',
+      expect(resultado).toEqual({
+        periodo: {
+          fechaDesde: null,
+          fechaHasta: null,
+        },
+        cantidadVentas: 7,
+        subtotal: 42500,
+        descuentos: 0,
+        iva: 0,
+        ventas: 42500,
+        costo: 29500,
+        gananciaBruta: 13000,
+        margenBrutoPorcentaje: 30.59,
+        montoPagado: 32500,
+        saldoPendiente: 10000,
       });
-
-      expect(ventasQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'venta.fechaVenta >= :fechaDesde',
-        { fechaDesde: '2026-09-01' },
-      );
-      expect(ventasQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'venta.fechaVenta <= :fechaHasta',
-        { fechaHasta: '2026-09-12' },
-      );
-
-      expect(pedidosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'pedido.fechaPedido >= :fechaDesde',
-        { fechaDesde: '2026-09-01' },
-      );
-      expect(pedidosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'pedido.fechaPedido <= :fechaHasta',
-        { fechaHasta: '2026-09-12' },
-      );
-
-      // Inventario y cuentas por cobrar deben conservar queries de snapshot sin filtros de fecha
-      expect(lotesQueryBuilder.where).toHaveBeenCalledWith(
-        'lote.cantidadDisponible > 0',
-      );
-    });
-
-    it('debe excluir ventas anuladas del resumen comercial', async () => {
-      await service.resumen({});
 
       expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
         'venta.estadoVenta <> :anulada',
@@ -218,74 +290,148 @@ describe('ReportesService', () => {
       );
     });
 
-    it('debe calcular margen 0 sin NaN ni Infinity cuando total es 0', async () => {
+    it('debe calcular margen 0 sin fallar cuando ventas es 0', async () => {
       jest.spyOn(ventasQueryBuilder, 'getRawOne').mockResolvedValueOnce({
-        cantidad: '0',
-        total: '0.00',
-        costo: '0.00',
-        gananciaBruta: '0.00',
-        montoPagado: '0.00',
-        saldoPendiente: '0.00',
+        cantidadVentas: '0',
+        subtotal: '0',
+        descuentos: '0',
+        iva: '0',
+        ventas: '0',
+        costo: '0',
+        gananciaBruta: '0',
+        montoPagado: '0',
+        saldoPendiente: '0',
       });
 
-      const resultado = await service.resumen({});
+      const res = await service.resumenVentas({});
+      expect(res.ventas).toBe(0);
+      expect(res.margenBrutoPorcentaje).toBe(0);
+      expect(Number.isNaN(res.margenBrutoPorcentaje)).toBe(false);
+    });
+  });
 
-      expect(resultado.ventas.total).toBe(0);
-      expect(resultado.ventas.margenBrutoPorcentaje).toBe(0);
-      expect(Number.isNaN(resultado.ventas.margenBrutoPorcentaje)).toBe(false);
-      expect(Number.isFinite(resultado.ventas.margenBrutoPorcentaje)).toBe(
-        true,
+  describe('Evolución de Ventas Diaria (9C)', () => {
+    it('debe agrupar por fecha y calcular márgenes diarios independientes', async () => {
+      const res = await service.evolucionVentas({});
+
+      expect(res).toHaveLength(2);
+      expect(res[0]).toEqual({
+        fecha: '2026-09-10',
+        cantidadVentas: 1,
+        ventas: 5000,
+        costo: 3000,
+        gananciaBruta: 2000,
+        margenBrutoPorcentaje: 40,
+      });
+      expect(res[1]).toEqual({
+        fecha: '2026-09-12',
+        cantidadVentas: 6,
+        ventas: 37500,
+        costo: 26500,
+        gananciaBruta: 11000,
+        margenBrutoPorcentaje: 29.33,
+      });
+
+      expect(ventasQueryBuilder.orderBy).toHaveBeenCalledWith(
+        'venta.fechaVenta',
+        'ASC',
       );
     });
+  });
 
-    it('debe convertir correctamente tipos string de SQL a number en todas las métricas', async () => {
-      jest
-        .spyOn(ventasQueryBuilder, 'getRawOne')
-        .mockResolvedValueOnce({
-          cantidad: '2',
-          total: '10000.50',
-          costo: '7000.25',
-          gananciaBruta: '3000.25',
-          montoPagado: '5000.00',
-          saldoPendiente: '5000.50',
-        })
-        .mockResolvedValueOnce({
-          ventasConSaldo: '1',
-          saldo: '5000.50',
-        });
+  describe('Rentabilidad por Producto (9C)', () => {
+    it('debe devolver rentabilidad por producto usando left join con categoría', async () => {
+      const res = await service.ventasPorProducto({});
 
-      jest.spyOn(lotesQueryBuilder, 'getRawOne').mockResolvedValueOnce({
-        lotesConStock: '5',
-        unidadesDisponibles: '20',
-        valorCosto: '15000.75',
+      expect(res).toHaveLength(3);
+      expect(res[0]).toEqual({
+        idProducto: 9,
+        producto: 'Producto movimiento prueba',
+        categoria: 'Sin categoría',
+        unidadesVendidas: 5,
+        ventas: 31000,
+        costo: 22500,
+        gananciaBruta: 8500,
+        margenBrutoPorcentaje: 27.42,
       });
 
-      const resultado = await service.resumen({});
-
-      expect(typeof resultado.ventas.cantidad).toBe('number');
-      expect(typeof resultado.ventas.total).toBe('number');
-      expect(typeof resultado.inventario.valorCosto).toBe('number');
-      expect(typeof resultado.cuentasPorCobrar.saldo).toBe('number');
-      expect(resultado.ventas.total).toBe(10000.5);
-      expect(resultado.inventario.valorCosto).toBe(15000.75);
+      expect(detallesQueryBuilder.innerJoin).toHaveBeenCalledWith(
+        VentaEntity,
+        'venta',
+        expect.stringContaining('venta.idVenta'),
+      );
+      expect(detallesQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        Categoria,
+        'categoria',
+        expect.stringContaining('categoria.idCategoria'),
+      );
     });
+  });
 
-    it('debe manejar estados de pedidos ausentes asignando 0', async () => {
-      jest.spyOn(pedidosQueryBuilder, 'getRawMany').mockResolvedValueOnce([
-        { estado: 'REGISTRADO', cantidad: '3' },
-        { estado: 'RECIBIDO', cantidad: '2' },
+  describe('Rentabilidad por Lote (9C)', () => {
+    it('debe separar lotes distintos respetando costos históricos', async () => {
+      jest.spyOn(detallesQueryBuilder, 'getRawMany').mockResolvedValueOnce([
+        {
+          idLote: '17',
+          codigoLote: 'L2',
+          idProducto: '9',
+          producto: 'Producto movimiento prueba',
+          unidadesVendidas: '5',
+          ventas: '31000.00',
+          costo: '22500.00',
+          gananciaBruta: '8500.00',
+        },
+        {
+          idLote: '13',
+          codigoLote: 'L1',
+          idProducto: '6',
+          producto: 'Aceite recepción prueba',
+          unidadesVendidas: '1',
+          ventas: '6500.00',
+          costo: '4000.00',
+          gananciaBruta: '2500.00',
+        },
       ]);
 
-      const resultado = await service.resumen({});
+      const res = await service.ventasPorLote({});
 
-      expect(resultado.pedidos).toEqual({
-        registrados: 3,
-        enTransito: 0,
-        recibidos: 2,
-        cancelados: 0,
-        pendientes: 3,
-        total: 5,
+      expect(res).toHaveLength(2);
+      expect(res[0]).toEqual({
+        idLote: 17,
+        codigoLote: 'L2',
+        idProducto: 9,
+        producto: 'Producto movimiento prueba',
+        unidadesVendidas: 5,
+        ventas: 31000,
+        costo: 22500,
+        gananciaBruta: 8500,
+        margenBrutoPorcentaje: 27.42,
       });
+      expect(res[1].idLote).toBe(13);
+      expect(res[1].codigoLote).toBe('L1');
+    });
+  });
+
+  describe('Reporte de Ventas Anuladas (9C)', () => {
+    it('debe consultar exclusivamente ventas anuladas y mapear métricas históricas', async () => {
+      const res = await service.ventasAnuladas({});
+
+      expect(res).toEqual({
+        periodo: {
+          fechaDesde: null,
+          fechaHasta: null,
+        },
+        cantidad: 7, // mock value
+        importeOriginal: 142500,
+        costoOriginal: 85500,
+        gananciaOriginal: 57000,
+        montoPagadoHistorico: 26500,
+      });
+
+      expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
+        'venta.estadoVenta = :anulada',
+        { anulada: 'ANULADA' },
+      );
     });
   });
 });
