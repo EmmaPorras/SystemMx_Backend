@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 
+import { ConsultaInventarioHistoricoDto } from './dto/consulta-inventario-historico.dto';
 import { ConsultaPeriodoDto } from './dto/consulta-periodo.dto';
 import { ConsultaResumenDto } from './dto/consulta-resumen.dto';
 import { ReportesService } from './reportes.service';
@@ -36,5 +37,30 @@ export class ReportesController {
   @Get('ventas/anuladas')
   ventasAnuladas(@Query() dto: ConsultaPeriodoDto) {
     return this.reportesService.ventasAnuladas(dto);
+  }
+
+  @Get('inventario/resumen')
+  resumenInventario() {
+    return this.reportesService.resumenInventario();
+  }
+
+  @Get('inventario/productos')
+  inventarioPorProducto() {
+    return this.reportesService.inventarioPorProducto();
+  }
+
+  @Get('inventario/estados')
+  inventarioPorEstado() {
+    return this.reportesService.inventarioPorEstado();
+  }
+
+  @Get('inventario/sin-stock')
+  productosSinStock() {
+    return this.reportesService.productosSinStock();
+  }
+
+  @Get('inventario/historico')
+  historicoInventario(@Query() dto: ConsultaInventarioHistoricoDto) {
+    return this.reportesService.historicoInventario(dto);
   }
 }

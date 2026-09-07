@@ -96,6 +96,65 @@ describe('ReportesController', () => {
         gananciaOriginal: 57000,
         montoPagadoHistorico: 26500,
       }),
+      resumenInventario: jest.fn().mockResolvedValue({
+        totalLotes: 24,
+        lotesConStock: 10,
+        unidadesRecibidas: 61,
+        unidadesDisponibles: 54,
+        valorCosto: 204000,
+        estados: {
+          agotados: 2,
+          enProceso: 12,
+          enStock: 9,
+          vendidoParcial: 1,
+        },
+      }),
+      inventarioPorProducto: jest.fn().mockResolvedValue([
+        {
+          idProducto: 6,
+          producto: 'Aceite recepción prueba',
+          categoria: 'Sin categoría',
+          lotes: 2,
+          lotesConStock: 2,
+          cantidadRecibida: 26,
+          stockDisponible: 26,
+          valorCosto: 104000,
+        },
+      ]),
+      inventarioPorEstado: jest.fn().mockResolvedValue([
+        {
+          estado: 'EN_STOCK',
+          lotes: 9,
+          unidadesRecibidas: 45,
+          unidadesDisponibles: 45,
+          valorCostoDisponible: 174000,
+        },
+      ]),
+      productosSinStock: jest.fn().mockResolvedValue([
+        {
+          idProducto: 1,
+          producto: 'Casco Integral',
+          cantidadRecibida: 0,
+          stockDisponible: 0,
+          lotesEnProceso: 1,
+          lotesAgotados: 0,
+        },
+      ]),
+      historicoInventario: jest.fn().mockResolvedValue({
+        fechaCorte: '2026-09-12',
+        cobertura: {
+          lotesTotales: 24,
+          lotesConHistorialCompleto: 20,
+          lotesLegacy: 4,
+          coberturaCompleta: false,
+          lotesInconsistentes: 0,
+        },
+        reconstruccion: {
+          unidades: 45,
+          valorCosto: 170000,
+        },
+        lotes: [],
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -160,5 +219,36 @@ describe('ReportesController', () => {
     const res = await controller.ventasAnuladas(dto);
     expect(reportesService.ventasAnuladas).toHaveBeenCalledWith(dto);
     expect(res.cantidad).toBe(8);
+  });
+
+  it('GET /reportes/inventario/resumen debe delegar al servicio', async () => {
+    const res = await controller.resumenInventario();
+    expect(reportesService.resumenInventario).toHaveBeenCalled();
+    expect(res.totalLotes).toBe(24);
+  });
+
+  it('GET /reportes/inventario/productos debe delegar al servicio', async () => {
+    const res = await controller.inventarioPorProducto();
+    expect(reportesService.inventarioPorProducto).toHaveBeenCalled();
+    expect(res[0].producto).toBe('Aceite recepción prueba');
+  });
+
+  it('GET /reportes/inventario/estados debe delegar al servicio', async () => {
+    const res = await controller.inventarioPorEstado();
+    expect(reportesService.inventarioPorEstado).toHaveBeenCalled();
+    expect(res[0].estado).toBe('EN_STOCK');
+  });
+
+  it('GET /reportes/inventario/sin-stock debe delegar al servicio', async () => {
+    const res = await controller.productosSinStock();
+    expect(reportesService.productosSinStock).toHaveBeenCalled();
+    expect(res[0].stockDisponible).toBe(0);
+  });
+
+  it('GET /reportes/inventario/historico debe delegar al servicio', async () => {
+    const dto = { fechaCorte: '2026-09-12' };
+    const res = await controller.historicoInventario(dto);
+    expect(reportesService.historicoInventario).toHaveBeenCalledWith(dto);
+    expect(res.fechaCorte).toBe('2026-09-12');
   });
 });

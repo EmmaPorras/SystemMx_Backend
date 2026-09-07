@@ -6,6 +6,7 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Categoria } from '../../database/entities/categoria.entity';
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
+import { MovimientoInventario } from '../../database/entities/movimiento-inventario.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
@@ -19,11 +20,15 @@ describe('ReportesService', () => {
   let pedidosRepository: jest.Mocked<Partial<Repository<PedidoCompraEntity>>>;
   let productosRepository: jest.Mocked<Partial<Repository<Producto>>>;
   let categoriasRepository: jest.Mocked<Partial<Repository<Categoria>>>;
+  let movimientosRepository: jest.Mocked<
+    Partial<Repository<MovimientoInventario>>
+  >;
 
   let ventasQueryBuilder: Partial<SelectQueryBuilder<VentaEntity>>;
   let detallesQueryBuilder: Partial<SelectQueryBuilder<DetalleVenta>>;
   let lotesQueryBuilder: Partial<SelectQueryBuilder<LoteProducto>>;
   let pedidosQueryBuilder: Partial<SelectQueryBuilder<PedidoCompraEntity>>;
+  let productosQueryBuilder: Partial<SelectQueryBuilder<Producto>>;
 
   beforeEach(async () => {
     ventasQueryBuilder = {
@@ -113,14 +118,56 @@ describe('ReportesService', () => {
     };
 
     lotesQueryBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({
+        totalLotes: '24',
         lotesConStock: '10',
+        unidadesRecibidas: '61',
         unidadesDisponibles: '54',
         valorCosto: '204000.00',
+        agotados: '2',
+        enProceso: '12',
+        enStock: '9',
+        vendidoParcial: '1',
       }),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          estado: 'AGOTADO',
+          lotes: '2',
+          unidadesRecibidas: '6',
+          unidadesDisponibles: '0',
+          valorCostoDisponible: '0.00',
+        },
+        {
+          estado: 'EN_PROCESO',
+          lotes: '12',
+          unidadesRecibidas: '0',
+          unidadesDisponibles: '0',
+          valorCostoDisponible: '0.00',
+        },
+        {
+          estado: 'EN_STOCK',
+          lotes: '9',
+          unidadesRecibidas: '45',
+          unidadesDisponibles: '45',
+          valorCostoDisponible: '174000.00',
+        },
+        {
+          estado: 'VENDIDO_PARCIAL',
+          lotes: '1',
+          unidadesRecibidas: '10',
+          unidadesDisponibles: '9',
+          valorCostoDisponible: '30000.00',
+        },
+      ]),
     };
 
     pedidosQueryBuilder = {
@@ -134,6 +181,39 @@ describe('ReportesService', () => {
         { estado: 'EN_TRANSITO', cantidad: '5' },
         { estado: 'RECIBIDO', cantidad: '7' },
         { estado: 'CANCELADO', cantidad: '4' },
+      ]),
+    };
+
+    productosQueryBuilder = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      having: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          idProducto: '6',
+          producto: 'Aceite recepción prueba',
+          categoria: 'Sin categoría',
+          lotes: '2',
+          lotesConStock: '2',
+          cantidadRecibida: '26',
+          stockDisponible: '26',
+          valorCosto: '104000.00',
+        },
+        {
+          idProducto: '9',
+          producto: 'Producto movimiento prueba',
+          categoria: 'Sin categoría',
+          lotes: '1',
+          lotesConStock: '1',
+          cantidadRecibida: '10',
+          stockDisponible: '10',
+          valorCosto: '40000.00',
+        },
       ]),
     };
 
@@ -154,10 +234,14 @@ describe('ReportesService', () => {
     };
 
     productosRepository = {
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(productosQueryBuilder),
     };
 
     categoriasRepository = {
+      createQueryBuilder: jest.fn(),
+    };
+
+    movimientosRepository = {
       createQueryBuilder: jest.fn(),
     };
 
@@ -187,6 +271,10 @@ describe('ReportesService', () => {
         {
           provide: getRepositoryToken(Categoria),
           useValue: categoriasRepository,
+        },
+        {
+          provide: getRepositoryToken(MovimientoInventario),
+          useValue: movimientosRepository,
         },
       ],
     }).compile();
@@ -431,6 +519,316 @@ describe('ReportesService', () => {
       expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
         'venta.estadoVenta = :anulada',
         { anulada: 'ANULADA' },
+      );
+    });
+  });
+
+  describe('Resumen de Inventario (9D)', () => {
+    it('debe mapear strings SQL a números y calcular totales y estados', async () => {
+      const res = await service.resumenInventario();
+
+      expect(res).toEqual({
+        totalLotes: 24,
+        lotesConStock: 10,
+        unidadesRecibidas: 61,
+        unidadesDisponibles: 54,
+        valorCosto: 204000,
+        estados: {
+          agotados: 2,
+          enProceso: 12,
+          enStock: 9,
+          vendidoParcial: 1,
+        },
+      });
+    });
+
+    it('debe responder con ceros y no nulls cuando no hay lotes', async () => {
+      jest
+        .spyOn(lotesQueryBuilder, 'getRawOne')
+        .mockResolvedValueOnce(undefined);
+
+      const res = await service.resumenInventario();
+
+      expect(res).toEqual({
+        totalLotes: 0,
+        lotesConStock: 0,
+        unidadesRecibidas: 0,
+        unidadesDisponibles: 0,
+        valorCosto: 0,
+        estados: {
+          agotados: 0,
+          enProceso: 0,
+          enStock: 0,
+          vendidoParcial: 0,
+        },
+      });
+    });
+  });
+
+  describe('Inventario por Producto (9D)', () => {
+    it('debe incluir productos con y sin stock con Sin categoría por defecto', async () => {
+      const res = await service.inventarioPorProducto();
+
+      expect(res).toHaveLength(2);
+      expect(res[0]).toEqual({
+        idProducto: 6,
+        producto: 'Aceite recepción prueba',
+        categoria: 'Sin categoría',
+        lotes: 2,
+        lotesConStock: 2,
+        cantidadRecibida: 26,
+        stockDisponible: 26,
+        valorCosto: 104000,
+      });
+      expect(res[1]).toEqual({
+        idProducto: 9,
+        producto: 'Producto movimiento prueba',
+        categoria: 'Sin categoría',
+        lotes: 1,
+        lotesConStock: 1,
+        cantidadRecibida: 10,
+        stockDisponible: 10,
+        valorCosto: 40000,
+      });
+      expect(productosQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        LoteProducto,
+        'lote',
+        expect.stringContaining('lote.idProducto = producto.idProducto'),
+      );
+      expect(productosQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        Categoria,
+        'categoria',
+        expect.stringContaining('categoria.idCategoria = producto.idCategoria'),
+      );
+    });
+  });
+
+  describe('Inventario por Estado (9D)', () => {
+    it('debe agrupar métricas por estado de lote', async () => {
+      const res = await service.inventarioPorEstado();
+
+      expect(res).toHaveLength(4);
+      expect(res[0]).toEqual({
+        estado: 'AGOTADO',
+        lotes: 2,
+        unidadesRecibidas: 6,
+        unidadesDisponibles: 0,
+        valorCostoDisponible: 0,
+      });
+      expect(res[2]).toEqual({
+        estado: 'EN_STOCK',
+        lotes: 9,
+        unidadesRecibidas: 45,
+        unidadesDisponibles: 45,
+        valorCostoDisponible: 174000,
+      });
+    });
+  });
+
+  describe('Productos Sin Stock (9D)', () => {
+    it('debe retornar solo productos cuyo stock total es 0', async () => {
+      jest.spyOn(productosQueryBuilder, 'getRawMany').mockResolvedValueOnce([
+        {
+          idProducto: '1',
+          producto: 'Casco Integral',
+          cantidadRecibida: '0',
+          stockDisponible: '0',
+          lotesEnProceso: '1',
+          lotesAgotados: '0',
+        },
+        {
+          idProducto: '2',
+          producto: 'Guantes Fox',
+          cantidadRecibida: '6',
+          stockDisponible: '0',
+          lotesEnProceso: '0',
+          lotesAgotados: '2',
+        },
+      ]);
+
+      const res = await service.productosSinStock();
+
+      expect(res).toHaveLength(2);
+      expect(res[0]).toEqual({
+        idProducto: 1,
+        producto: 'Casco Integral',
+        cantidadRecibida: 0,
+        stockDisponible: 0,
+        lotesEnProceso: 1,
+        lotesAgotados: 0,
+      });
+      expect(res[1]).toEqual({
+        idProducto: 2,
+        producto: 'Guantes Fox',
+        cantidadRecibida: 6,
+        stockDisponible: 0,
+        lotesEnProceso: 0,
+        lotesAgotados: 2,
+      });
+      expect(productosQueryBuilder.having).toHaveBeenCalledWith(
+        expect.stringContaining('COALESCE('),
+      );
+    });
+  });
+
+  describe('Histórico de Inventario y Reconstrucción por Eventos (9D)', () => {
+    it('debe rechazar fechaCorte inválida en calendario (ej. 2026-02-31)', async () => {
+      await expect(
+        service.historicoInventario({ fechaCorte: '2026-02-31' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe manejar correctamente lotes completos, legacy e inconsistentes', async () => {
+      jest.spyOn(lotesQueryBuilder, 'getRawMany').mockResolvedValueOnce([
+        {
+          idLote: '1',
+          codigoLote: 'L1',
+          idProducto: '6',
+          producto: 'Aceite recepción prueba',
+          cantidadRecibida: '10',
+          stockActual: '7',
+          costoUnitarioReal: '4000.00',
+          entradasRegistradas: '10',
+          stockLedgerAlCorte: '7',
+        },
+        {
+          idLote: '2',
+          codigoLote: 'L2',
+          idProducto: '7',
+          producto: 'Filtro recepción prueba',
+          cantidadRecibida: '10',
+          stockActual: '8',
+          costoUnitarioReal: '2000.00',
+          entradasRegistradas: '0', // legacy sin entradas
+          stockLedgerAlCorte: '-2',
+        },
+        {
+          idLote: '3',
+          codigoLote: 'L3',
+          idProducto: '8',
+          producto: 'Bujía NGK prueba',
+          cantidadRecibida: '10',
+          stockActual: '5',
+          costoUnitarioReal: '2500.00',
+          entradasRegistradas: '5', // parcialmente migrado
+          stockLedgerAlCorte: '5',
+        },
+        {
+          idLote: '4',
+          codigoLote: 'L4',
+          idProducto: '9',
+          producto: 'Producto movimiento prueba',
+          cantidadRecibida: '10',
+          stockActual: '0',
+          costoUnitarioReal: '4000.00',
+          entradasRegistradas: '10',
+          stockLedgerAlCorte: '-1', // inconsistente negativo
+        },
+        {
+          idLote: '5',
+          codigoLote: 'L5',
+          idProducto: '10',
+          producto: 'Producto Concurrencia Lock',
+          cantidadRecibida: '10',
+          stockActual: '10',
+          costoUnitarioReal: '3000.00',
+          entradasRegistradas: '10',
+          stockLedgerAlCorte: '11', // sobre-stock inconsistente
+        },
+      ]);
+
+      const res = await service.historicoInventario({
+        fechaCorte: '2026-09-12',
+      });
+
+      expect(res.fechaCorte).toBe('2026-09-12');
+      expect(res.cobertura).toEqual({
+        lotesTotales: 5,
+        lotesConHistorialCompleto: 3, // L1, L4, L5
+        lotesLegacy: 2, // L2 (0 entradas), L3 (5/10 entradas)
+        coberturaCompleta: false,
+        lotesInconsistentes: 2, // L4 (-1) y L5 (11)
+      });
+
+      // Lote 1: completo y consistente
+      expect(res.lotes[0]).toEqual({
+        idLote: 1,
+        codigoLote: 'L1',
+        idProducto: 6,
+        producto: 'Aceite recepción prueba',
+        cantidadRecibida: 10,
+        entradasRegistradas: 10,
+        historialCompleto: true,
+        stockHistorico: 7,
+        stockActual: 7,
+        costoUnitarioReal: 4000,
+        valorCostoHistorico: 28000,
+        consistente: true,
+      });
+
+      // Lote 2: legacy (0 entradas) -> stockHistorico null, nunca negativo
+      expect(res.lotes[1]).toEqual({
+        idLote: 2,
+        codigoLote: 'L2',
+        idProducto: 7,
+        producto: 'Filtro recepción prueba',
+        cantidadRecibida: 10,
+        entradasRegistradas: 0,
+        historialCompleto: false,
+        stockHistorico: null,
+        stockActual: 8,
+        costoUnitarioReal: 2000,
+        valorCostoHistorico: null,
+        consistente: null,
+      });
+
+      // Lote 3: parcialmente migrado (5/10) -> stockHistorico null
+      expect(res.lotes[2].historialCompleto).toBe(false);
+      expect(res.lotes[2].stockHistorico).toBeNull();
+      expect(res.lotes[2].consistente).toBeNull();
+
+      // Lote 4: inconsistente negativo (-1) -> no arroja 500, consistente false
+      expect(res.lotes[3].historialCompleto).toBe(true);
+      expect(res.lotes[3].stockHistorico).toBe(-1);
+      expect(res.lotes[3].consistente).toBe(false);
+
+      // Lote 5: sobre-stock (11 > 10) -> consistente false
+      expect(res.lotes[4].historialCompleto).toBe(true);
+      expect(res.lotes[4].stockHistorico).toBe(11);
+      expect(res.lotes[4].consistente).toBe(false);
+
+      // Reconstrucción: suma de los completos (L1=7, L4=-1, L5=11 -> 17)
+      expect(res.reconstruccion.unidades).toBe(17);
+      expect(res.reconstruccion.valorCosto).toBe(
+        28000 + -1 * 4000 + 11 * 3000, // 28000 - 4000 + 33000 = 57000
+      );
+
+      // Parámetros de QueryBuilder: fechaHastaExclusiva = siguiente día
+      expect(lotesQueryBuilder.setParameters).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entrada: 'ENTRADA_COMPRA',
+          salida: 'SALIDA_VENTA',
+          reingreso: 'REINGRESO_ANULACION_VENTA',
+          fechaHastaExclusiva: '2026-09-13',
+        }),
+      );
+    });
+
+    it('debe calcular el siguiente día cruzando meses y años', async () => {
+      // Test fin de mes (2026-09-30 -> 2026-10-01)
+      await service.historicoInventario({ fechaCorte: '2026-09-30' });
+      expect(lotesQueryBuilder.setParameters).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fechaHastaExclusiva: '2026-10-01',
+        }),
+      );
+
+      // Test fin de año (2026-12-31 -> 2027-01-01)
+      await service.historicoInventario({ fechaCorte: '2026-12-31' });
+      expect(lotesQueryBuilder.setParameters).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fechaHastaExclusiva: '2027-01-01',
+        }),
       );
     });
   });
