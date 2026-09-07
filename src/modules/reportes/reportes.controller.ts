@@ -63,4 +63,34 @@ export class ReportesController {
   historicoInventario(@Query() dto: ConsultaInventarioHistoricoDto) {
     return this.reportesService.historicoInventario(dto);
   }
+
+  @Get('compras/resumen')
+  resumenCompras(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.resumenCompras(dto);
+  }
+
+  @Get('compras/evolucion')
+  evolucionCompras(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.evolucionCompras(dto);
+  }
+
+  @Get('compras/proveedores')
+  comprasPorProveedor(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.comprasPorProveedor(dto);
+  }
+
+  @Get('compras/productos')
+  comprasPorProducto(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.comprasPorProducto(dto);
+  }
+
+  @Get('compras/costos')
+  composicionCostosCompras(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.composicionCostosCompras(dto);
+  }
+
+  @Get('compras/canceladas')
+  comprasCanceladas(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.comprasCanceladas(dto);
+  }
 }

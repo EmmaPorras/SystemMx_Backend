@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Categoria } from '../../database/entities/categoria.entity';
+import { DetallePedidoCompra } from '../../database/entities/detalle-pedido-compra.entity';
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { MovimientoInventario } from '../../database/entities/movimiento-inventario.entity';
+import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
@@ -18,8 +20,10 @@ import { ReportesService } from './reportes.service';
       VentaEntity,
       DetalleVenta,
       PedidoCompraEntity,
+      DetallePedidoCompra,
       Producto,
       Categoria,
+      OrigenCompra,
       LoteProducto,
       MovimientoInventario,
     ]),

@@ -4,9 +4,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { Categoria } from '../../database/entities/categoria.entity';
+import { DetallePedidoCompra } from '../../database/entities/detalle-pedido-compra.entity';
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { MovimientoInventario } from '../../database/entities/movimiento-inventario.entity';
+import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
@@ -18,8 +20,12 @@ describe('ReportesService', () => {
   let detallesVentaRepository: jest.Mocked<Partial<Repository<DetalleVenta>>>;
   let lotesRepository: jest.Mocked<Partial<Repository<LoteProducto>>>;
   let pedidosRepository: jest.Mocked<Partial<Repository<PedidoCompraEntity>>>;
+  let detallesPedidoRepository: jest.Mocked<
+    Partial<Repository<DetallePedidoCompra>>
+  >;
   let productosRepository: jest.Mocked<Partial<Repository<Producto>>>;
   let categoriasRepository: jest.Mocked<Partial<Repository<Categoria>>>;
+  let proveedoresRepository: jest.Mocked<Partial<Repository<OrigenCompra>>>;
   let movimientosRepository: jest.Mocked<
     Partial<Repository<MovimientoInventario>>
   >;
@@ -28,6 +34,9 @@ describe('ReportesService', () => {
   let detallesQueryBuilder: Partial<SelectQueryBuilder<DetalleVenta>>;
   let lotesQueryBuilder: Partial<SelectQueryBuilder<LoteProducto>>;
   let pedidosQueryBuilder: Partial<SelectQueryBuilder<PedidoCompraEntity>>;
+  let detallesPedidoQueryBuilder: Partial<
+    SelectQueryBuilder<DetallePedidoCompra>
+  >;
   let productosQueryBuilder: Partial<SelectQueryBuilder<Producto>>;
 
   beforeEach(async () => {
@@ -123,6 +132,7 @@ describe('ReportesService', () => {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       groupBy: jest.fn().mockReturnThis(),
       addGroupBy: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
@@ -184,6 +194,49 @@ describe('ReportesService', () => {
       ]),
     };
 
+    detallesPedidoQueryBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        cantidadPedidos: '19',
+        unidadesPedidas: '100',
+        unidadesPlaneadas: '25',
+        mercaderiaColones: '300000.00',
+        mercaderiaOriginal: '75000.00',
+        envio: '20000.00',
+        impuestos: '15000.00',
+        otrosGastos: '5000.00',
+        costoReal: '340000.00',
+        costoRealOriginal: '82000.00',
+      }),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          fecha: '2026-09-10',
+          pedidos: '2',
+          unidadesPedidas: '20',
+          mercaderiaColones: '50000.00',
+          envio: '5000.00',
+          impuestos: '2500.00',
+          otrosGastos: '1000.00',
+          costoReal: '58500.00',
+          idProveedor: '1',
+          proveedor: 'Proveedor Central',
+          costosAdicionales: '8500.00',
+          idProducto: '6',
+          producto: 'Aceite recepción prueba',
+          categoria: 'Sin categoría',
+        },
+      ]),
+    };
+
     productosQueryBuilder = {
       leftJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
@@ -233,11 +286,19 @@ describe('ReportesService', () => {
       createQueryBuilder: jest.fn().mockReturnValue(pedidosQueryBuilder),
     };
 
+    detallesPedidoRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(detallesPedidoQueryBuilder),
+    };
+
     productosRepository = {
       createQueryBuilder: jest.fn().mockReturnValue(productosQueryBuilder),
     };
 
     categoriasRepository = {
+      createQueryBuilder: jest.fn(),
+    };
+
+    proveedoresRepository = {
       createQueryBuilder: jest.fn(),
     };
 
@@ -265,12 +326,20 @@ describe('ReportesService', () => {
           useValue: pedidosRepository,
         },
         {
+          provide: getRepositoryToken(DetallePedidoCompra),
+          useValue: detallesPedidoRepository,
+        },
+        {
           provide: getRepositoryToken(Producto),
           useValue: productosRepository,
         },
         {
           provide: getRepositoryToken(Categoria),
           useValue: categoriasRepository,
+        },
+        {
+          provide: getRepositoryToken(OrigenCompra),
+          useValue: proveedoresRepository,
         },
         {
           provide: getRepositoryToken(MovimientoInventario),
@@ -829,6 +898,245 @@ describe('ReportesService', () => {
         expect.objectContaining({
           fechaHastaExclusiva: '2027-01-01',
         }),
+      );
+    });
+  });
+
+  describe('Resumen de Compras (9E)', () => {
+    it('debe calcular totales financieros y conciliar recepción y costos', async () => {
+      jest.spyOn(lotesQueryBuilder, 'getRawOne').mockResolvedValueOnce({
+        unidadesRecibidas: '61',
+      });
+
+      const res = await service.resumenCompras({});
+
+      expect(res).toEqual({
+        periodo: { fechaDesde: null, fechaHasta: null },
+        cantidadPedidos: 19,
+        unidadesPedidas: 100,
+        unidadesRecibidas: 61,
+        unidadesPendientes: 39,
+        recepcionConsistente: true,
+        mercaderiaColones: 300000,
+        envio: 20000,
+        impuestos: 15000,
+        otrosGastos: 5000,
+        costoReal: 340000,
+        diferenciaCosto: 0,
+        costoConsistente: true,
+      });
+
+      expect(detallesPedidoQueryBuilder.where).toHaveBeenCalledWith(
+        'pedido.estado <> :cancelado',
+        { cancelado: 'CANCELADO' },
+      );
+    });
+
+    it('debe detectar inconsistencia cuando costoReal difiere de la suma de componentes', async () => {
+      jest
+        .spyOn(detallesPedidoQueryBuilder, 'getRawOne')
+        .mockResolvedValueOnce({
+          cantidadPedidos: '1',
+          unidadesPedidas: '10',
+          unidadesPlaneadas: '0',
+          mercaderiaColones: '100000.00',
+          mercaderiaOriginal: '0.00',
+          envio: '10000.00',
+          impuestos: '5000.00',
+          otrosGastos: '2000.00',
+          costoReal: '118000.00', // 1000 más que 117000
+          costoRealOriginal: '0.00',
+        });
+
+      jest.spyOn(lotesQueryBuilder, 'getRawOne').mockResolvedValueOnce({
+        unidadesRecibidas: '10',
+      });
+
+      const res = await service.resumenCompras({});
+
+      expect(res.costoReal).toBe(118000);
+      expect(res.diferenciaCosto).toBe(1000);
+      expect(res.costoConsistente).toBe(false);
+    });
+
+    it('debe detectar sobre-recepción (recibidas > pedidas) y no devolver pendientes negativos', async () => {
+      jest
+        .spyOn(detallesPedidoQueryBuilder, 'getRawOne')
+        .mockResolvedValueOnce({
+          cantidadPedidos: '1',
+          unidadesPedidas: '10',
+          unidadesPlaneadas: '0',
+          mercaderiaColones: '50000.00',
+          mercaderiaOriginal: '0.00',
+          envio: '0.00',
+          impuestos: '0.00',
+          otrosGastos: '0.00',
+          costoReal: '50000.00',
+          costoRealOriginal: '0.00',
+        });
+
+      jest.spyOn(lotesQueryBuilder, 'getRawOne').mockResolvedValueOnce({
+        unidadesRecibidas: '12', // 12 > 10
+      });
+
+      const res = await service.resumenCompras({});
+
+      expect(res.unidadesPedidas).toBe(10);
+      expect(res.unidadesRecibidas).toBe(12);
+      expect(res.unidadesPendientes).toBe(0);
+      expect(res.recepcionConsistente).toBe(false);
+    });
+  });
+
+  describe('Evolución de Compras (9E)', () => {
+    it('debe agrupar por pedido.fechaPedido y ordenar cronológicamente', async () => {
+      const res = await service.evolucionCompras({});
+
+      expect(res).toHaveLength(1);
+      expect(res[0]).toEqual({
+        fecha: '2026-09-10',
+        pedidos: 2,
+        unidadesPedidas: 20,
+        mercaderiaColones: 50000,
+        envio: 5000,
+        impuestos: 2500,
+        otrosGastos: 1000,
+        costoReal: 58500,
+      });
+
+      expect(detallesPedidoQueryBuilder.groupBy).toHaveBeenCalledWith(
+        'pedido.fechaPedido',
+      );
+      expect(detallesPedidoQueryBuilder.orderBy).toHaveBeenCalledWith(
+        'pedido.fechaPedido',
+        'ASC',
+      );
+    });
+  });
+
+  describe('Compras por Proveedor (9E)', () => {
+    it('debe agrupar compras por proveedor respetando proveedores sin categoría/inactivos', async () => {
+      const res = await service.comprasPorProveedor({});
+
+      expect(res).toHaveLength(1);
+      expect(res[0]).toEqual({
+        idProveedor: 1,
+        proveedor: 'Proveedor Central',
+        pedidos: 2,
+        unidadesPedidas: 20,
+        mercaderiaColones: 50000,
+        costosAdicionales: 8500,
+        costoReal: 58500,
+      });
+
+      expect(detallesPedidoQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        OrigenCompra,
+        'proveedor',
+        expect.stringContaining(
+          'proveedor.idOrigenCompra = pedido.idOrigenCompra',
+        ),
+      );
+    });
+  });
+
+  describe('Compras por Producto (9E)', () => {
+    it('debe agregar compras a nivel de producto y manejar Sin categoría', async () => {
+      const res = await service.comprasPorProducto({});
+
+      expect(res).toHaveLength(1);
+      expect(res[0]).toEqual({
+        idProducto: 6,
+        producto: 'Aceite recepción prueba',
+        categoria: 'Sin categoría',
+        pedidos: 2,
+        unidadesPedidas: 20,
+        mercaderiaColones: 50000,
+        envio: 5000,
+        impuestos: 2500,
+        otrosGastos: 1000,
+        costoReal: 58500,
+      });
+
+      expect(detallesPedidoQueryBuilder.innerJoin).toHaveBeenCalledWith(
+        Producto,
+        'producto',
+        expect.stringContaining('producto.idProducto = detalle.idProducto'),
+      );
+    });
+  });
+
+  describe('Composición de Costos de Compras (9E)', () => {
+    it('debe calcular porcentajes y consistencia de componentes', async () => {
+      const res = await service.composicionCostosCompras({});
+
+      expect(res).toEqual({
+        mercaderia: {
+          monto: 300000,
+          porcentaje: 88.24,
+        },
+        envio: {
+          monto: 20000,
+          porcentaje: 5.88,
+        },
+        impuestos: {
+          monto: 15000,
+          porcentaje: 4.41,
+        },
+        otrosGastos: {
+          monto: 5000,
+          porcentaje: 1.47,
+        },
+        costoReal: 340000,
+        diferencia: 0,
+        consistente: true,
+      });
+    });
+
+    it('debe devolver ceros cuando costoReal es 0 sin provocar NaN', async () => {
+      jest
+        .spyOn(detallesPedidoQueryBuilder, 'getRawOne')
+        .mockResolvedValueOnce({
+          cantidadPedidos: '0',
+          unidadesPedidas: '0',
+          unidadesPlaneadas: '0',
+          mercaderiaColones: '0.00',
+          mercaderiaOriginal: '0.00',
+          envio: '0.00',
+          impuestos: '0.00',
+          otrosGastos: '0.00',
+          costoReal: '0.00',
+          costoRealOriginal: '0.00',
+        });
+
+      const res = await service.composicionCostosCompras({});
+
+      expect(res).toEqual({
+        mercaderia: { monto: 0, porcentaje: 0 },
+        envio: { monto: 0, porcentaje: 0 },
+        impuestos: { monto: 0, porcentaje: 0 },
+        otrosGastos: { monto: 0, porcentaje: 0 },
+        costoReal: 0,
+        diferencia: 0,
+        consistente: true,
+      });
+    });
+  });
+
+  describe('Compras Canceladas (9E)', () => {
+    it('debe consultar exclusivamente pedidos cancelados con importes originales', async () => {
+      const res = await service.comprasCanceladas({});
+
+      expect(res).toEqual({
+        periodo: { fechaDesde: null, fechaHasta: null },
+        cantidadPedidos: 19, // mock raw
+        unidadesPlaneadas: 25,
+        mercaderiaOriginal: 75000,
+        costoRealOriginal: 82000,
+      });
+
+      expect(detallesPedidoQueryBuilder.where).toHaveBeenCalledWith(
+        'pedido.estado = :cancelado',
+        { cancelado: 'CANCELADO' },
       );
     });
   });

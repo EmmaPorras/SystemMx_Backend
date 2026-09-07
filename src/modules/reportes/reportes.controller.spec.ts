@@ -155,6 +155,74 @@ describe('ReportesController', () => {
         },
         lotes: [],
       }),
+      resumenCompras: jest.fn().mockResolvedValue({
+        periodo: { fechaDesde: null, fechaHasta: null },
+        cantidadPedidos: 19,
+        unidadesPedidas: 100,
+        unidadesRecibidas: 61,
+        unidadesPendientes: 39,
+        recepcionConsistente: true,
+        mercaderiaColones: 300000,
+        envio: 20000,
+        impuestos: 15000,
+        otrosGastos: 5000,
+        costoReal: 340000,
+        diferenciaCosto: 0,
+        costoConsistente: true,
+      }),
+      evolucionCompras: jest.fn().mockResolvedValue([
+        {
+          fecha: '2026-09-10',
+          pedidos: 2,
+          unidadesPedidas: 20,
+          mercaderiaColones: 50000,
+          envio: 5000,
+          impuestos: 2500,
+          otrosGastos: 1000,
+          costoReal: 58500,
+        },
+      ]),
+      comprasPorProveedor: jest.fn().mockResolvedValue([
+        {
+          idProveedor: 1,
+          proveedor: 'Proveedor Central',
+          pedidos: 5,
+          unidadesPedidas: 40,
+          mercaderiaColones: 120000,
+          costosAdicionales: 15000,
+          costoReal: 135000,
+        },
+      ]),
+      comprasPorProducto: jest.fn().mockResolvedValue([
+        {
+          idProducto: 6,
+          producto: 'Aceite recepción prueba',
+          categoria: 'Sin categoría',
+          pedidos: 3,
+          unidadesPedidas: 27,
+          mercaderiaColones: 81000,
+          envio: 8000,
+          impuestos: 4000,
+          otrosGastos: 2000,
+          costoReal: 95000,
+        },
+      ]),
+      composicionCostosCompras: jest.fn().mockResolvedValue({
+        mercaderia: { monto: 300000, porcentaje: 88.24 },
+        envio: { monto: 20000, porcentaje: 5.88 },
+        impuestos: { monto: 15000, porcentaje: 4.41 },
+        otrosGastos: { monto: 5000, porcentaje: 1.47 },
+        costoReal: 340000,
+        diferencia: 0,
+        consistente: true,
+      }),
+      comprasCanceladas: jest.fn().mockResolvedValue({
+        periodo: { fechaDesde: null, fechaHasta: null },
+        cantidadPedidos: 4,
+        unidadesPlaneadas: 25,
+        mercaderiaOriginal: 75000,
+        costoRealOriginal: 82000,
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -250,5 +318,47 @@ describe('ReportesController', () => {
     const res = await controller.historicoInventario(dto);
     expect(reportesService.historicoInventario).toHaveBeenCalledWith(dto);
     expect(res.fechaCorte).toBe('2026-09-12');
+  });
+
+  it('GET /reportes/compras/resumen debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = { fechaDesde: '2026-09-01' };
+    const res = await controller.resumenCompras(dto);
+    expect(reportesService.resumenCompras).toHaveBeenCalledWith(dto);
+    expect(res.cantidadPedidos).toBe(19);
+  });
+
+  it('GET /reportes/compras/evolucion debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = {};
+    const res = await controller.evolucionCompras(dto);
+    expect(reportesService.evolucionCompras).toHaveBeenCalledWith(dto);
+    expect(res).toHaveLength(1);
+  });
+
+  it('GET /reportes/compras/proveedores debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = {};
+    const res = await controller.comprasPorProveedor(dto);
+    expect(reportesService.comprasPorProveedor).toHaveBeenCalledWith(dto);
+    expect(res[0].idProveedor).toBe(1);
+  });
+
+  it('GET /reportes/compras/productos debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = {};
+    const res = await controller.comprasPorProducto(dto);
+    expect(reportesService.comprasPorProducto).toHaveBeenCalledWith(dto);
+    expect(res[0].idProducto).toBe(6);
+  });
+
+  it('GET /reportes/compras/costos debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = {};
+    const res = await controller.composicionCostosCompras(dto);
+    expect(reportesService.composicionCostosCompras).toHaveBeenCalledWith(dto);
+    expect(res.costoReal).toBe(340000);
+  });
+
+  it('GET /reportes/compras/canceladas debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = {};
+    const res = await controller.comprasCanceladas(dto);
+    expect(reportesService.comprasCanceladas).toHaveBeenCalledWith(dto);
+    expect(res.cantidadPedidos).toBe(4);
   });
 });
