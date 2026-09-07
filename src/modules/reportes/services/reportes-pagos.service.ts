@@ -29,15 +29,15 @@ export class ReportesPagosService {
 
     const query = this.pagosRepository
       .createQueryBuilder('pago')
-      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = pago.idVenta')
+      .innerJoin(VentaEntity, 'venta', 'venta.id_venta = pago.id_venta')
       .select('COUNT(*)', 'cantidadPagos')
-      .addSelect('COUNT(DISTINCT pago.idVenta)', 'ventasConPago')
+      .addSelect('COUNT(DISTINCT pago.id_venta)', 'ventasConPago')
       .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoRegistrado')
       .addSelect(
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.estadoVenta <> :anulada
+              WHEN venta.estado_venta <> :anulada
               THEN pago.monto
               ELSE 0
             END
@@ -50,7 +50,7 @@ export class ReportesPagosService {
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.estadoVenta = :anulada
+              WHEN venta.estado_venta = :anulada
               THEN pago.monto
               ELSE 0
             END
@@ -61,7 +61,7 @@ export class ReportesPagosService {
       )
       .setParameter('anulada', 'ANULADA');
 
-    aplicarPeriodoDatetime(query, 'pago.createdAt', dto);
+    aplicarPeriodoDatetime(query, 'pago.created_at', dto);
 
     const raw = await query.getRawOne<{
       cantidadPagos: string;
@@ -89,15 +89,15 @@ export class ReportesPagosService {
 
     const query = this.pagosRepository
       .createQueryBuilder('pago')
-      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = pago.idVenta')
-      .select('pago.metodoPago', 'metodoPago')
+      .innerJoin(VentaEntity, 'venta', 'venta.id_venta = pago.id_venta')
+      .select('pago.metodo_pago', 'metodoPago')
       .addSelect('COUNT(*)', 'pagos')
       .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoTotal')
       .addSelect(
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.estadoVenta <> :anulada
+              WHEN venta.estado_venta <> :anulada
               THEN pago.monto
               ELSE 0
             END
@@ -110,7 +110,7 @@ export class ReportesPagosService {
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.estadoVenta = :anulada
+              WHEN venta.estado_venta = :anulada
               THEN pago.monto
               ELSE 0
             END
@@ -120,11 +120,11 @@ export class ReportesPagosService {
         'montoVentasAnuladas',
       )
       .setParameter('anulada', 'ANULADA')
-      .groupBy('pago.metodoPago')
+      .groupBy('pago.metodo_pago')
       .orderBy('SUM(pago.monto)', 'DESC')
-      .addOrderBy('pago.metodoPago', 'ASC');
+      .addOrderBy('pago.metodo_pago', 'ASC');
 
-    aplicarPeriodoDatetime(query, 'pago.createdAt', dto);
+    aplicarPeriodoDatetime(query, 'pago.created_at', dto);
 
     const filas = await query.getRawMany<{
       metodoPago: string;
@@ -146,11 +146,11 @@ export class ReportesPagosService {
   async evolucionPagos(dto: ConsultaPeriodoDto) {
     validarPeriodo(dto);
 
-    const expresionFecha = 'CAST(pago.createdAt AS date)';
+    const expresionFecha = 'CAST(pago.created_at AS date)';
 
     const query = this.pagosRepository
       .createQueryBuilder('pago')
-      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = pago.idVenta')
+      .innerJoin(VentaEntity, 'venta', 'venta.id_venta = pago.id_venta')
       .select(expresionFecha, 'fecha')
       .addSelect('COUNT(*)', 'pagos')
       .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoTotal')
@@ -158,7 +158,7 @@ export class ReportesPagosService {
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.estadoVenta <> :anulada
+              WHEN venta.estado_venta <> :anulada
               THEN pago.monto
               ELSE 0
             END
@@ -171,7 +171,7 @@ export class ReportesPagosService {
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.estadoVenta = :anulada
+              WHEN venta.estado_venta = :anulada
               THEN pago.monto
               ELSE 0
             END
@@ -184,7 +184,7 @@ export class ReportesPagosService {
       .groupBy(expresionFecha)
       .orderBy(expresionFecha, 'ASC');
 
-    aplicarPeriodoDatetime(query, 'pago.createdAt', dto);
+    aplicarPeriodoDatetime(query, 'pago.created_at', dto);
 
     const filas = await query.getRawMany<{
       fecha: unknown;
@@ -206,25 +206,25 @@ export class ReportesPagosService {
   async conciliacionPagos() {
     const filas = await this.ventasRepository
       .createQueryBuilder('venta')
-      .leftJoin(PagoVenta, 'pago', 'pago.idVenta = venta.idVenta')
-      .select('venta.idVenta', 'idVenta')
-      .addSelect('venta.numeroVenta', 'numeroVenta')
-      .addSelect('venta.fechaVenta', 'fechaVenta')
-      .addSelect('venta.totalVenta', 'totalVenta')
-      .addSelect('venta.montoPagado', 'montoPagadoVenta')
-      .addSelect('venta.saldoPendiente', 'saldoPendiente')
-      .addSelect('COUNT(pago.idPagoVenta)', 'cantidadPagosLedger')
+      .leftJoin(PagoVenta, 'pago', 'pago.id_venta = venta.id_venta')
+      .select('venta.id_venta', 'idVenta')
+      .addSelect('venta.numero_venta', 'numeroVenta')
+      .addSelect('venta.fecha_venta', 'fechaVenta')
+      .addSelect('venta.total_venta', 'totalVenta')
+      .addSelect('venta.monto_pagado', 'montoPagadoVenta')
+      .addSelect('venta.saldo_pendiente', 'saldoPendiente')
+      .addSelect('COUNT(pago.id_pago_venta)', 'cantidadPagosLedger')
       .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoLedger')
-      .where('venta.estadoVenta <> :anulada', {
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       })
-      .groupBy('venta.idVenta')
-      .addGroupBy('venta.numeroVenta')
-      .addGroupBy('venta.fechaVenta')
-      .addGroupBy('venta.totalVenta')
-      .addGroupBy('venta.montoPagado')
-      .addGroupBy('venta.saldoPendiente')
-      .orderBy('venta.idVenta', 'ASC')
+      .groupBy('venta.id_venta')
+      .addGroupBy('venta.numero_venta')
+      .addGroupBy('venta.fecha_venta')
+      .addGroupBy('venta.total_venta')
+      .addGroupBy('venta.monto_pagado')
+      .addGroupBy('venta.saldo_pendiente')
+      .orderBy('venta.id_venta', 'ASC')
       .getRawMany<{
         idVenta: string | number;
         numeroVenta: string;
@@ -300,30 +300,30 @@ export class ReportesPagosService {
   async cuentasPorCobrar() {
     const ventas = await this.ventasRepository
       .createQueryBuilder('venta')
-      .select('venta.idVenta', 'idVenta')
-      .addSelect('venta.numeroVenta', 'numeroVenta')
-      .addSelect('venta.fechaVenta', 'fechaVenta')
-      .addSelect('venta.clienteNombre', 'clienteNombre')
-      .addSelect('venta.estadoPago', 'estadoPago')
-      .addSelect('venta.totalVenta', 'totalVenta')
-      .addSelect('venta.montoPagado', 'montoPagado')
-      .addSelect('venta.saldoPendiente', 'saldoPendiente')
-      .addSelect('venta.fechaVencimientoPago', 'fechaVencimientoPago')
-      .where('venta.estadoVenta <> :anulada', {
+      .select('venta.id_venta', 'idVenta')
+      .addSelect('venta.numero_venta', 'numeroVenta')
+      .addSelect('venta.fecha_venta', 'fechaVenta')
+      .addSelect('venta.cliente_nombre', 'clienteNombre')
+      .addSelect('venta.estado_pago', 'estadoPago')
+      .addSelect('venta.total_venta', 'totalVenta')
+      .addSelect('venta.monto_pagado', 'montoPagado')
+      .addSelect('venta.saldo_pendiente', 'saldoPendiente')
+      .addSelect('venta.fecha_vencimiento_pago', 'fechaVencimientoPago')
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       })
-      .andWhere('venta.saldoPendiente > 0')
+      .andWhere('venta.saldo_pendiente > 0')
       .orderBy(
         `CASE
-          WHEN venta.fechaVencimientoPago IS NULL
+          WHEN venta.fecha_vencimiento_pago IS NULL
           THEN 1
           ELSE 0
         END`,
         'ASC',
       )
-      .addOrderBy('venta.fechaVencimientoPago', 'ASC')
-      .addOrderBy('venta.fechaVenta', 'ASC')
-      .addOrderBy('venta.idVenta', 'ASC')
+      .addOrderBy('venta.fecha_vencimiento_pago', 'ASC')
+      .addOrderBy('venta.fecha_venta', 'ASC')
+      .addOrderBy('venta.id_venta', 'ASC')
       .getRawMany<{
         idVenta: string | number;
         numeroVenta: string;
@@ -369,7 +369,7 @@ export class ReportesPagosService {
       .select(
         `SUM(
           CASE
-            WHEN venta.fechaVencimientoPago IS NULL
+            WHEN venta.fecha_vencimiento_pago IS NULL
             THEN 1
             ELSE 0
           END
@@ -380,8 +380,8 @@ export class ReportesPagosService {
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.fechaVencimientoPago IS NULL
-              THEN venta.saldoPendiente
+              WHEN venta.fecha_vencimiento_pago IS NULL
+              THEN venta.saldo_pendiente
               ELSE 0
             END
           ),
@@ -392,7 +392,7 @@ export class ReportesPagosService {
       .addSelect(
         `SUM(
           CASE
-            WHEN venta.fechaVencimientoPago < :fechaCorte
+            WHEN venta.fecha_vencimiento_pago < :fechaCorte
             THEN 1
             ELSE 0
           END
@@ -403,8 +403,8 @@ export class ReportesPagosService {
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.fechaVencimientoPago < :fechaCorte
-              THEN venta.saldoPendiente
+              WHEN venta.fecha_vencimiento_pago < :fechaCorte
+              THEN venta.saldo_pendiente
               ELSE 0
             END
           ),
@@ -415,7 +415,7 @@ export class ReportesPagosService {
       .addSelect(
         `SUM(
           CASE
-            WHEN venta.fechaVencimientoPago = :fechaCorte
+            WHEN venta.fecha_vencimiento_pago = :fechaCorte
             THEN 1
             ELSE 0
           END
@@ -426,8 +426,8 @@ export class ReportesPagosService {
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.fechaVencimientoPago = :fechaCorte
-              THEN venta.saldoPendiente
+              WHEN venta.fecha_vencimiento_pago = :fechaCorte
+              THEN venta.saldo_pendiente
               ELSE 0
             END
           ),
@@ -438,7 +438,7 @@ export class ReportesPagosService {
       .addSelect(
         `SUM(
           CASE
-            WHEN venta.fechaVencimientoPago > :fechaCorte
+            WHEN venta.fecha_vencimiento_pago > :fechaCorte
             THEN 1
             ELSE 0
           END
@@ -449,8 +449,8 @@ export class ReportesPagosService {
         `COALESCE(
           SUM(
             CASE
-              WHEN venta.fechaVencimientoPago > :fechaCorte
-              THEN venta.saldoPendiente
+              WHEN venta.fecha_vencimiento_pago > :fechaCorte
+              THEN venta.saldo_pendiente
               ELSE 0
             END
           ),
@@ -458,10 +458,10 @@ export class ReportesPagosService {
         )`,
         'porVencerSaldo',
       )
-      .where('venta.estadoVenta <> :anulada', {
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       })
-      .andWhere('venta.saldoPendiente > 0')
+      .andWhere('venta.saldo_pendiente > 0')
       .setParameter('fechaCorte', dto.fechaCorte)
       .getRawOne<{
         sinVencimientoCantidad: string;

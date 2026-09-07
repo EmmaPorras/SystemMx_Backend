@@ -27,16 +27,16 @@ export class ReportesResumenService {
     const query = this.ventasRepository
       .createQueryBuilder('venta')
       .select('COUNT(*)', 'cantidad')
-      .addSelect('COALESCE(SUM(venta.totalVenta), 0)', 'total')
-      .addSelect('COALESCE(SUM(venta.costoTotal), 0)', 'costo')
-      .addSelect('COALESCE(SUM(venta.gananciaBruta), 0)', 'gananciaBruta')
-      .addSelect('COALESCE(SUM(venta.montoPagado), 0)', 'montoPagado')
-      .addSelect('COALESCE(SUM(venta.saldoPendiente), 0)', 'saldoPendiente')
-      .where('venta.estadoVenta <> :anulada', {
+      .addSelect('COALESCE(SUM(venta.total_venta), 0)', 'total')
+      .addSelect('COALESCE(SUM(venta.costo_total), 0)', 'costo')
+      .addSelect('COALESCE(SUM(venta.ganancia_bruta), 0)', 'gananciaBruta')
+      .addSelect('COALESCE(SUM(venta.monto_pagado), 0)', 'montoPagado')
+      .addSelect('COALESCE(SUM(venta.saldo_pendiente), 0)', 'saldoPendiente')
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       });
 
-    aplicarPeriodo(query, 'venta.fechaVenta', dto);
+    aplicarPeriodo(query, 'venta.fecha_venta', dto);
 
     const raw = await query.getRawOne<{
       cantidad: string;
@@ -72,7 +72,7 @@ export class ReportesResumenService {
       .select(
         `SUM(
           CASE
-            WHEN lote.cantidadDisponible > 0
+            WHEN lote.cantidad_disponible > 0
             THEN 1
             ELSE 0
           END
@@ -80,12 +80,12 @@ export class ReportesResumenService {
         'lotesConStock',
       )
       .addSelect(
-        'COALESCE(SUM(lote.cantidadDisponible), 0)',
+        'COALESCE(SUM(lote.cantidad_disponible), 0)',
         'unidadesDisponibles',
       )
       .addSelect(
         `COALESCE(
-          SUM(lote.cantidadDisponible * lote.costoUnitarioReal),
+          SUM(lote.cantidad_disponible * lote.costo_unitario_real),
           0
         )`,
         'valorCosto',
@@ -107,11 +107,11 @@ export class ReportesResumenService {
     const raw = await this.ventasRepository
       .createQueryBuilder('venta')
       .select('COUNT(*)', 'ventasConSaldo')
-      .addSelect('COALESCE(SUM(venta.saldoPendiente), 0)', 'saldo')
-      .where('venta.estadoVenta <> :anulada', {
+      .addSelect('COALESCE(SUM(venta.saldo_pendiente), 0)', 'saldo')
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       })
-      .andWhere('venta.saldoPendiente > 0')
+      .andWhere('venta.saldo_pendiente > 0')
       .getRawOne<{
         ventasConSaldo: string;
         saldo: string;
@@ -129,7 +129,7 @@ export class ReportesResumenService {
       .select('pedido.estado', 'estado')
       .addSelect('COUNT(*)', 'cantidad');
 
-    aplicarPeriodo(query, 'pedido.fechaPedido', dto);
+    aplicarPeriodo(query, 'pedido.fecha_pedido', dto);
 
     const filas = await query
       .groupBy('pedido.estado')

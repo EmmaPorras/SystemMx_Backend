@@ -182,7 +182,37 @@ Si se conecta el sistema a una base de datos existente cuyo schema ya contiene l
 
 ---
 
-## 8. Acciones Estrictamente Prohibidas
+## 8. Smoke E2E de Instalación Reproducible
+
+Para validar de forma automatizada y determinista la instalación completa desde cero (reset de BD, migraciones, bootstrap de usuario ADMIN, arranque de la aplicación NestJS real, flujo comercial completo y verificación de integridad SQL):
+
+### 8.1. Reglas de Seguridad E2E
+> [!CAUTION]
+> El script de reset E2E (`reset-e2e-db.ts` / `run-systemmx-e2e.ps1`) destruye y recrea la base de datos indicada en `DB_E2E_DATABASE`. Por seguridad estricta, el runner exige que el nombre de la base de datos cumpla con el patrón `inventario_motos_*_e2e` y rechaza explícitamente bases protegidas como `master`, `model`, `msdb`, `tempdb` o `inventario_motos_dev`.
+
+### 8.2. Variables de Entorno E2E
+- `DB_E2E_DATABASE`: Nombre de la base de datos descartable exclusiva (ej. `inventario_motos_systemmx_e2e`).
+- `DB_E2E_ADMIN_USERNAME` / `DB_E2E_ADMIN_PASSWORD`: Credenciales administrativas opcionales con permisos para `CREATE DATABASE` / `DROP DATABASE` en SQL Server local o CI. **Nunca deben configurarse en runtime productivo**.
+
+### 8.3. Ejecución del Runner Automatizado
+En PowerShell:
+```powershell
+$env:DB_E2E_DATABASE = "inventario_motos_systemmx_e2e"
+$env:SYSTEMMX_BOOTSTRAP_USERNAME = "admin"
+$env:SYSTEMMX_BOOTSTRAP_NOMBRE = "Administrador General"
+$env:SYSTEMMX_BOOTSTRAP_PASSWORD = "PasswordSegura123!*"
+
+.\scripts\run-systemmx-e2e.ps1
+```
+
+El script ejecuta automáticamente el pipeline:
+```
+build → reset-e2e-db → migration:run:dist → bootstrap:user:dist → test:e2e:systemmx → migration:show:dist
+```
+
+---
+
+## 9. Acciones Estrictamente Prohibidas
 
 - ❌ **`synchronize: true`**: Prohibido en cualquier ambiente. No existe en el runtime.
 - ❌ **`dropSchema: true`**: Prohibido.
@@ -191,3 +221,4 @@ Si se conecta el sistema a una base de datos existente cuyo schema ya contiene l
 - ❌ **Ejecutar migraciones DDL utilizando el usuario de runtime de la aplicación en producción**.
 - ❌ **Definir `CORS_ORIGINS=*` en producción**.
 - ❌ **Almacenar contraseñas de bootstrap o producción en archivos de repositorio o commits de Git**.
+- ❌ **Apuntar `DB_E2E_DATABASE` a bases de desarrollo o producción**.

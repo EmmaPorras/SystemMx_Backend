@@ -32,18 +32,18 @@ export class ReportesVentasService {
       .createQueryBuilder('venta')
       .select('COUNT(*)', 'cantidadVentas')
       .addSelect('COALESCE(SUM(venta.subtotal), 0)', 'subtotal')
-      .addSelect('COALESCE(SUM(venta.descuentoTotal), 0)', 'descuentos')
-      .addSelect('COALESCE(SUM(venta.impuestoTotal), 0)', 'iva')
-      .addSelect('COALESCE(SUM(venta.totalVenta), 0)', 'ventas')
-      .addSelect('COALESCE(SUM(venta.costoTotal), 0)', 'costo')
-      .addSelect('COALESCE(SUM(venta.gananciaBruta), 0)', 'gananciaBruta')
-      .addSelect('COALESCE(SUM(venta.montoPagado), 0)', 'montoPagado')
-      .addSelect('COALESCE(SUM(venta.saldoPendiente), 0)', 'saldoPendiente')
-      .where('venta.estadoVenta <> :anulada', {
+      .addSelect('COALESCE(SUM(venta.descuento_total), 0)', 'descuentos')
+      .addSelect('COALESCE(SUM(venta.iva_total), 0)', 'iva')
+      .addSelect('COALESCE(SUM(venta.total_venta), 0)', 'ventas')
+      .addSelect('COALESCE(SUM(venta.costo_total), 0)', 'costo')
+      .addSelect('COALESCE(SUM(venta.ganancia_bruta), 0)', 'gananciaBruta')
+      .addSelect('COALESCE(SUM(venta.monto_pagado), 0)', 'montoPagado')
+      .addSelect('COALESCE(SUM(venta.saldo_pendiente), 0)', 'saldoPendiente')
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       });
 
-    aplicarPeriodo(query, 'venta.fechaVenta', dto);
+    aplicarPeriodo(query, 'venta.fecha_venta', dto);
 
     const raw = await query.getRawOne<{
       cantidadVentas: string;
@@ -87,18 +87,18 @@ export class ReportesVentasService {
 
     const query = this.ventasRepository
       .createQueryBuilder('venta')
-      .select('venta.fechaVenta', 'fecha')
+      .select('venta.fecha_venta', 'fecha')
       .addSelect('COUNT(*)', 'cantidadVentas')
-      .addSelect('COALESCE(SUM(venta.totalVenta), 0)', 'ventas')
-      .addSelect('COALESCE(SUM(venta.costoTotal), 0)', 'costo')
-      .addSelect('COALESCE(SUM(venta.gananciaBruta), 0)', 'gananciaBruta')
-      .where('venta.estadoVenta <> :anulada', {
+      .addSelect('COALESCE(SUM(venta.total_venta), 0)', 'ventas')
+      .addSelect('COALESCE(SUM(venta.costo_total), 0)', 'costo')
+      .addSelect('COALESCE(SUM(venta.ganancia_bruta), 0)', 'gananciaBruta')
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       })
-      .groupBy('venta.fechaVenta')
-      .orderBy('venta.fechaVenta', 'ASC');
+      .groupBy('venta.fecha_venta')
+      .orderBy('venta.fecha_venta', 'ASC');
 
-    aplicarPeriodo(query, 'venta.fechaVenta', dto);
+    aplicarPeriodo(query, 'venta.fecha_venta', dto);
 
     const filas = await query.getRawMany<{
       fecha: unknown;
@@ -130,34 +130,34 @@ export class ReportesVentasService {
 
     const query = this.detallesVentaRepository
       .createQueryBuilder('detalle')
-      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = detalle.idVenta')
+      .innerJoin(VentaEntity, 'venta', 'venta.id_venta = detalle.id_venta')
       .innerJoin(
         Producto,
         'producto',
-        'producto.idProducto = detalle.idProducto',
+        'producto.id_producto = detalle.id_producto',
       )
       .leftJoin(
         Categoria,
         'categoria',
-        'categoria.idCategoria = producto.idCategoria',
+        'categoria.id_categoria = producto.id_categoria',
       )
-      .select('producto.idProducto', 'idProducto')
+      .select('producto.id_producto', 'idProducto')
       .addSelect('producto.nombre', 'producto')
       .addSelect("COALESCE(categoria.nombre, 'Sin categoría')", 'categoria')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'unidadesVendidas')
-      .addSelect('COALESCE(SUM(detalle.totalDetalle), 0)', 'ventas')
-      .addSelect('COALESCE(SUM(detalle.costoTotal), 0)', 'costo')
-      .addSelect('COALESCE(SUM(detalle.gananciaBruta), 0)', 'gananciaBruta')
-      .where('venta.estadoVenta <> :anulada', {
+      .addSelect('COALESCE(SUM(detalle.total_linea), 0)', 'ventas')
+      .addSelect('COALESCE(SUM(detalle.costo_total), 0)', 'costo')
+      .addSelect('COALESCE(SUM(detalle.ganancia_bruta), 0)', 'gananciaBruta')
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       })
-      .groupBy('producto.idProducto')
+      .groupBy('producto.id_producto')
       .addGroupBy('producto.nombre')
       .addGroupBy('categoria.nombre')
-      .orderBy('SUM(detalle.totalDetalle)', 'DESC')
-      .addOrderBy('producto.idProducto', 'ASC');
+      .orderBy('SUM(detalle.total_linea)', 'DESC')
+      .addOrderBy('producto.id_producto', 'ASC');
 
-    aplicarPeriodo(query, 'venta.fechaVenta', dto);
+    aplicarPeriodo(query, 'venta.fecha_venta', dto);
 
     const filas = await query.getRawMany<{
       idProducto: string | number;
@@ -193,32 +193,32 @@ export class ReportesVentasService {
 
     const query = this.detallesVentaRepository
       .createQueryBuilder('detalle')
-      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = detalle.idVenta')
-      .innerJoin(LoteProducto, 'lote', 'lote.idLote = detalle.idLote')
+      .innerJoin(VentaEntity, 'venta', 'venta.id_venta = detalle.id_venta')
+      .innerJoin(LoteProducto, 'lote', 'lote.id_lote = detalle.id_lote')
       .innerJoin(
         Producto,
         'producto',
-        'producto.idProducto = detalle.idProducto',
+        'producto.id_producto = detalle.id_producto',
       )
-      .select('lote.idLote', 'idLote')
-      .addSelect('lote.codigoLote', 'codigoLote')
-      .addSelect('producto.idProducto', 'idProducto')
+      .select('lote.id_lote', 'idLote')
+      .addSelect('lote.codigo_lote', 'codigoLote')
+      .addSelect('producto.id_producto', 'idProducto')
       .addSelect('producto.nombre', 'producto')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'unidadesVendidas')
-      .addSelect('COALESCE(SUM(detalle.totalDetalle), 0)', 'ventas')
-      .addSelect('COALESCE(SUM(detalle.costoTotal), 0)', 'costo')
-      .addSelect('COALESCE(SUM(detalle.gananciaBruta), 0)', 'gananciaBruta')
-      .where('venta.estadoVenta <> :anulada', {
+      .addSelect('COALESCE(SUM(detalle.total_linea), 0)', 'ventas')
+      .addSelect('COALESCE(SUM(detalle.costo_total), 0)', 'costo')
+      .addSelect('COALESCE(SUM(detalle.ganancia_bruta), 0)', 'gananciaBruta')
+      .where('venta.estado_venta <> :anulada', {
         anulada: 'ANULADA',
       })
-      .groupBy('lote.idLote')
-      .addGroupBy('lote.codigoLote')
-      .addGroupBy('producto.idProducto')
+      .groupBy('lote.id_lote')
+      .addGroupBy('lote.codigo_lote')
+      .addGroupBy('producto.id_producto')
       .addGroupBy('producto.nombre')
-      .orderBy('SUM(detalle.totalDetalle)', 'DESC')
-      .addOrderBy('lote.idLote', 'ASC');
+      .orderBy('SUM(detalle.total_linea)', 'DESC')
+      .addOrderBy('lote.id_lote', 'ASC');
 
-    aplicarPeriodo(query, 'venta.fechaVenta', dto);
+    aplicarPeriodo(query, 'venta.fecha_venta', dto);
 
     const filas = await query.getRawMany<{
       idLote: string | number;
@@ -257,15 +257,15 @@ export class ReportesVentasService {
     const query = this.ventasRepository
       .createQueryBuilder('venta')
       .select('COUNT(*)', 'cantidad')
-      .addSelect('COALESCE(SUM(venta.totalVenta), 0)', 'importeOriginal')
-      .addSelect('COALESCE(SUM(venta.costoTotal), 0)', 'costoOriginal')
-      .addSelect('COALESCE(SUM(venta.gananciaBruta), 0)', 'gananciaOriginal')
-      .addSelect('COALESCE(SUM(venta.montoPagado), 0)', 'montoPagadoHistorico')
-      .where('venta.estadoVenta = :anulada', {
+      .addSelect('COALESCE(SUM(venta.total_venta), 0)', 'importeOriginal')
+      .addSelect('COALESCE(SUM(venta.costo_total), 0)', 'costoOriginal')
+      .addSelect('COALESCE(SUM(venta.ganancia_bruta), 0)', 'gananciaOriginal')
+      .addSelect('COALESCE(SUM(venta.monto_pagado), 0)', 'montoPagadoHistorico')
+      .where('venta.estado_venta = :anulada', {
         anulada: 'ANULADA',
       });
 
-    aplicarPeriodo(query, 'venta.fechaVenta', dto);
+    aplicarPeriodo(query, 'venta.fecha_venta', dto);
 
     const raw = await query.getRawOne<{
       cantidad: string;

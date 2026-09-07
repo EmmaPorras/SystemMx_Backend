@@ -549,7 +549,7 @@ describe('ReportesService', () => {
       });
 
       expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
-        'venta.estadoVenta <> :anulada',
+        'venta.estado_venta <> :anulada',
         { anulada: 'ANULADA' },
       );
     });
@@ -597,7 +597,7 @@ describe('ReportesService', () => {
       });
 
       expect(ventasQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'venta.fechaVenta',
+        'venta.fecha_venta',
         'ASC',
       );
     });
@@ -622,12 +622,12 @@ describe('ReportesService', () => {
       expect(detallesQueryBuilder.innerJoin).toHaveBeenCalledWith(
         VentaEntity,
         'venta',
-        expect.stringContaining('venta.idVenta'),
+        expect.stringContaining('venta.id_venta'),
       );
       expect(detallesQueryBuilder.leftJoin).toHaveBeenCalledWith(
         Categoria,
         'categoria',
-        expect.stringContaining('categoria.idCategoria'),
+        expect.stringContaining('categoria.id_categoria'),
       );
     });
   });
@@ -693,7 +693,7 @@ describe('ReportesService', () => {
       });
 
       expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
-        'venta.estadoVenta = :anulada',
+        'venta.estado_venta = :anulada',
         { anulada: 'ANULADA' },
       );
     });
@@ -769,12 +769,14 @@ describe('ReportesService', () => {
       expect(productosQueryBuilder.leftJoin).toHaveBeenCalledWith(
         LoteProducto,
         'lote',
-        expect.stringContaining('lote.idProducto = producto.idProducto'),
+        expect.stringContaining('lote.id_producto = producto.id_producto'),
       );
       expect(productosQueryBuilder.leftJoin).toHaveBeenCalledWith(
         Categoria,
         'categoria',
-        expect.stringContaining('categoria.idCategoria = producto.idCategoria'),
+        expect.stringContaining(
+          'categoria.id_categoria = producto.id_categoria',
+        ),
       );
     });
   });
@@ -1112,10 +1114,10 @@ describe('ReportesService', () => {
       });
 
       expect(detallesPedidoQueryBuilder.groupBy).toHaveBeenCalledWith(
-        'pedido.fechaPedido',
+        'pedido.fecha_pedido',
       );
       expect(detallesPedidoQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'pedido.fechaPedido',
+        'pedido.fecha_pedido',
         'ASC',
       );
     });
@@ -1140,7 +1142,7 @@ describe('ReportesService', () => {
         OrigenCompra,
         'proveedor',
         expect.stringContaining(
-          'proveedor.idOrigenCompra = pedido.idOrigenCompra',
+          'proveedor.id_origen_compra = pedido.id_origen_compra',
         ),
       );
     });
@@ -1167,7 +1169,7 @@ describe('ReportesService', () => {
       expect(detallesPedidoQueryBuilder.innerJoin).toHaveBeenCalledWith(
         Producto,
         'producto',
-        expect.stringContaining('producto.idProducto = detalle.idProducto'),
+        expect.stringContaining('producto.id_producto = detalle.id_producto'),
       );
     });
   });
@@ -1253,7 +1255,7 @@ describe('ReportesService', () => {
       await service.resumenPagos({ fechaDesde: '2026-09-12' });
 
       expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'pago.createdAt >= :fechaDesdeDatetime',
+        'pago.created_at >= :fechaDesdeDatetime',
         { fechaDesdeDatetime: '2026-09-12T00:00:00.000' },
       );
     });
@@ -1262,7 +1264,7 @@ describe('ReportesService', () => {
       await service.resumenPagos({ fechaHasta: '2026-09-12' });
 
       expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'pago.createdAt < :fechaHastaExclusiva',
+        'pago.created_at < :fechaHastaExclusiva',
         { fechaHastaExclusiva: '2026-09-13T00:00:00.000' },
       );
     });
@@ -1271,7 +1273,7 @@ describe('ReportesService', () => {
       await service.resumenPagos({ fechaHasta: '2026-09-30' });
 
       expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'pago.createdAt < :fechaHastaExclusiva',
+        'pago.created_at < :fechaHastaExclusiva',
         { fechaHastaExclusiva: '2026-10-01T00:00:00.000' },
       );
     });
@@ -1280,7 +1282,7 @@ describe('ReportesService', () => {
       await service.resumenPagos({ fechaHasta: '2026-12-31' });
 
       expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'pago.createdAt < :fechaHastaExclusiva',
+        'pago.created_at < :fechaHastaExclusiva',
         { fechaHastaExclusiva: '2027-01-01T00:00:00.000' },
       );
     });
@@ -1372,13 +1374,15 @@ describe('ReportesService', () => {
         },
       ]);
 
-      expect(pagosQueryBuilder.groupBy).toHaveBeenCalledWith('pago.metodoPago');
+      expect(pagosQueryBuilder.groupBy).toHaveBeenCalledWith(
+        'pago.metodo_pago',
+      );
       expect(pagosQueryBuilder.orderBy).toHaveBeenCalledWith(
         'SUM(pago.monto)',
         'DESC',
       );
       expect(pagosQueryBuilder.addOrderBy).toHaveBeenCalledWith(
-        'pago.metodoPago',
+        'pago.metodo_pago',
         'ASC',
       );
     });
@@ -1423,11 +1427,11 @@ describe('ReportesService', () => {
       ]);
 
       expect(pagosQueryBuilder.select).toHaveBeenCalledWith(
-        'CAST(pago.createdAt AS date)',
+        'CAST(pago.created_at AS date)',
         'fecha',
       );
       expect(pagosQueryBuilder.groupBy).toHaveBeenCalledWith(
-        'CAST(pago.createdAt AS date)',
+        'CAST(pago.created_at AS date)',
       );
     });
   });
@@ -1509,7 +1513,7 @@ describe('ReportesService', () => {
       expect(res.detalle[4].estado).toBe('CONCILIADA');
 
       expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
-        'venta.estadoVenta <> :anulada',
+        'venta.estado_venta <> :anulada',
         { anulada: 'ANULADA' },
       );
     });
@@ -1566,11 +1570,11 @@ describe('ReportesService', () => {
       expect(res.detalle[2].fechaVencimientoPago).toBe('2026-09-20');
 
       expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
-        'venta.estadoVenta <> :anulada',
+        'venta.estado_venta <> :anulada',
         { anulada: 'ANULADA' },
       );
       expect(ventasQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'venta.saldoPendiente > 0',
+        'venta.saldo_pendiente > 0',
       );
     });
   });
@@ -1768,20 +1772,20 @@ describe('ReportesService', () => {
       });
 
       expect(movimientosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'movimiento.idUsuario = :usuarioIdMovimiento',
+        'movimiento.id_usuario = :usuarioIdMovimiento',
         { usuarioIdMovimiento: 2 },
       );
       expect(movimientosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'movimiento.fechaMovimiento >= :fechaDesdeDatetime',
+        'movimiento.fecha_movimiento >= :fechaDesdeDatetime',
         { fechaDesdeDatetime: '2026-09-10T00:00:00.000' },
       );
 
       expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'pago.idUsuario = :usuarioIdPago',
+        'pago.id_usuario = :usuarioIdPago',
         { usuarioIdPago: 2 },
       );
       expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'pago.createdAt >= :fechaDesdeDatetime',
+        'pago.created_at >= :fechaDesdeDatetime',
         { fechaDesdeDatetime: '2026-09-10T00:00:00.000' },
       );
     });
@@ -1839,11 +1843,11 @@ describe('ReportesService', () => {
       expect(res[1].usuarioSnapshot).toBeNull();
 
       expect(movimientosQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'movimiento.fechaMovimiento',
+        'movimiento.fecha_movimiento',
         'DESC',
       );
       expect(movimientosQueryBuilder.addOrderBy).toHaveBeenCalledWith(
-        'movimiento.idMovimiento',
+        'movimiento.id_movimiento',
         'DESC',
       );
     });
@@ -1858,7 +1862,7 @@ describe('ReportesService', () => {
       });
 
       expect(movimientosQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'movimiento.tipoMovimiento = :tipoMovimiento',
+        'movimiento.tipo_movimiento = :tipoMovimiento',
         { tipoMovimiento: 'SALIDA_VENTA' },
       );
     });
@@ -1909,11 +1913,11 @@ describe('ReportesService', () => {
       expect(res[1].usuarioSnapshot).toBeNull();
 
       expect(pagosQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'pago.createdAt',
+        'pago.created_at',
         'DESC',
       );
       expect(pagosQueryBuilder.addOrderBy).toHaveBeenCalledWith(
-        'pago.idPagoVenta',
+        'pago.id_pago_venta',
         'DESC',
       );
     });
@@ -1945,10 +1949,10 @@ describe('ReportesService', () => {
       });
 
       expect(movimientosQueryBuilder.where).toHaveBeenCalledWith(
-        'movimiento.idUsuario IS NULL',
+        'movimiento.id_usuario IS NULL',
       );
       expect(pagosQueryBuilder.where).toHaveBeenCalledWith(
-        'pago.idUsuario IS NULL',
+        'pago.id_usuario IS NULL',
       );
     });
   });

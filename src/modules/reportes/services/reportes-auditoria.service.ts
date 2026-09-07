@@ -32,7 +32,7 @@ export class ReportesAuditoriaService {
       .addSelect(
         `SUM(
           CASE
-            WHEN movimiento.idUsuario IS NOT NULL
+            WHEN movimiento.id_usuario IS NOT NULL
             THEN 1
             ELSE 0
           END
@@ -42,14 +42,14 @@ export class ReportesAuditoriaService {
       .addSelect(
         `SUM(
           CASE
-            WHEN movimiento.idUsuario IS NULL
+            WHEN movimiento.id_usuario IS NULL
             THEN 1
             ELSE 0
           END
         )`,
         'legacy',
       )
-      .addSelect('COUNT(DISTINCT movimiento.idUsuario)', 'usuarios')
+      .addSelect('COUNT(DISTINCT movimiento.id_usuario)', 'usuarios')
       .getRawOne<{
         total: string;
         auditados: string;
@@ -63,7 +63,7 @@ export class ReportesAuditoriaService {
       .addSelect(
         `SUM(
           CASE
-            WHEN pago.idUsuario IS NOT NULL
+            WHEN pago.id_usuario IS NOT NULL
             THEN 1
             ELSE 0
           END
@@ -73,14 +73,14 @@ export class ReportesAuditoriaService {
       .addSelect(
         `SUM(
           CASE
-            WHEN pago.idUsuario IS NULL
+            WHEN pago.id_usuario IS NULL
             THEN 1
             ELSE 0
           END
         )`,
         'legacy',
       )
-      .addSelect('COUNT(DISTINCT pago.idUsuario)', 'usuarios')
+      .addSelect('COUNT(DISTINCT pago.id_usuario)', 'usuarios')
       .getRawOne<{
         total: string;
         auditados: string;
@@ -122,8 +122,12 @@ export class ReportesAuditoriaService {
 
     const movimientosQuery = this.movimientosRepository
       .createQueryBuilder('movimiento')
-      .innerJoin(Usuario, 'usuario', 'usuario.idUsuario = movimiento.idUsuario')
-      .select('movimiento.idUsuario', 'idUsuario')
+      .innerJoin(
+        Usuario,
+        'usuario',
+        'usuario.id_usuario = movimiento.id_usuario',
+      )
+      .select('movimiento.id_usuario', 'idUsuario')
       .addSelect('usuario.username', 'username')
       .addSelect('usuario.nombre', 'nombre')
       .addSelect('usuario.rol', 'rol')
@@ -131,7 +135,7 @@ export class ReportesAuditoriaService {
       .addSelect(
         `SUM(
           CASE
-            WHEN movimiento.tipoMovimiento = 'ENTRADA_COMPRA'
+            WHEN movimiento.tipo_movimiento = 'ENTRADA_COMPRA'
             THEN 1
             ELSE 0
           END
@@ -141,7 +145,7 @@ export class ReportesAuditoriaService {
       .addSelect(
         `SUM(
           CASE
-            WHEN movimiento.tipoMovimiento = 'SALIDA_VENTA'
+            WHEN movimiento.tipo_movimiento = 'SALIDA_VENTA'
             THEN 1
             ELSE 0
           END
@@ -151,7 +155,7 @@ export class ReportesAuditoriaService {
       .addSelect(
         `SUM(
           CASE
-            WHEN movimiento.tipoMovimiento = 'REINGRESO_ANULACION_VENTA'
+            WHEN movimiento.tipo_movimiento = 'REINGRESO_ANULACION_VENTA'
             THEN 1
             ELSE 0
           END
@@ -159,39 +163,46 @@ export class ReportesAuditoriaService {
         'reingresos',
       )
       .addSelect('COALESCE(SUM(movimiento.cantidad), 0)', 'unidadesMovidas')
-      .where('movimiento.idUsuario IS NOT NULL')
-      .groupBy('movimiento.idUsuario')
+      .where('movimiento.id_usuario IS NOT NULL')
+      .groupBy('movimiento.id_usuario')
       .addGroupBy('usuario.username')
       .addGroupBy('usuario.nombre')
       .addGroupBy('usuario.rol');
 
-    aplicarPeriodoDatetime(movimientosQuery, 'movimiento.fechaMovimiento', dto);
+    aplicarPeriodoDatetime(
+      movimientosQuery,
+      'movimiento.fecha_movimiento',
+      dto,
+    );
 
     if (dto.usuarioId !== undefined) {
-      movimientosQuery.andWhere('movimiento.idUsuario = :usuarioIdMovimiento', {
-        usuarioIdMovimiento: dto.usuarioId,
-      });
+      movimientosQuery.andWhere(
+        'movimiento.id_usuario = :usuarioIdMovimiento',
+        {
+          usuarioIdMovimiento: dto.usuarioId,
+        },
+      );
     }
 
     const pagosQuery = this.pagosRepository
       .createQueryBuilder('pago')
-      .innerJoin(Usuario, 'usuario', 'usuario.idUsuario = pago.idUsuario')
-      .select('pago.idUsuario', 'idUsuario')
+      .innerJoin(Usuario, 'usuario', 'usuario.id_usuario = pago.id_usuario')
+      .select('pago.id_usuario', 'idUsuario')
       .addSelect('usuario.username', 'username')
       .addSelect('usuario.nombre', 'nombre')
       .addSelect('usuario.rol', 'rol')
       .addSelect('COUNT(*)', 'pagosProcesados')
       .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoPagosProcesado')
-      .where('pago.idUsuario IS NOT NULL')
-      .groupBy('pago.idUsuario')
+      .where('pago.id_usuario IS NOT NULL')
+      .groupBy('pago.id_usuario')
       .addGroupBy('usuario.username')
       .addGroupBy('usuario.nombre')
       .addGroupBy('usuario.rol');
 
-    aplicarPeriodoDatetime(pagosQuery, 'pago.createdAt', dto);
+    aplicarPeriodoDatetime(pagosQuery, 'pago.created_at', dto);
 
     if (dto.usuarioId !== undefined) {
-      pagosQuery.andWhere('pago.idUsuario = :usuarioIdPago', {
+      pagosQuery.andWhere('pago.id_usuario = :usuarioIdPago', {
         usuarioIdPago: dto.usuarioId,
       });
     }
@@ -291,40 +302,44 @@ export class ReportesAuditoriaService {
 
     const query = this.movimientosRepository
       .createQueryBuilder('movimiento')
-      .leftJoin(Usuario, 'usuario', 'usuario.idUsuario = movimiento.idUsuario')
-      .select('movimiento.idMovimiento', 'idMovimiento')
-      .addSelect('movimiento.fechaMovimiento', 'fechaMovimiento')
-      .addSelect('movimiento.tipoMovimiento', 'tipoMovimiento')
+      .leftJoin(
+        Usuario,
+        'usuario',
+        'usuario.id_usuario = movimiento.id_usuario',
+      )
+      .select('movimiento.id_movimiento', 'idMovimiento')
+      .addSelect('movimiento.fecha_movimiento', 'fechaMovimiento')
+      .addSelect('movimiento.tipo_movimiento', 'tipoMovimiento')
       .addSelect('movimiento.cantidad', 'cantidad')
-      .addSelect('movimiento.idUsuario', 'idUsuario')
+      .addSelect('movimiento.id_usuario', 'idUsuario')
       .addSelect('usuario.username', 'usuarioActual')
       .addSelect('movimiento.usuario', 'usuarioSnapshot')
-      .addSelect('movimiento.idProducto', 'idProducto')
-      .addSelect('movimiento.idLote', 'idLote')
-      .addSelect('movimiento.referenciaTipo', 'referenciaTipo')
-      .addSelect('movimiento.referenciaId', 'referenciaId')
-      .addSelect('movimiento.costoUnitario', 'costoUnitario')
-      .addSelect('movimiento.totalMovimiento', 'totalMovimiento')
+      .addSelect('movimiento.id_producto', 'idProducto')
+      .addSelect('movimiento.id_lote', 'idLote')
+      .addSelect('movimiento.referencia_tipo', 'referenciaTipo')
+      .addSelect('movimiento.referencia_id', 'referenciaId')
+      .addSelect('movimiento.costo_unitario', 'costoUnitario')
+      .addSelect('movimiento.total_movimiento', 'totalMovimiento')
       .addSelect('movimiento.motivo', 'motivo')
       .addSelect('movimiento.observaciones', 'observaciones');
 
-    aplicarPeriodoDatetime(query, 'movimiento.fechaMovimiento', dto);
+    aplicarPeriodoDatetime(query, 'movimiento.fecha_movimiento', dto);
 
     if (dto.usuarioId !== undefined) {
-      query.andWhere('movimiento.idUsuario = :usuarioId', {
+      query.andWhere('movimiento.id_usuario = :usuarioId', {
         usuarioId: dto.usuarioId,
       });
     }
 
     if (dto.tipoMovimiento) {
-      query.andWhere('movimiento.tipoMovimiento = :tipoMovimiento', {
+      query.andWhere('movimiento.tipo_movimiento = :tipoMovimiento', {
         tipoMovimiento: dto.tipoMovimiento,
       });
     }
 
     query
-      .orderBy('movimiento.fechaMovimiento', 'DESC')
-      .addOrderBy('movimiento.idMovimiento', 'DESC');
+      .orderBy('movimiento.fecha_movimiento', 'DESC')
+      .addOrderBy('movimiento.id_movimiento', 'DESC');
 
     const filas = await query.getRawMany<{
       idMovimiento: string | number;
@@ -371,32 +386,32 @@ export class ReportesAuditoriaService {
 
     const query = this.pagosRepository
       .createQueryBuilder('pago')
-      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = pago.idVenta')
-      .leftJoin(Usuario, 'usuario', 'usuario.idUsuario = pago.idUsuario')
-      .select('pago.idPagoVenta', 'idPagoVenta')
-      .addSelect('pago.createdAt', 'fecha')
-      .addSelect('pago.idVenta', 'idVenta')
-      .addSelect('venta.numeroVenta', 'numeroVenta')
-      .addSelect('venta.estadoVenta', 'estadoVenta')
-      .addSelect('pago.metodoPago', 'metodoPago')
+      .innerJoin(VentaEntity, 'venta', 'venta.id_venta = pago.id_venta')
+      .leftJoin(Usuario, 'usuario', 'usuario.id_usuario = pago.id_usuario')
+      .select('pago.id_pago_venta', 'idPagoVenta')
+      .addSelect('pago.created_at', 'fecha')
+      .addSelect('pago.id_venta', 'idVenta')
+      .addSelect('venta.numero_venta', 'numeroVenta')
+      .addSelect('venta.estado_venta', 'estadoVenta')
+      .addSelect('pago.metodo_pago', 'metodoPago')
       .addSelect('pago.monto', 'monto')
-      .addSelect('pago.idUsuario', 'idUsuario')
+      .addSelect('pago.id_usuario', 'idUsuario')
       .addSelect('usuario.username', 'usuarioActual')
       .addSelect('pago.usuario', 'usuarioSnapshot')
       .addSelect('pago.referencia', 'referencia')
       .addSelect('pago.observaciones', 'observaciones');
 
-    aplicarPeriodoDatetime(query, 'pago.createdAt', dto);
+    aplicarPeriodoDatetime(query, 'pago.created_at', dto);
 
     if (dto.usuarioId !== undefined) {
-      query.andWhere('pago.idUsuario = :usuarioId', {
+      query.andWhere('pago.id_usuario = :usuarioId', {
         usuarioId: dto.usuarioId,
       });
     }
 
     query
-      .orderBy('pago.createdAt', 'DESC')
-      .addOrderBy('pago.idPagoVenta', 'DESC');
+      .orderBy('pago.created_at', 'DESC')
+      .addOrderBy('pago.id_pago_venta', 'DESC');
 
     const filas = await query.getRawMany<{
       idPagoVenta: string | number;
@@ -435,12 +450,12 @@ export class ReportesAuditoriaService {
   async legacyAuditoria() {
     const movimientos = await this.movimientosRepository
       .createQueryBuilder('movimiento')
-      .select('movimiento.tipoMovimiento', 'tipo')
+      .select('movimiento.tipo_movimiento', 'tipo')
       .addSelect('COUNT(*)', 'cantidad')
       .addSelect('COALESCE(SUM(movimiento.cantidad), 0)', 'unidades')
-      .where('movimiento.idUsuario IS NULL')
-      .groupBy('movimiento.tipoMovimiento')
-      .orderBy('movimiento.tipoMovimiento', 'ASC')
+      .where('movimiento.id_usuario IS NULL')
+      .groupBy('movimiento.tipo_movimiento')
+      .orderBy('movimiento.tipo_movimiento', 'ASC')
       .getRawMany<{
         tipo: string;
         cantidad: string;
@@ -451,7 +466,7 @@ export class ReportesAuditoriaService {
       .createQueryBuilder('pago')
       .select('COUNT(*)', 'cantidad')
       .addSelect('COALESCE(SUM(pago.monto), 0)', 'monto')
-      .where('pago.idUsuario IS NULL')
+      .where('pago.id_usuario IS NULL')
       .getRawOne<{
         cantidad: string;
         monto: string;

@@ -785,7 +785,7 @@ describe('VentasService', () => {
 
       expect(ventaQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(loteQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
-      expect(loteQbMock.orderBy).toHaveBeenCalledWith('lote.idLote', 'ASC');
+      expect(loteQbMock.orderBy).toHaveBeenCalledWith('lote.id_lote', 'ASC');
 
       expect(lote13.cantidadDisponible).toBe(10);
       expect(lote13.estadoLote).toBe('EN_STOCK');

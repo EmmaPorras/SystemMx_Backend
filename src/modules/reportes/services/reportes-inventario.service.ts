@@ -34,7 +34,7 @@ export class ReportesInventarioService {
         `
         SUM(
           CASE
-            WHEN lote.cantidadDisponible > 0
+            WHEN lote.cantidad_disponible > 0
             THEN 1
             ELSE 0
           END
@@ -45,7 +45,7 @@ export class ReportesInventarioService {
       .addSelect(
         `
         COALESCE(
-          SUM(lote.cantidadRecibida),
+          SUM(lote.cantidad_recibida),
           0
         )
         `,
@@ -54,7 +54,7 @@ export class ReportesInventarioService {
       .addSelect(
         `
         COALESCE(
-          SUM(lote.cantidadDisponible),
+          SUM(lote.cantidad_disponible),
           0
         )
         `,
@@ -76,7 +76,7 @@ export class ReportesInventarioService {
         `
         SUM(
           CASE
-            WHEN lote.estadoLote = 'AGOTADO'
+            WHEN lote.estado_lote = 'AGOTADO'
             THEN 1
             ELSE 0
           END
@@ -88,7 +88,7 @@ export class ReportesInventarioService {
         `
         SUM(
           CASE
-            WHEN lote.estadoLote = 'EN_PROCESO'
+            WHEN lote.estado_lote = 'EN_PROCESO'
             THEN 1
             ELSE 0
           END
@@ -100,7 +100,7 @@ export class ReportesInventarioService {
         `
         SUM(
           CASE
-            WHEN lote.estadoLote = 'EN_STOCK'
+            WHEN lote.estado_lote = 'EN_STOCK'
             THEN 1
             ELSE 0
           END
@@ -112,7 +112,7 @@ export class ReportesInventarioService {
         `
         SUM(
           CASE
-            WHEN lote.estadoLote = 'VENDIDO_PARCIAL'
+            WHEN lote.estado_lote = 'VENDIDO_PARCIAL'
             THEN 1
             ELSE 0
           END
@@ -150,13 +150,13 @@ export class ReportesInventarioService {
   async inventarioPorProducto() {
     const filas = await this.productosRepository
       .createQueryBuilder('producto')
-      .leftJoin(LoteProducto, 'lote', 'lote.idProducto = producto.idProducto')
+      .leftJoin(LoteProducto, 'lote', 'lote.id_producto = producto.id_producto')
       .leftJoin(
         Categoria,
         'categoria',
-        'categoria.idCategoria = producto.idCategoria',
+        'categoria.id_categoria = producto.id_categoria',
       )
-      .select('producto.idProducto', 'idProducto')
+      .select('producto.id_producto', 'idProducto')
       .addSelect('producto.nombre', 'producto')
       .addSelect(
         `
@@ -167,12 +167,12 @@ export class ReportesInventarioService {
         `,
         'categoria',
       )
-      .addSelect('COUNT(lote.idLote)', 'lotes')
+      .addSelect('COUNT(lote.id_lote)', 'lotes')
       .addSelect(
         `
         SUM(
           CASE
-            WHEN lote.cantidadDisponible > 0
+            WHEN lote.cantidad_disponible > 0
             THEN 1
             ELSE 0
           END
@@ -183,7 +183,7 @@ export class ReportesInventarioService {
       .addSelect(
         `
         COALESCE(
-          SUM(lote.cantidadRecibida),
+          SUM(lote.cantidad_recibida),
           0
         )
         `,
@@ -192,7 +192,7 @@ export class ReportesInventarioService {
       .addSelect(
         `
         COALESCE(
-          SUM(lote.cantidadDisponible),
+          SUM(lote.cantidad_disponible),
           0
         )
         `,
@@ -210,11 +210,11 @@ export class ReportesInventarioService {
         `,
         'valorCosto',
       )
-      .groupBy('producto.idProducto')
+      .groupBy('producto.id_producto')
       .addGroupBy('producto.nombre')
       .addGroupBy('categoria.nombre')
-      .orderBy('COALESCE(SUM(lote.cantidadDisponible), 0)', 'DESC')
-      .addOrderBy('producto.idProducto', 'ASC')
+      .orderBy('COALESCE(SUM(lote.cantidad_disponible), 0)', 'DESC')
+      .addOrderBy('producto.id_producto', 'ASC')
       .getRawMany<{
         idProducto: string | number;
         producto: string;
@@ -241,12 +241,12 @@ export class ReportesInventarioService {
   async inventarioPorEstado() {
     const filas = await this.lotesRepository
       .createQueryBuilder('lote')
-      .select('lote.estadoLote', 'estado')
+      .select('lote.estado_lote', 'estado')
       .addSelect('COUNT(*)', 'lotes')
       .addSelect(
         `
         COALESCE(
-          SUM(lote.cantidadRecibida),
+          SUM(lote.cantidad_recibida),
           0
         )
         `,
@@ -255,7 +255,7 @@ export class ReportesInventarioService {
       .addSelect(
         `
         COALESCE(
-          SUM(lote.cantidadDisponible),
+          SUM(lote.cantidad_disponible),
           0
         )
         `,
@@ -273,8 +273,8 @@ export class ReportesInventarioService {
         `,
         'valorCostoDisponible',
       )
-      .groupBy('lote.estadoLote')
-      .orderBy('lote.estadoLote', 'ASC')
+      .groupBy('lote.estado_lote')
+      .orderBy('lote.estado_lote', 'ASC')
       .getRawMany<{
         estado: string;
         lotes: string | number;
@@ -295,13 +295,13 @@ export class ReportesInventarioService {
   async productosSinStock() {
     const filas = await this.productosRepository
       .createQueryBuilder('producto')
-      .leftJoin(LoteProducto, 'lote', 'lote.idProducto = producto.idProducto')
-      .select('producto.idProducto', 'idProducto')
+      .leftJoin(LoteProducto, 'lote', 'lote.id_producto = producto.id_producto')
+      .select('producto.id_producto', 'idProducto')
       .addSelect('producto.nombre', 'producto')
       .addSelect(
         `
         COALESCE(
-          SUM(lote.cantidadRecibida),
+          SUM(lote.cantidad_recibida),
           0
         )
         `,
@@ -310,7 +310,7 @@ export class ReportesInventarioService {
       .addSelect(
         `
         COALESCE(
-          SUM(lote.cantidadDisponible),
+          SUM(lote.cantidad_disponible),
           0
         )
         `,
@@ -320,7 +320,7 @@ export class ReportesInventarioService {
         `
         SUM(
           CASE
-            WHEN lote.estadoLote = 'EN_PROCESO'
+            WHEN lote.estado_lote = 'EN_PROCESO'
             THEN 1
             ELSE 0
           END
@@ -332,7 +332,7 @@ export class ReportesInventarioService {
         `
         SUM(
           CASE
-            WHEN lote.estadoLote = 'AGOTADO'
+            WHEN lote.estado_lote = 'AGOTADO'
             THEN 1
             ELSE 0
           END
@@ -340,18 +340,18 @@ export class ReportesInventarioService {
         `,
         'lotesAgotados',
       )
-      .groupBy('producto.idProducto')
+      .groupBy('producto.id_producto')
       .addGroupBy('producto.nombre')
       .having(
         `
         COALESCE(
-          SUM(lote.cantidadDisponible),
+          SUM(lote.cantidad_disponible),
           0
         ) = 0
         `,
       )
       .orderBy('producto.nombre', 'ASC')
-      .addOrderBy('producto.idProducto', 'ASC')
+      .addOrderBy('producto.id_producto', 'ASC')
       .getRawMany<{
         idProducto: string | number;
         producto: string;
@@ -378,25 +378,29 @@ export class ReportesInventarioService {
 
     const filas = await this.lotesRepository
       .createQueryBuilder('lote')
-      .innerJoin(Producto, 'producto', 'producto.idProducto = lote.idProducto')
+      .innerJoin(
+        Producto,
+        'producto',
+        'producto.id_producto = lote.id_producto',
+      )
       .leftJoin(
         MovimientoInventario,
         'movimiento',
-        'movimiento.idLote = lote.idLote',
+        'movimiento.id_lote = lote.id_lote',
       )
-      .select('lote.idLote', 'idLote')
-      .addSelect('lote.codigoLote', 'codigoLote')
-      .addSelect('lote.idProducto', 'idProducto')
+      .select('lote.id_lote', 'idLote')
+      .addSelect('lote.codigo_lote', 'codigoLote')
+      .addSelect('lote.id_producto', 'idProducto')
       .addSelect('producto.nombre', 'producto')
-      .addSelect('lote.cantidadRecibida', 'cantidadRecibida')
-      .addSelect('lote.cantidadDisponible', 'stockActual')
-      .addSelect('lote.costoUnitarioReal', 'costoUnitarioReal')
+      .addSelect('lote.cantidad_recibida', 'cantidadRecibida')
+      .addSelect('lote.cantidad_disponible', 'stockActual')
+      .addSelect('lote.costo_unitario_real', 'costoUnitarioReal')
       .addSelect(
         `
         COALESCE(
           SUM(
             CASE
-              WHEN movimiento.tipoMovimiento = :entrada
+              WHEN movimiento.tipo_movimiento = :entrada
               THEN movimiento.cantidad
               ELSE 0
             END
@@ -411,16 +415,16 @@ export class ReportesInventarioService {
         COALESCE(
           SUM(
             CASE
-              WHEN movimiento.fechaMovimiento < :fechaHastaExclusiva
+              WHEN movimiento.fecha_movimiento < :fechaHastaExclusiva
               THEN
                 CASE
-                  WHEN movimiento.tipoMovimiento = :entrada
+                  WHEN movimiento.tipo_movimiento = :entrada
                   THEN movimiento.cantidad
 
-                  WHEN movimiento.tipoMovimiento = :salida
+                  WHEN movimiento.tipo_movimiento = :salida
                   THEN -movimiento.cantidad
 
-                  WHEN movimiento.tipoMovimiento = :reingreso
+                  WHEN movimiento.tipo_movimiento = :reingreso
                   THEN movimiento.cantidad
 
                   ELSE 0
@@ -439,14 +443,14 @@ export class ReportesInventarioService {
         reingreso: 'REINGRESO_ANULACION_VENTA',
         fechaHastaExclusiva,
       })
-      .groupBy('lote.idLote')
-      .addGroupBy('lote.codigoLote')
-      .addGroupBy('lote.idProducto')
+      .groupBy('lote.id_lote')
+      .addGroupBy('lote.codigo_lote')
+      .addGroupBy('lote.id_producto')
       .addGroupBy('producto.nombre')
-      .addGroupBy('lote.cantidadRecibida')
-      .addGroupBy('lote.cantidadDisponible')
-      .addGroupBy('lote.costoUnitarioReal')
-      .orderBy('lote.idLote', 'ASC')
+      .addGroupBy('lote.cantidad_recibida')
+      .addGroupBy('lote.cantidad_disponible')
+      .addGroupBy('lote.costo_unitario_real')
+      .orderBy('lote.id_lote', 'ASC')
       .getRawMany<{
         idLote: string | number;
         codigoLote: string;

@@ -45,10 +45,15 @@ async function main() {
   }
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : 'Error desconocido';
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error: unknown) => {
+    const message =
+      error instanceof Error ? error.message : 'Error desconocido';
 
-  console.error(`Bootstrap falló: ${message}`);
+    console.error(`Bootstrap falló: ${message}`);
 
-  process.exitCode = 1;
-});
+    process.exit(1);
+  });

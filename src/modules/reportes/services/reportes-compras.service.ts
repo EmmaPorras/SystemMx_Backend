@@ -30,37 +30,37 @@ export class ReportesComprasService {
       .innerJoin(
         PedidoCompraEntity,
         'pedido',
-        'pedido.idPedido = detalle.idPedido',
+        'pedido.id_pedido = detalle.id_pedido',
       )
-      .select('COUNT(DISTINCT pedido.idPedido)', 'cantidadPedidos')
+      .select('COUNT(DISTINCT pedido.id_pedido)', 'cantidadPedidos')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'unidadesPedidas')
-      .addSelect('COALESCE(SUM(detalle.totalColones), 0)', 'mercaderiaColones')
-      .addSelect('COALESCE(SUM(detalle.envioAsignado), 0)', 'envio')
-      .addSelect('COALESCE(SUM(detalle.impuestosAsignados), 0)', 'impuestos')
+      .addSelect('COALESCE(SUM(detalle.total_colones), 0)', 'mercaderiaColones')
+      .addSelect('COALESCE(SUM(detalle.envio_asignado), 0)', 'envio')
+      .addSelect('COALESCE(SUM(detalle.impuestos_asignados), 0)', 'impuestos')
       .addSelect(
-        'COALESCE(SUM(detalle.otrosGastosAsignados), 0)',
+        'COALESCE(SUM(detalle.otros_gastos_asignados), 0)',
         'otrosGastos',
       )
-      .addSelect('COALESCE(SUM(detalle.costoTotalReal), 0)', 'costoReal')
+      .addSelect('COALESCE(SUM(detalle.costo_total_real), 0)', 'costoReal')
       .where('pedido.estado <> :cancelado', {
         cancelado: 'CANCELADO',
       });
 
-    aplicarPeriodo(query, 'pedido.fechaPedido', dto);
+    aplicarPeriodo(query, 'pedido.fecha_pedido', dto);
 
     const recibidasQuery = this.lotesRepository
       .createQueryBuilder('lote')
       .innerJoin(
         PedidoCompraEntity,
         'pedido',
-        'pedido.idPedido = lote.idPedido',
+        'pedido.id_pedido = lote.id_pedido',
       )
-      .select('COALESCE(SUM(lote.cantidadRecibida), 0)', 'unidadesRecibidas')
+      .select('COALESCE(SUM(lote.cantidad_recibida), 0)', 'unidadesRecibidas')
       .where('pedido.estado <> :cancelado', {
         cancelado: 'CANCELADO',
       });
 
-    aplicarPeriodo(recibidasQuery, 'pedido.fechaPedido', dto);
+    aplicarPeriodo(recibidasQuery, 'pedido.fecha_pedido', dto);
 
     const [raw, rawRecibidas] = await Promise.all([
       query.getRawOne<{
@@ -123,26 +123,26 @@ export class ReportesComprasService {
       .innerJoin(
         PedidoCompraEntity,
         'pedido',
-        'pedido.idPedido = detalle.idPedido',
+        'pedido.id_pedido = detalle.id_pedido',
       )
-      .select('pedido.fechaPedido', 'fecha')
-      .addSelect('COUNT(DISTINCT pedido.idPedido)', 'pedidos')
+      .select('pedido.fecha_pedido', 'fecha')
+      .addSelect('COUNT(DISTINCT pedido.id_pedido)', 'pedidos')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'unidadesPedidas')
-      .addSelect('COALESCE(SUM(detalle.totalColones), 0)', 'mercaderiaColones')
-      .addSelect('COALESCE(SUM(detalle.envioAsignado), 0)', 'envio')
-      .addSelect('COALESCE(SUM(detalle.impuestosAsignados), 0)', 'impuestos')
+      .addSelect('COALESCE(SUM(detalle.total_colones), 0)', 'mercaderiaColones')
+      .addSelect('COALESCE(SUM(detalle.envio_asignado), 0)', 'envio')
+      .addSelect('COALESCE(SUM(detalle.impuestos_asignados), 0)', 'impuestos')
       .addSelect(
-        'COALESCE(SUM(detalle.otrosGastosAsignados), 0)',
+        'COALESCE(SUM(detalle.otros_gastos_asignados), 0)',
         'otrosGastos',
       )
-      .addSelect('COALESCE(SUM(detalle.costoTotalReal), 0)', 'costoReal')
+      .addSelect('COALESCE(SUM(detalle.costo_total_real), 0)', 'costoReal')
       .where('pedido.estado <> :cancelado', {
         cancelado: 'CANCELADO',
       })
-      .groupBy('pedido.fechaPedido')
-      .orderBy('pedido.fechaPedido', 'ASC');
+      .groupBy('pedido.fecha_pedido')
+      .orderBy('pedido.fecha_pedido', 'ASC');
 
-    aplicarPeriodo(query, 'pedido.fechaPedido', dto);
+    aplicarPeriodo(query, 'pedido.fecha_pedido', dto);
 
     const filas = await query.getRawMany<{
       fecha: string;
@@ -175,35 +175,35 @@ export class ReportesComprasService {
       .innerJoin(
         PedidoCompraEntity,
         'pedido',
-        'pedido.idPedido = detalle.idPedido',
+        'pedido.id_pedido = detalle.id_pedido',
       )
       .leftJoin(
         OrigenCompra,
         'proveedor',
-        'proveedor.idOrigenCompra = pedido.idOrigenCompra',
+        'proveedor.id_origen_compra = pedido.id_origen_compra',
       )
-      .select('proveedor.idOrigenCompra', 'idProveedor')
+      .select('proveedor.id_origen_compra', 'idProveedor')
       .addSelect(
-        "COALESCE(proveedor.nombreReferencia, 'Sin proveedor')",
+        "COALESCE(proveedor.nombre_referencia, 'Sin proveedor')",
         'proveedor',
       )
-      .addSelect('COUNT(DISTINCT pedido.idPedido)', 'pedidos')
+      .addSelect('COUNT(DISTINCT pedido.id_pedido)', 'pedidos')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'unidadesPedidas')
-      .addSelect('COALESCE(SUM(detalle.totalColones), 0)', 'mercaderiaColones')
+      .addSelect('COALESCE(SUM(detalle.total_colones), 0)', 'mercaderiaColones')
       .addSelect(
         'COALESCE(SUM(detalle.envio_asignado + detalle.impuestos_asignados + detalle.otros_gastos_asignados), 0)',
         'costosAdicionales',
       )
-      .addSelect('COALESCE(SUM(detalle.costoTotalReal), 0)', 'costoReal')
+      .addSelect('COALESCE(SUM(detalle.costo_total_real), 0)', 'costoReal')
       .where('pedido.estado <> :cancelado', {
         cancelado: 'CANCELADO',
       })
-      .groupBy('proveedor.idOrigenCompra')
-      .addGroupBy('proveedor.nombreReferencia')
-      .orderBy('COALESCE(SUM(detalle.costoTotalReal), 0)', 'DESC')
-      .addOrderBy('proveedor.idOrigenCompra', 'ASC');
+      .groupBy('proveedor.id_origen_compra')
+      .addGroupBy('proveedor.nombre_referencia')
+      .orderBy('COALESCE(SUM(detalle.costo_total_real), 0)', 'DESC')
+      .addOrderBy('proveedor.id_origen_compra', 'ASC');
 
-    aplicarPeriodo(query, 'pedido.fechaPedido', dto);
+    aplicarPeriodo(query, 'pedido.fecha_pedido', dto);
 
     const filas = await query.getRawMany<{
       idProveedor: string | number;
@@ -234,41 +234,41 @@ export class ReportesComprasService {
       .innerJoin(
         PedidoCompraEntity,
         'pedido',
-        'pedido.idPedido = detalle.idPedido',
+        'pedido.id_pedido = detalle.id_pedido',
       )
       .innerJoin(
         Producto,
         'producto',
-        'producto.idProducto = detalle.idProducto',
+        'producto.id_producto = detalle.id_producto',
       )
       .leftJoin(
         Categoria,
         'categoria',
-        'categoria.idCategoria = producto.idCategoria',
+        'categoria.id_categoria = producto.id_categoria',
       )
-      .select('producto.idProducto', 'idProducto')
+      .select('producto.id_producto', 'idProducto')
       .addSelect('producto.nombre', 'producto')
       .addSelect("COALESCE(categoria.nombre, 'Sin categoría')", 'categoria')
-      .addSelect('COUNT(DISTINCT pedido.idPedido)', 'pedidos')
+      .addSelect('COUNT(DISTINCT pedido.id_pedido)', 'pedidos')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'unidadesPedidas')
-      .addSelect('COALESCE(SUM(detalle.totalColones), 0)', 'mercaderiaColones')
-      .addSelect('COALESCE(SUM(detalle.envioAsignado), 0)', 'envio')
-      .addSelect('COALESCE(SUM(detalle.impuestosAsignados), 0)', 'impuestos')
+      .addSelect('COALESCE(SUM(detalle.total_colones), 0)', 'mercaderiaColones')
+      .addSelect('COALESCE(SUM(detalle.envio_asignado), 0)', 'envio')
+      .addSelect('COALESCE(SUM(detalle.impuestos_asignados), 0)', 'impuestos')
       .addSelect(
-        'COALESCE(SUM(detalle.otrosGastosAsignados), 0)',
+        'COALESCE(SUM(detalle.otros_gastos_asignados), 0)',
         'otrosGastos',
       )
-      .addSelect('COALESCE(SUM(detalle.costoTotalReal), 0)', 'costoReal')
+      .addSelect('COALESCE(SUM(detalle.costo_total_real), 0)', 'costoReal')
       .where('pedido.estado <> :cancelado', {
         cancelado: 'CANCELADO',
       })
-      .groupBy('producto.idProducto')
+      .groupBy('producto.id_producto')
       .addGroupBy('producto.nombre')
       .addGroupBy('categoria.nombre')
-      .orderBy('COALESCE(SUM(detalle.costoTotalReal), 0)', 'DESC')
-      .addOrderBy('producto.idProducto', 'ASC');
+      .orderBy('COALESCE(SUM(detalle.costo_total_real), 0)', 'DESC')
+      .addOrderBy('producto.id_producto', 'ASC');
 
-    aplicarPeriodo(query, 'pedido.fechaPedido', dto);
+    aplicarPeriodo(query, 'pedido.fecha_pedido', dto);
 
     const filas = await query.getRawMany<{
       idProducto: string | number;
@@ -305,21 +305,21 @@ export class ReportesComprasService {
       .innerJoin(
         PedidoCompraEntity,
         'pedido',
-        'pedido.idPedido = detalle.idPedido',
+        'pedido.id_pedido = detalle.id_pedido',
       )
-      .select('COALESCE(SUM(detalle.totalColones), 0)', 'mercaderiaColones')
-      .addSelect('COALESCE(SUM(detalle.envioAsignado), 0)', 'envio')
-      .addSelect('COALESCE(SUM(detalle.impuestosAsignados), 0)', 'impuestos')
+      .select('COALESCE(SUM(detalle.total_colones), 0)', 'mercaderiaColones')
+      .addSelect('COALESCE(SUM(detalle.envio_asignado), 0)', 'envio')
+      .addSelect('COALESCE(SUM(detalle.impuestos_asignados), 0)', 'impuestos')
       .addSelect(
-        'COALESCE(SUM(detalle.otrosGastosAsignados), 0)',
+        'COALESCE(SUM(detalle.otros_gastos_asignados), 0)',
         'otrosGastos',
       )
-      .addSelect('COALESCE(SUM(detalle.costoTotalReal), 0)', 'costoReal')
+      .addSelect('COALESCE(SUM(detalle.costo_total_real), 0)', 'costoReal')
       .where('pedido.estado <> :cancelado', {
         cancelado: 'CANCELADO',
       });
 
-    aplicarPeriodo(query, 'pedido.fechaPedido', dto);
+    aplicarPeriodo(query, 'pedido.fecha_pedido', dto);
 
     const raw = await query.getRawOne<{
       mercaderiaColones: string;
@@ -379,20 +379,23 @@ export class ReportesComprasService {
       .innerJoin(
         PedidoCompraEntity,
         'pedido',
-        'pedido.idPedido = detalle.idPedido',
+        'pedido.id_pedido = detalle.id_pedido',
       )
-      .select('COUNT(DISTINCT pedido.idPedido)', 'cantidadPedidos')
+      .select('COUNT(DISTINCT pedido.id_pedido)', 'cantidadPedidos')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'unidadesPlaneadas')
-      .addSelect('COALESCE(SUM(detalle.totalColones), 0)', 'mercaderiaOriginal')
       .addSelect(
-        'COALESCE(SUM(detalle.costoTotalReal), 0)',
+        'COALESCE(SUM(detalle.total_colones), 0)',
+        'mercaderiaOriginal',
+      )
+      .addSelect(
+        'COALESCE(SUM(detalle.costo_total_real), 0)',
         'costoRealOriginal',
       )
       .where('pedido.estado = :cancelado', {
         cancelado: 'CANCELADO',
       });
 
-    aplicarPeriodo(query, 'pedido.fechaPedido', dto);
+    aplicarPeriodo(query, 'pedido.fecha_pedido', dto);
 
     const raw = await query.getRawOne<{
       cantidadPedidos: string;

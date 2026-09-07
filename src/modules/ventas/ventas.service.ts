@@ -282,7 +282,7 @@ export class VentasService {
       const venta = await ventaRepository
         .createQueryBuilder('venta')
         .setLock('pessimistic_write')
-        .where('venta.idVenta = :ventaId', {
+        .where('venta.id_venta = :ventaId', {
           ventaId,
         })
         .getOne();
@@ -448,7 +448,7 @@ export class VentasService {
       const venta = await ventaRepository
         .createQueryBuilder('venta')
         .setLock('pessimistic_write')
-        .where('venta.idVenta = :ventaId', {
+        .where('venta.id_venta = :ventaId', {
           ventaId,
         })
         .getOne();
@@ -490,10 +490,10 @@ export class VentasService {
       const lotes = await loteRepository
         .createQueryBuilder('lote')
         .setLock('pessimistic_write')
-        .where('lote.idLote IN (:...loteIds)', {
+        .where('lote.id_lote IN (:...loteIds)', {
           loteIds,
         })
-        .orderBy('lote.idLote', 'ASC')
+        .orderBy('lote.id_lote', 'ASC')
         .getMany();
 
       if (lotes.length !== loteIds.length) {
@@ -646,10 +646,10 @@ export class VentasService {
       .getRepository(LoteProducto)
       .createQueryBuilder('lote')
       .setLock('pessimistic_write')
-      .where('lote.idLote = :loteId', {
+      .where('lote.id_lote = :loteId', {
         loteId: detalleDto.loteId,
       })
-      .andWhere('lote.idProducto = :productoId', {
+      .andWhere('lote.id_producto = :productoId', {
         productoId: detalleDto.productoId,
       })
       .getOne();
@@ -693,15 +693,15 @@ export class VentasService {
       .getRepository(LoteProducto)
       .createQueryBuilder('lote')
       .setLock('pessimistic_write')
-      .where('lote.idProducto = :productoId', {
+      .where('lote.id_producto = :productoId', {
         productoId: detalleDto.productoId,
       })
-      .andWhere('lote.cantidadDisponible > 0')
-      .andWhere('lote.estadoLote IN (:...estados)', {
+      .andWhere('lote.cantidad_disponible > 0')
+      .andWhere('lote.estado_lote IN (:...estados)', {
         estados: ['EN_STOCK', 'VENDIDO_PARCIAL'],
       })
-      .orderBy('lote.fechaEntrada', 'ASC')
-      .addOrderBy('lote.idLote', 'ASC')
+      .orderBy('lote.fecha_entrada', 'ASC')
+      .addOrderBy('lote.id_lote', 'ASC')
       .getMany();
 
     if (lotesDisponibles.length === 0) {
