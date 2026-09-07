@@ -1,9 +1,11 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { IS_PUBLIC_KEY } from './public.decorator';
 
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
@@ -16,6 +18,13 @@ describe('JwtAuthGuard', () => {
     findOne: jest.fn(),
   };
 
+  const reflectorMock = {
+    getAllAndOverride: jest.fn(),
+  };
+
+  const mockHandler = jest.fn();
+  const mockClass = jest.fn();
+
   const crearContexto = (headers: Record<string, string | undefined>) => {
     const request = {
       headers,
@@ -26,11 +35,15 @@ describe('JwtAuthGuard', () => {
       switchToHttp: () => ({
         getRequest: () => request,
       }),
+      getHandler: () => mockHandler,
+      getClass: () => mockClass,
     } as unknown as ExecutionContext;
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    reflectorMock.getAllAndOverride.mockReturnValue(false);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -43,6 +56,10 @@ describe('JwtAuthGuard', () => {
           provide: UsuariosService,
           useValue: usuariosServiceMock,
         },
+        {
+          provide: Reflector,
+          useValue: reflectorMock,
+        },
       ],
     }).compile();
 
@@ -53,7 +70,22 @@ describe('JwtAuthGuard', () => {
     expect(guard).toBeDefined();
   });
 
-  it('debe rechazar si no existe header Authorization', async () => {
+  it('debe permitir acceso inmediato si la ruta está marcada con @Public() sin validar JWT ni BD', async () => {
+    reflectorMock.getAllAndOverride.mockReturnValue(true);
+    const context = crearContexto({});
+
+    const resultado = await guard.canActivate(context);
+
+    expect(resultado).toBe(true);
+    expect(reflectorMock.getAllAndOverride).toHaveBeenCalledWith(
+      IS_PUBLIC_KEY,
+      [mockHandler, mockClass],
+    );
+    expect(jwtServiceMock.verifyAsync).not.toHaveBeenCalled();
+    expect(usuariosServiceMock.findOne).not.toHaveBeenCalled();
+  });
+
+  it('debe rechazar si no es pública y no existe header Authorization', async () => {
     const context = crearContexto({});
 
     await expect(guard.canActivate(context)).rejects.toThrow(

@@ -4,17 +4,12 @@ import { Request } from 'express';
 import { UsuarioPublico } from '../usuarios/usuarios.types';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
 
 describe('AuthController', () => {
   let controller: AuthController;
 
   const authServiceMock = {
     login: jest.fn(),
-  };
-
-  const jwtAuthGuardMock = {
-    canActivate: jest.fn().mockReturnValue(true),
   };
 
   beforeEach(async () => {
@@ -28,10 +23,7 @@ describe('AuthController', () => {
           useValue: authServiceMock,
         },
       ],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue(jwtAuthGuardMock)
-      .compile();
+    }).compile();
 
     controller = module.get<AuthController>(AuthController);
   });

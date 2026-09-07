@@ -6,14 +6,13 @@ import {
   HttpStatus,
   Post,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
 
 import { UsuarioPublico } from '../usuarios/usuarios.types';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
+import { Public } from './public.decorator';
 
 type RequestConUsuario = Request & {
   user: UsuarioPublico;
@@ -23,6 +22,7 @@ type RequestConUsuario = Request & {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
@@ -30,7 +30,6 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   me(
     @Req()
     request: RequestConUsuario,
