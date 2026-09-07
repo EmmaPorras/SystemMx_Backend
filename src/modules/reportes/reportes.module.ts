@@ -16,6 +16,12 @@ import { VentaEntity } from '../../database/entities/venta.entity';
 import { ReportesAuditoriaController } from './reportes-auditoria.controller';
 import { ReportesController } from './reportes.controller';
 import { ReportesService } from './reportes.service';
+import { ReportesAuditoriaService } from './services/reportes-auditoria.service';
+import { ReportesComprasService } from './services/reportes-compras.service';
+import { ReportesInventarioService } from './services/reportes-inventario.service';
+import { ReportesPagosService } from './services/reportes-pagos.service';
+import { ReportesResumenService } from './services/reportes-resumen.service';
+import { ReportesVentasService } from './services/reportes-ventas.service';
 
 @Module({
   imports: [
@@ -34,7 +40,23 @@ import { ReportesService } from './reportes.service';
     ]),
   ],
   controllers: [ReportesController, ReportesAuditoriaController],
-  providers: [ReportesService],
-  exports: [ReportesService],
+  providers: [
+    ReportesService,
+    ReportesResumenService,
+    ReportesVentasService,
+    ReportesInventarioService,
+    ReportesComprasService,
+    ReportesPagosService,
+    ReportesAuditoriaService,
+  ],
+  exports: [
+    ReportesService,
+    ReportesResumenService,
+    ReportesVentasService,
+    ReportesInventarioService,
+    ReportesComprasService,
+    ReportesPagosService,
+    ReportesAuditoriaService,
+  ],
 })
 export class ReportesModule {}

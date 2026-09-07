@@ -14,6 +14,12 @@ import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
 import { ReportesService } from './reportes.service';
+import { ReportesAuditoriaService } from './services/reportes-auditoria.service';
+import { ReportesComprasService } from './services/reportes-compras.service';
+import { ReportesInventarioService } from './services/reportes-inventario.service';
+import { ReportesPagosService } from './services/reportes-pagos.service';
+import { ReportesResumenService } from './services/reportes-resumen.service';
+import { ReportesVentasService } from './services/reportes-ventas.service';
 
 describe('ReportesService', () => {
   let service: ReportesService;
@@ -400,6 +406,12 @@ describe('ReportesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReportesService,
+        ReportesResumenService,
+        ReportesVentasService,
+        ReportesInventarioService,
+        ReportesComprasService,
+        ReportesPagosService,
+        ReportesAuditoriaService,
         {
           provide: getRepositoryToken(VentaEntity),
           useValue: ventasRepository,
