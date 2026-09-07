@@ -12,6 +12,7 @@ import { PedidosModule } from './modules/pedidos/pedidos.module';
 import { VentasModule } from './modules/ventas/ventas.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ReportesModule } from './modules/reportes/reportes.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AuthModule } from './modules/auth/auth.module';
     InventarioModule,
     UsuariosModule,
     AuthModule,
+    ReportesModule,
   ],
 })
 export class AppModule {}
