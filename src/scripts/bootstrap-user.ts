@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
+import { RolUsuario } from '../modules/usuarios/rol-usuario.enum';
 import { UsuariosService } from '../modules/usuarios/usuarios.service';
 
 async function main() {
@@ -35,6 +36,7 @@ async function main() {
       username,
       nombre,
       password,
+      rol: RolUsuario.ADMIN,
     });
 
     console.log(`Usuario inicial creado: ${usuario.username}`);

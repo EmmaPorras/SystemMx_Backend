@@ -1,5 +1,6 @@
 import { validate } from 'class-validator';
 import { CreateUsuarioDto } from './create-usuario.dto';
+import { RolUsuario } from '../rol-usuario.enum';
 
 describe('CreateUsuarioDto', () => {
   const crearDtoValido = (): CreateUsuarioDto => {
@@ -7,6 +8,7 @@ describe('CreateUsuarioDto', () => {
     dto.username = 'admin.taller';
     dto.nombre = 'Administrador General';
     dto.password = 'ClaveSegura12345';
+    dto.rol = RolUsuario.ADMIN;
     return dto;
   };
 
@@ -125,6 +127,45 @@ describe('CreateUsuarioDto', () => {
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].property).toBe('password');
+    });
+  });
+
+  describe('validaciones de rol', () => {
+    it('debe aceptar rol ADMIN', async () => {
+      const dto = crearDtoValido();
+      dto.rol = RolUsuario.ADMIN;
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('debe aceptar rol OPERADOR', async () => {
+      const dto = crearDtoValido();
+      dto.rol = RolUsuario.OPERADOR;
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('debe aceptar rol CONSULTA', async () => {
+      const dto = crearDtoValido();
+      dto.rol = RolUsuario.CONSULTA;
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('debe rechazar rol no reconocido / inventado', async () => {
+      const dto = crearDtoValido();
+      dto.rol = 'INVENTADO' as RolUsuario;
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].property).toBe('rol');
+    });
+
+    it('debe rechazar si el rol es omitido', async () => {
+      const dto = crearDtoValido();
+      delete (dto as Partial<CreateUsuarioDto>).rol;
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].property).toBe('rol');
     });
   });
 });

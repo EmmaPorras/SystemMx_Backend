@@ -5,11 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { Usuario } from '../../database/entities/usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { PasswordHasherService } from './password-hasher.service';
+import { RolUsuario } from './rol-usuario.enum';
 import { UsuarioPublico } from './usuarios.types';
 
 @Injectable()
@@ -19,6 +20,8 @@ export class UsuariosService {
     private readonly usuariosRepository: Repository<Usuario>,
 
     private readonly passwordHasher: PasswordHasherService,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   private normalizarUsername(value: string): string {
@@ -30,6 +33,7 @@ export class UsuariosService {
       idUsuario: usuario.idUsuario,
       username: usuario.username,
       nombre: usuario.nombre,
+      rol: usuario.rol,
       activo: usuario.activo,
       createdAt: usuario.createdAt,
       updatedAt: usuario.updatedAt,
@@ -62,6 +66,23 @@ export class UsuariosService {
     return driverError?.number === 2601 || driverError?.number === 2627;
   }
 
+  private async bloquearAdminsActivos(
+    manager: EntityManager,
+  ): Promise<Usuario[]> {
+    return manager
+      .getRepository(Usuario)
+      .createQueryBuilder('usuario')
+      .setLock('pessimistic_write')
+      .where('usuario.rol = :rol', {
+        rol: RolUsuario.ADMIN,
+      })
+      .andWhere('usuario.activo = :activo', {
+        activo: true,
+      })
+      .orderBy('usuario.idUsuario', 'ASC')
+      .getMany();
+  }
+
   async crear(dto: CreateUsuarioDto): Promise<UsuarioPublico> {
     const username = dto.username.trim();
     const usernameNormalizado = this.normalizarUsername(dto.username);
@@ -90,6 +111,7 @@ export class UsuariosService {
       usernameNormalizado,
       nombre,
       passwordHash,
+      rol: dto.rol,
       activo: true,
     });
 
@@ -186,21 +208,91 @@ export class UsuariosService {
       throw new BadRequestException('El estado del usuario es inválido.');
     }
 
-    const usuario = await this.usuariosRepository.findOne({
-      where: {
-        idUsuario: usuarioId,
-      },
-    });
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(Usuario);
 
-    if (!usuario) {
-      throw new NotFoundException('Usuario no encontrado.');
+      const adminsActivos = await this.bloquearAdminsActivos(manager);
+
+      const usuario = await repository
+        .createQueryBuilder('usuario')
+        .setLock('pessimistic_write')
+        .where('usuario.idUsuario = :usuarioId', {
+          usuarioId,
+        })
+        .getOne();
+
+      if (!usuario) {
+        throw new NotFoundException('Usuario no encontrado.');
+      }
+
+      if (usuario.activo === activo) {
+        return this.mapearUsuario(usuario);
+      }
+
+      if (
+        !activo &&
+        usuario.activo &&
+        usuario.rol === RolUsuario.ADMIN &&
+        adminsActivos.length <= 1
+      ) {
+        throw new ConflictException(
+          'No se puede desactivar el último administrador activo.',
+        );
+      }
+
+      usuario.activo = activo;
+
+      const guardado = await repository.save(usuario);
+
+      return this.mapearUsuario(guardado);
+    });
+  }
+
+  async cambiarRol(id: number, nuevoRol: RolUsuario): Promise<UsuarioPublico> {
+    const usuarioId = this.validarId(id);
+
+    if (!Object.values(RolUsuario).includes(nuevoRol)) {
+      throw new BadRequestException('Rol de usuario inválido.');
     }
 
-    usuario.activo = activo;
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(Usuario);
 
-    const guardado = await this.usuariosRepository.save(usuario);
+      const adminsActivos = await this.bloquearAdminsActivos(manager);
 
-    return this.mapearUsuario(guardado);
+      const usuario = await repository
+        .createQueryBuilder('usuario')
+        .setLock('pessimistic_write')
+        .where('usuario.idUsuario = :usuarioId', {
+          usuarioId,
+        })
+        .getOne();
+
+      if (!usuario) {
+        throw new NotFoundException('Usuario no encontrado.');
+      }
+
+      if (usuario.rol === nuevoRol) {
+        return this.mapearUsuario(usuario);
+      }
+
+      if (
+        usuario.activo &&
+        usuario.rol === RolUsuario.ADMIN &&
+        nuevoRol !== RolUsuario.ADMIN &&
+        adminsActivos.length <= 1
+      ) {
+        throw new ConflictException(
+          'No se puede quitar el rol al último administrador activo.',
+        );
+      }
+
+      usuario.rol = nuevoRol;
+
+      const guardado = await repository.save(usuario);
+
+      return this.mapearUsuario(guardado);
+    });
   }
 
   async contarUsuarios(): Promise<number> {

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { RolUsuario } from '../usuarios/rol-usuario.enum';
 import { PasswordHasherService } from '../usuarios/password-hasher.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { AuthService } from './auth.service';
@@ -59,13 +60,14 @@ describe('AuthService', () => {
   });
 
   describe('login()', () => {
-    it('debe autenticar con credenciales válidas y retornar access token', async () => {
+    it('debe autenticar con credenciales válidas, retornar access token y rol en usuario, pero NO en JWT payload', async () => {
       const usuarioEncontrado = {
         idUsuario: 1,
         username: 'admin',
         usernameNormalizado: 'admin',
         nombre: 'Administrador',
         passwordHash: '$argon2id$v=19$hashReal',
+        rol: RolUsuario.ADMIN,
         activo: true,
       };
 
@@ -106,6 +108,7 @@ describe('AuthService', () => {
           idUsuario: 1,
           username: 'admin',
           nombre: 'Administrador',
+          rol: RolUsuario.ADMIN,
           activo: true,
         },
       });

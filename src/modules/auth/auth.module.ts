@@ -8,6 +8,7 @@ import { obtenerJwtExpiresSeconds, obtenerJwtSecret } from './auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from './roles.guard';
 
 @Module({
   imports: [
@@ -31,12 +32,17 @@ import { JwtAuthGuard } from './jwt-auth.guard';
   providers: [
     AuthService,
     JwtAuthGuard,
+    RolesGuard,
     {
       provide: APP_GUARD,
       useExisting: JwtAuthGuard,
     },
+    {
+      provide: APP_GUARD,
+      useExisting: RolesGuard,
+    },
   ],
 
-  exports: [AuthService, JwtAuthGuard, JwtModule],
+  exports: [AuthService, JwtAuthGuard, RolesGuard, JwtModule],
 })
 export class AuthModule {}

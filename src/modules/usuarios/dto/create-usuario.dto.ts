@@ -1,4 +1,12 @@
-import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+
+import { RolUsuario } from '../rol-usuario.enum';
 
 export class CreateUsuarioDto {
   @IsString()
@@ -19,4 +27,7 @@ export class CreateUsuarioDto {
   @MinLength(12)
   @MaxLength(128)
   password!: string;
+
+  @IsEnum(RolUsuario)
+  rol!: RolUsuario;
 }

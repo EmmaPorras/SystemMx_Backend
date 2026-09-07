@@ -8,6 +8,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+import { RolUsuario } from '../../modules/usuarios/rol-usuario.enum';
+
 @Entity({ name: 'usuario' })
 @Index('UX_usuario_username_normalizado', ['usernameNormalizado'], {
   unique: true,
@@ -17,6 +19,7 @@ import {
   'CK_usuario_username_normalizado_longitud',
   'LEN(LTRIM(RTRIM([username_normalizado]))) >= 3',
 )
+@Check('CK_usuario_rol_valido', "[rol] IN ('ADMIN', 'OPERADOR', 'CONSULTA')")
 export class Usuario {
   @PrimaryGeneratedColumn({
     name: 'id_usuario',
@@ -51,6 +54,14 @@ export class Usuario {
     select: false,
   })
   passwordHash!: string;
+
+  @Column({
+    name: 'rol',
+    type: 'nvarchar',
+    length: 30,
+    default: RolUsuario.CONSULTA,
+  })
+  rol!: RolUsuario;
 
   @Column({
     name: 'activo',

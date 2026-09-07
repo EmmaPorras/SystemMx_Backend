@@ -5,9 +5,11 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 
 import { Usuario } from '../../database/entities/usuario.entity';
 import { PasswordHasherService } from './password-hasher.service';
+import { RolUsuario } from './rol-usuario.enum';
 import { UsuariosService } from './usuarios.service';
 
 describe('UsuariosService', () => {
@@ -19,6 +21,7 @@ describe('UsuariosService', () => {
     create: jest.fn(),
     save: jest.fn(),
     createQueryBuilder: jest.fn(),
+    count: jest.fn(),
   };
 
   const passwordHasherMock = {
@@ -26,8 +29,28 @@ describe('UsuariosService', () => {
     verify: jest.fn(),
   };
 
+  let mockTransactionManager: {
+    getRepository: jest.Mock;
+    save: jest.Mock;
+  };
+
+  const dataSourceMock = {
+    transaction: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    mockTransactionManager = {
+      getRepository: jest.fn(),
+      save: jest.fn(),
+    };
+
+    dataSourceMock.transaction.mockImplementation(
+      async (cb: (manager: EntityManager) => Promise<unknown>) => {
+        return cb(mockTransactionManager as unknown as EntityManager);
+      },
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -40,6 +63,10 @@ describe('UsuariosService', () => {
           provide: PasswordHasherService,
           useValue: passwordHasherMock,
         },
+        {
+          provide: DataSource,
+          useValue: dataSourceMock,
+        },
       ],
     }).compile();
 
@@ -51,22 +78,24 @@ describe('UsuariosService', () => {
   });
 
   describe('crear()', () => {
-    it('debe crear un usuario normalizando el username y hasheando la contraseña', async () => {
+    it('debe crear un usuario normalizando el username, hasheando la contraseña y asignando el rol', async () => {
       const dto = {
-        username: '  Admin.Taller  ',
-        nombre: '  Administrador General  ',
+        username: '  Operador.Taller  ',
+        nombre: '  Operador General  ',
         password: 'ClaveSegura12345',
+        rol: RolUsuario.OPERADOR,
       };
 
       usuariosRepositoryMock.findOne.mockResolvedValue(null);
       passwordHasherMock.hash.mockResolvedValue('$argon2id$v=19$hash-prueba');
 
       const nuevoUsuarioEntity: Usuario = {
-        idUsuario: 1,
-        username: 'Admin.Taller',
-        usernameNormalizado: 'admin.taller',
-        nombre: 'Administrador General',
+        idUsuario: 2,
+        username: 'Operador.Taller',
+        usernameNormalizado: 'operador.taller',
+        nombre: 'Operador General',
         passwordHash: '$argon2id$v=19$hash-prueba',
+        rol: RolUsuario.OPERADOR,
         activo: true,
         createdAt: new Date('2026-09-06T10:00:00Z'),
         updatedAt: new Date('2026-09-06T10:00:00Z'),
@@ -78,21 +107,23 @@ describe('UsuariosService', () => {
       const resultado = await service.crear(dto);
 
       expect(usuariosRepositoryMock.findOne).toHaveBeenCalledWith({
-        where: { usernameNormalizado: 'admin.taller' },
+        where: { usernameNormalizado: 'operador.taller' },
       });
       expect(passwordHasherMock.hash).toHaveBeenCalledWith('ClaveSegura12345');
       expect(usuariosRepositoryMock.create).toHaveBeenCalledWith({
-        username: 'Admin.Taller',
-        usernameNormalizado: 'admin.taller',
-        nombre: 'Administrador General',
+        username: 'Operador.Taller',
+        usernameNormalizado: 'operador.taller',
+        nombre: 'Operador General',
         passwordHash: '$argon2id$v=19$hash-prueba',
+        rol: RolUsuario.OPERADOR,
         activo: true,
       });
 
       expect(resultado).toEqual({
-        idUsuario: 1,
-        username: 'Admin.Taller',
-        nombre: 'Administrador General',
+        idUsuario: 2,
+        username: 'Operador.Taller',
+        nombre: 'Operador General',
+        rol: RolUsuario.OPERADOR,
         activo: true,
         createdAt: nuevoUsuarioEntity.createdAt,
         updatedAt: nuevoUsuarioEntity.updatedAt,
@@ -108,6 +139,7 @@ describe('UsuariosService', () => {
           username: 'admin.taller',
           nombre: ' a ',
           password: 'ClaveSegura12345',
+          rol: RolUsuario.ADMIN,
         }),
       ).rejects.toThrow(BadRequestException);
     });
@@ -123,6 +155,7 @@ describe('UsuariosService', () => {
           username: 'ADMIN.TALLER',
           nombre: 'Administrador',
           password: 'ClaveSegura12345',
+          rol: RolUsuario.ADMIN,
         }),
       ).rejects.toThrow(ConflictException);
     });
@@ -140,6 +173,7 @@ describe('UsuariosService', () => {
           username: 'admin.taller',
           nombre: 'Administrador',
           password: 'ClaveSegura12345',
+          rol: RolUsuario.ADMIN,
         }),
       ).rejects.toThrow(ConflictException);
     });
@@ -157,13 +191,14 @@ describe('UsuariosService', () => {
           username: 'admin.taller',
           nombre: 'Administrador',
           password: 'ClaveSegura12345',
+          rol: RolUsuario.ADMIN,
         }),
       ).rejects.toThrow(ConflictException);
     });
   });
 
   describe('findAll()', () => {
-    it('debe listar usuarios ordenados por username ASC mapeando sin passwordHash', async () => {
+    it('debe listar usuarios ordenados por username ASC mapeando sin passwordHash y con rol', async () => {
       const lista: Usuario[] = [
         {
           idUsuario: 2,
@@ -171,6 +206,7 @@ describe('UsuariosService', () => {
           usernameNormalizado: 'bernardo',
           nombre: 'Bernardo',
           passwordHash: '$argon2id$hashB',
+          rol: RolUsuario.OPERADOR,
           activo: true,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -181,6 +217,7 @@ describe('UsuariosService', () => {
           usernameNormalizado: 'carlos',
           nombre: 'Carlos',
           passwordHash: '$argon2id$hashC',
+          rol: RolUsuario.ADMIN,
           activo: true,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -197,6 +234,7 @@ describe('UsuariosService', () => {
       expect(resultado).toHaveLength(2);
       expect(resultado[0]).not.toHaveProperty('passwordHash');
       expect(resultado[0].username).toBe('bernardo');
+      expect(resultado[0].rol).toBe(RolUsuario.OPERADOR);
     });
   });
 
@@ -208,6 +246,7 @@ describe('UsuariosService', () => {
         usernameNormalizado: 'juan',
         nombre: 'Juan Perez',
         passwordHash: '$argon2id$hash',
+        rol: RolUsuario.CONSULTA,
         activo: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -218,6 +257,7 @@ describe('UsuariosService', () => {
       const resultado = await service.findOne(5);
 
       expect(resultado.idUsuario).toBe(5);
+      expect(resultado.rol).toBe(RolUsuario.CONSULTA);
       expect(resultado).not.toHaveProperty('passwordHash');
     });
 
@@ -244,6 +284,7 @@ describe('UsuariosService', () => {
           username: 'Admin.Taller',
           usernameNormalizado: 'admin.taller',
           passwordHash: '$argon2id$hash-secreto',
+          rol: RolUsuario.ADMIN,
         }),
       };
 
@@ -279,6 +320,7 @@ describe('UsuariosService', () => {
         usernameNormalizado: 'admin',
         nombre: 'Admin',
         passwordHash: '$argon2id$hashAnterior',
+        rol: RolUsuario.ADMIN,
         activo: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -325,54 +367,140 @@ describe('UsuariosService', () => {
   });
 
   describe('cambiarEstado()', () => {
-    it('debe desactivar un usuario cambiando activo a false', async () => {
-      const usuario: Usuario = {
+    const setupRepoTransaction = (
+      adminsActivos: Usuario[],
+      targetUsuario: Usuario | null,
+    ) => {
+      const repoMock = {
+        createQueryBuilder: jest.fn().mockImplementation(() => {
+          let lockType = '';
+          let orderField = '';
+          let orderDir = '';
+
+          const qb = {
+            setLock: jest.fn().mockImplementation((type: string) => {
+              lockType = type;
+              return qb;
+            }),
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest
+              .fn()
+              .mockImplementation((field: string, dir: string) => {
+                orderField = field;
+                orderDir = dir;
+                return qb;
+              }),
+            getMany: jest.fn().mockImplementation(() => {
+              expect(lockType).toBe('pessimistic_write');
+              expect(orderField).toBe('usuario.idUsuario');
+              expect(orderDir).toBe('ASC');
+              return Promise.resolve(adminsActivos);
+            }),
+            getOne: jest.fn().mockImplementation(() => {
+              expect(lockType).toBe('pessimistic_write');
+              return Promise.resolve(targetUsuario);
+            }),
+          };
+          return qb;
+        }),
+        save: jest.fn().mockImplementation((u: Usuario) => Promise.resolve(u)),
+      };
+
+      mockTransactionManager.getRepository.mockReturnValue(repoMock);
+      return repoMock;
+    };
+
+    it('debe desactivar un operador sin afectar el conteo de admins', async () => {
+      const adminActivo: Usuario = {
         idUsuario: 1,
         username: 'admin',
         usernameNormalizado: 'admin',
         nombre: 'Admin',
         passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
         activo: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      usuariosRepositoryMock.findOne.mockResolvedValue(usuario);
-      usuariosRepositoryMock.save.mockImplementation((u: Usuario) =>
-        Promise.resolve(u),
-      );
+      const operador: Usuario = {
+        idUsuario: 2,
+        username: 'operador',
+        usernameNormalizado: 'operador',
+        nombre: 'Operador',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.OPERADOR,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-      const resultado = await service.cambiarEstado(1, false);
+      const repoMock = setupRepoTransaction([adminActivo], operador);
 
-      expect(usuario.activo).toBe(false);
+      const resultado = await service.cambiarEstado(2, false);
+
+      expect(operador.activo).toBe(false);
+      expect(repoMock.save).toHaveBeenCalledWith(operador);
       expect(resultado.activo).toBe(false);
     });
 
-    it('debe reactivar un usuario cambiando activo a true', async () => {
-      const usuario: Usuario = {
+    it('debe lanzar ConflictException si se intenta desactivar el último ADMIN activo', async () => {
+      const unicoAdmin: Usuario = {
         idUsuario: 1,
         username: 'admin',
         usernameNormalizado: 'admin',
         nombre: 'Admin',
         passwordHash: '$argon2id$hash',
-        activo: false,
+        rol: RolUsuario.ADMIN,
+        activo: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      usuariosRepositoryMock.findOne.mockResolvedValue(usuario);
-      usuariosRepositoryMock.save.mockImplementation((u: Usuario) =>
-        Promise.resolve(u),
+      setupRepoTransaction([unicoAdmin], unicoAdmin);
+
+      await expect(service.cambiarEstado(1, false)).rejects.toThrow(
+        ConflictException,
       );
+    });
 
-      const resultado = await service.cambiarEstado(1, true);
+    it('debe permitir desactivar un ADMIN si existen 2 o más admins activos', async () => {
+      const admin1: Usuario = {
+        idUsuario: 1,
+        username: 'admin1',
+        usernameNormalizado: 'admin1',
+        nombre: 'Admin Uno',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-      expect(usuario.activo).toBe(true);
-      expect(resultado.activo).toBe(true);
+      const admin2: Usuario = {
+        idUsuario: 2,
+        username: 'admin2',
+        usernameNormalizado: 'admin2',
+        nombre: 'Admin Dos',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const repoMock = setupRepoTransaction([admin1, admin2], admin1);
+
+      const resultado = await service.cambiarEstado(1, false);
+
+      expect(admin1.activo).toBe(false);
+      expect(repoMock.save).toHaveBeenCalledWith(admin1);
+      expect(resultado.activo).toBe(false);
     });
 
     it('debe lanzar NotFoundException si el usuario no existe', async () => {
-      usuariosRepositoryMock.findOne.mockResolvedValue(null);
+      setupRepoTransaction([], null);
 
       await expect(service.cambiarEstado(999, false)).rejects.toThrow(
         NotFoundException,
@@ -383,6 +511,189 @@ describe('UsuariosService', () => {
       await expect(
         // @ts-expect-error probando valor inválido
         service.cambiarEstado(1, 'activo'),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('cambiarRol()', () => {
+    const setupRepoTransaction = (
+      adminsActivos: Usuario[],
+      targetUsuario: Usuario | null,
+    ) => {
+      const repoMock = {
+        createQueryBuilder: jest.fn().mockImplementation(() => {
+          let lockType = '';
+          let orderField = '';
+          let orderDir = '';
+
+          const qb = {
+            setLock: jest.fn().mockImplementation((type: string) => {
+              lockType = type;
+              return qb;
+            }),
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest
+              .fn()
+              .mockImplementation((field: string, dir: string) => {
+                orderField = field;
+                orderDir = dir;
+                return qb;
+              }),
+            getMany: jest.fn().mockImplementation(() => {
+              expect(lockType).toBe('pessimistic_write');
+              expect(orderField).toBe('usuario.idUsuario');
+              expect(orderDir).toBe('ASC');
+              return Promise.resolve(adminsActivos);
+            }),
+            getOne: jest.fn().mockImplementation(() => {
+              expect(lockType).toBe('pessimistic_write');
+              return Promise.resolve(targetUsuario);
+            }),
+          };
+          return qb;
+        }),
+        save: jest.fn().mockImplementation((u: Usuario) => Promise.resolve(u)),
+      };
+
+      mockTransactionManager.getRepository.mockReturnValue(repoMock);
+      return repoMock;
+    };
+
+    it('debe cambiar de OPERADOR a CONSULTA correctamente', async () => {
+      const adminActivo: Usuario = {
+        idUsuario: 1,
+        username: 'admin',
+        usernameNormalizado: 'admin',
+        nombre: 'Admin',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const operador: Usuario = {
+        idUsuario: 2,
+        username: 'operador',
+        usernameNormalizado: 'operador',
+        nombre: 'Operador',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.OPERADOR,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const repoMock = setupRepoTransaction([adminActivo], operador);
+
+      const resultado = await service.cambiarRol(2, RolUsuario.CONSULTA);
+
+      expect(operador.rol).toBe(RolUsuario.CONSULTA);
+      expect(repoMock.save).toHaveBeenCalledWith(operador);
+      expect(resultado.rol).toBe(RolUsuario.CONSULTA);
+    });
+
+    it('debe cambiar de CONSULTA a ADMIN correctamente', async () => {
+      const adminActivo: Usuario = {
+        idUsuario: 1,
+        username: 'admin',
+        usernameNormalizado: 'admin',
+        nombre: 'Admin',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const consulta: Usuario = {
+        idUsuario: 3,
+        username: 'consulta',
+        usernameNormalizado: 'consulta',
+        nombre: 'Consulta',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.CONSULTA,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const repoMock = setupRepoTransaction([adminActivo], consulta);
+
+      const resultado = await service.cambiarRol(3, RolUsuario.ADMIN);
+
+      expect(consulta.rol).toBe(RolUsuario.ADMIN);
+      expect(repoMock.save).toHaveBeenCalledWith(consulta);
+      expect(resultado.rol).toBe(RolUsuario.ADMIN);
+    });
+
+    it('debe lanzar ConflictException si se intenta degradar al último ADMIN activo (ADMIN -> OPERADOR)', async () => {
+      const unicoAdmin: Usuario = {
+        idUsuario: 1,
+        username: 'admin',
+        usernameNormalizado: 'admin',
+        nombre: 'Admin',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      setupRepoTransaction([unicoAdmin], unicoAdmin);
+
+      await expect(service.cambiarRol(1, RolUsuario.OPERADOR)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('debe permitir degradar un ADMIN si existen 2 o más admins activos', async () => {
+      const admin1: Usuario = {
+        idUsuario: 1,
+        username: 'admin1',
+        usernameNormalizado: 'admin1',
+        nombre: 'Admin Uno',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const admin2: Usuario = {
+        idUsuario: 2,
+        username: 'admin2',
+        usernameNormalizado: 'admin2',
+        nombre: 'Admin Dos',
+        passwordHash: '$argon2id$hash',
+        rol: RolUsuario.ADMIN,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const repoMock = setupRepoTransaction([admin1, admin2], admin1);
+
+      const resultado = await service.cambiarRol(1, RolUsuario.OPERADOR);
+
+      expect(admin1.rol).toBe(RolUsuario.OPERADOR);
+      expect(repoMock.save).toHaveBeenCalledWith(admin1);
+      expect(resultado.rol).toBe(RolUsuario.OPERADOR);
+    });
+
+    it('debe lanzar NotFoundException si el usuario no existe', async () => {
+      setupRepoTransaction([], null);
+
+      await expect(
+        service.cambiarRol(999, RolUsuario.OPERADOR),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar BadRequestException si el rol es inválido', async () => {
+      await expect(
+        // @ts-expect-error probando valor inválido
+        service.cambiarRol(1, 'ROL_INVALIDO'),
       ).rejects.toThrow(BadRequestException);
     });
   });
