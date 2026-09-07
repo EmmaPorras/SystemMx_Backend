@@ -8,6 +8,7 @@ import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { MovimientoInventario } from '../../database/entities/movimiento-inventario.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
+import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
@@ -15,6 +16,7 @@ import { VentaEntity } from '../../database/entities/venta.entity';
 import { ConsultaInventarioHistoricoDto } from './dto/consulta-inventario-historico.dto';
 import { ConsultaPeriodoDto } from './dto/consulta-periodo.dto';
 import { ConsultaResumenDto } from './dto/consulta-resumen.dto';
+import { ConsultaVencimientosDto } from './dto/consulta-vencimientos.dto';
 
 @Injectable()
 export class ReportesService {
@@ -45,6 +47,9 @@ export class ReportesService {
 
     @InjectRepository(MovimientoInventario)
     private readonly movimientosRepository: Repository<MovimientoInventario>,
+
+    @InjectRepository(PagoVenta)
+    private readonly pagosRepository: Repository<PagoVenta>,
   ) {}
 
   private validarFecha(value: string, campo: string): void {
@@ -92,6 +97,26 @@ export class ReportesService {
     if (dto.fechaHasta) {
       query.andWhere(`${aliasFecha} <= :fechaHasta`, {
         fechaHasta: dto.fechaHasta,
+      });
+    }
+  }
+
+  private aplicarPeriodoDatetime<T extends object>(
+    query: SelectQueryBuilder<T>,
+    campo: string,
+    dto: ConsultaPeriodoDto,
+  ): void {
+    if (dto.fechaDesde) {
+      query.andWhere(`${campo} >= :fechaDesdeDatetime`, {
+        fechaDesdeDatetime: `${dto.fechaDesde}T00:00:00.000`,
+      });
+    }
+
+    if (dto.fechaHasta) {
+      const fechaHastaExclusiva = this.siguienteFechaIso(dto.fechaHasta);
+
+      query.andWhere(`${campo} < :fechaHastaExclusiva`, {
+        fechaHastaExclusiva: `${fechaHastaExclusiva}T00:00:00.000`,
       });
     }
   }
@@ -1441,6 +1466,483 @@ export class ReportesService {
       unidadesPlaneadas: Number(raw?.unidadesPlaneadas ?? 0),
       mercaderiaOriginal: this.redondear(Number(raw?.mercaderiaOriginal ?? 0)),
       costoRealOriginal: this.redondear(Number(raw?.costoRealOriginal ?? 0)),
+    };
+  }
+
+  async resumenPagos(dto: ConsultaPeriodoDto) {
+    this.validarPeriodo(dto);
+
+    const query = this.pagosRepository
+      .createQueryBuilder('pago')
+      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = pago.idVenta')
+      .select('COUNT(*)', 'cantidadPagos')
+      .addSelect('COUNT(DISTINCT pago.idVenta)', 'ventasConPago')
+      .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoRegistrado')
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.estadoVenta <> :anulada
+              THEN pago.monto
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'montoVentasActivas',
+      )
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.estadoVenta = :anulada
+              THEN pago.monto
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'montoVentasAnuladas',
+      )
+      .setParameter('anulada', 'ANULADA');
+
+    this.aplicarPeriodoDatetime(query, 'pago.createdAt', dto);
+
+    const raw = await query.getRawOne<{
+      cantidadPagos: string;
+      ventasConPago: string;
+      montoRegistrado: string;
+      montoVentasActivas: string;
+      montoVentasAnuladas: string;
+    }>();
+
+    return {
+      periodo: {
+        fechaDesde: dto.fechaDesde ?? null,
+        fechaHasta: dto.fechaHasta ?? null,
+      },
+      cantidadPagos: Number(raw?.cantidadPagos ?? 0),
+      ventasConPago: Number(raw?.ventasConPago ?? 0),
+      montoRegistrado: this.redondear(Number(raw?.montoRegistrado ?? 0)),
+      montoVentasActivas: this.redondear(Number(raw?.montoVentasActivas ?? 0)),
+      montoVentasAnuladas: this.redondear(
+        Number(raw?.montoVentasAnuladas ?? 0),
+      ),
+    };
+  }
+
+  async pagosPorMetodo(dto: ConsultaPeriodoDto) {
+    this.validarPeriodo(dto);
+
+    const query = this.pagosRepository
+      .createQueryBuilder('pago')
+      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = pago.idVenta')
+      .select('pago.metodoPago', 'metodoPago')
+      .addSelect('COUNT(*)', 'pagos')
+      .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoTotal')
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.estadoVenta <> :anulada
+              THEN pago.monto
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'montoVentasActivas',
+      )
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.estadoVenta = :anulada
+              THEN pago.monto
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'montoVentasAnuladas',
+      )
+      .setParameter('anulada', 'ANULADA')
+      .groupBy('pago.metodoPago')
+      .orderBy('SUM(pago.monto)', 'DESC')
+      .addOrderBy('pago.metodoPago', 'ASC');
+
+    this.aplicarPeriodoDatetime(query, 'pago.createdAt', dto);
+
+    const filas = await query.getRawMany<{
+      metodoPago: string;
+      pagos: string;
+      montoTotal: string;
+      montoVentasActivas: string;
+      montoVentasAnuladas: string;
+    }>();
+
+    return filas.map((fila) => ({
+      metodoPago: fila.metodoPago,
+      pagos: Number(fila.pagos ?? 0),
+      montoTotal: this.redondear(Number(fila.montoTotal ?? 0)),
+      montoVentasActivas: this.redondear(Number(fila.montoVentasActivas ?? 0)),
+      montoVentasAnuladas: this.redondear(
+        Number(fila.montoVentasAnuladas ?? 0),
+      ),
+    }));
+  }
+
+  async evolucionPagos(dto: ConsultaPeriodoDto) {
+    this.validarPeriodo(dto);
+
+    const expresionFecha = 'CAST(pago.createdAt AS date)';
+
+    const query = this.pagosRepository
+      .createQueryBuilder('pago')
+      .innerJoin(VentaEntity, 'venta', 'venta.idVenta = pago.idVenta')
+      .select(expresionFecha, 'fecha')
+      .addSelect('COUNT(*)', 'pagos')
+      .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoTotal')
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.estadoVenta <> :anulada
+              THEN pago.monto
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'montoVentasActivas',
+      )
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.estadoVenta = :anulada
+              THEN pago.monto
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'montoVentasAnuladas',
+      )
+      .setParameter('anulada', 'ANULADA')
+      .groupBy(expresionFecha)
+      .orderBy(expresionFecha, 'ASC');
+
+    this.aplicarPeriodoDatetime(query, 'pago.createdAt', dto);
+
+    const filas = await query.getRawMany<{
+      fecha: unknown;
+      pagos: string;
+      montoTotal: string;
+      montoVentasActivas: string;
+      montoVentasAnuladas: string;
+    }>();
+
+    return filas.map((fila) => ({
+      fecha: this.formatearFecha(fila.fecha),
+      pagos: Number(fila.pagos ?? 0),
+      montoTotal: this.redondear(Number(fila.montoTotal ?? 0)),
+      montoVentasActivas: this.redondear(Number(fila.montoVentasActivas ?? 0)),
+      montoVentasAnuladas: this.redondear(
+        Number(fila.montoVentasAnuladas ?? 0),
+      ),
+    }));
+  }
+
+  async conciliacionPagos() {
+    const filas = await this.ventasRepository
+      .createQueryBuilder('venta')
+      .leftJoin(PagoVenta, 'pago', 'pago.idVenta = venta.idVenta')
+      .select('venta.idVenta', 'idVenta')
+      .addSelect('venta.numeroVenta', 'numeroVenta')
+      .addSelect('venta.fechaVenta', 'fechaVenta')
+      .addSelect('venta.totalVenta', 'totalVenta')
+      .addSelect('venta.montoPagado', 'montoPagadoVenta')
+      .addSelect('venta.saldoPendiente', 'saldoPendiente')
+      .addSelect('COUNT(pago.idPagoVenta)', 'cantidadPagosLedger')
+      .addSelect('COALESCE(SUM(pago.monto), 0)', 'montoLedger')
+      .where('venta.estadoVenta <> :anulada', {
+        anulada: 'ANULADA',
+      })
+      .groupBy('venta.idVenta')
+      .addGroupBy('venta.numeroVenta')
+      .addGroupBy('venta.fechaVenta')
+      .addGroupBy('venta.totalVenta')
+      .addGroupBy('venta.montoPagado')
+      .addGroupBy('venta.saldoPendiente')
+      .orderBy('venta.idVenta', 'ASC')
+      .getRawMany<{
+        idVenta: string | number;
+        numeroVenta: string;
+        fechaVenta: unknown;
+        totalVenta: string;
+        montoPagadoVenta: string;
+        saldoPendiente: string;
+        cantidadPagosLedger: string;
+        montoLedger: string;
+      }>();
+
+    const detalle = filas.map((fila) => {
+      const montoPagadoVenta = Number(fila.montoPagadoVenta ?? 0);
+      const montoLedger = Number(fila.montoLedger ?? 0);
+      const diferencia = this.redondear(montoPagadoVenta - montoLedger);
+
+      let estado:
+        'CONCILIADA' | 'HISTORIAL_INCOMPLETO' | 'INCONSISTENTE_EXCESO_LEDGER';
+
+      if (Math.abs(diferencia) < 0.01) {
+        estado = 'CONCILIADA';
+      } else if (diferencia > 0) {
+        estado = 'HISTORIAL_INCOMPLETO';
+      } else {
+        estado = 'INCONSISTENTE_EXCESO_LEDGER';
+      }
+
+      return {
+        idVenta: Number(fila.idVenta),
+        numeroVenta: fila.numeroVenta,
+        fechaVenta: this.formatearFecha(fila.fechaVenta),
+        totalVenta: this.redondear(Number(fila.totalVenta ?? 0)),
+        montoPagadoVenta: this.redondear(montoPagadoVenta),
+        saldoPendiente: this.redondear(Number(fila.saldoPendiente ?? 0)),
+        cantidadPagosLedger: Number(fila.cantidadPagosLedger ?? 0),
+        montoLedger: this.redondear(montoLedger),
+        diferencia,
+        estado,
+      };
+    });
+
+    const conciliadas = detalle.filter((item) => item.estado === 'CONCILIADA');
+    const incompletas = detalle.filter(
+      (item) => item.estado === 'HISTORIAL_INCOMPLETO',
+    );
+    const inconsistentes = detalle.filter(
+      (item) => item.estado === 'INCONSISTENTE_EXCESO_LEDGER',
+    );
+
+    const montoPagadoVenta = detalle.reduce(
+      (sum, item) => sum + item.montoPagadoVenta,
+      0,
+    );
+    const montoLedger = detalle.reduce(
+      (sum, item) => sum + item.montoLedger,
+      0,
+    );
+
+    return {
+      resumen: {
+        ventasActivas: detalle.length,
+        conciliadas: conciliadas.length,
+        historialIncompleto: incompletas.length,
+        inconsistentes: inconsistentes.length,
+        montoPagadoVenta: this.redondear(montoPagadoVenta),
+        montoLedger: this.redondear(montoLedger),
+        diferenciaCobertura: this.redondear(montoPagadoVenta - montoLedger),
+      },
+      detalle,
+    };
+  }
+
+  async cuentasPorCobrar() {
+    const ventas = await this.ventasRepository
+      .createQueryBuilder('venta')
+      .select('venta.idVenta', 'idVenta')
+      .addSelect('venta.numeroVenta', 'numeroVenta')
+      .addSelect('venta.fechaVenta', 'fechaVenta')
+      .addSelect('venta.clienteNombre', 'clienteNombre')
+      .addSelect('venta.estadoPago', 'estadoPago')
+      .addSelect('venta.totalVenta', 'totalVenta')
+      .addSelect('venta.montoPagado', 'montoPagado')
+      .addSelect('venta.saldoPendiente', 'saldoPendiente')
+      .addSelect('venta.fechaVencimientoPago', 'fechaVencimientoPago')
+      .where('venta.estadoVenta <> :anulada', {
+        anulada: 'ANULADA',
+      })
+      .andWhere('venta.saldoPendiente > 0')
+      .orderBy(
+        `CASE
+          WHEN venta.fechaVencimientoPago IS NULL
+          THEN 1
+          ELSE 0
+        END`,
+        'ASC',
+      )
+      .addOrderBy('venta.fechaVencimientoPago', 'ASC')
+      .addOrderBy('venta.fechaVenta', 'ASC')
+      .addOrderBy('venta.idVenta', 'ASC')
+      .getRawMany<{
+        idVenta: string | number;
+        numeroVenta: string;
+        fechaVenta: unknown;
+        clienteNombre: string | null;
+        estadoPago: string;
+        totalVenta: string;
+        montoPagado: string;
+        saldoPendiente: string;
+        fechaVencimientoPago: unknown;
+      }>();
+
+    const detalle = ventas.map((venta) => ({
+      idVenta: Number(venta.idVenta),
+      numeroVenta: venta.numeroVenta,
+      fechaVenta: this.formatearFecha(venta.fechaVenta),
+      cliente: venta.clienteNombre?.trim() || 'Venta mostrador',
+      estadoPago: venta.estadoPago,
+      totalVenta: this.redondear(Number(venta.totalVenta ?? 0)),
+      montoPagado: this.redondear(Number(venta.montoPagado ?? 0)),
+      saldoPendiente: this.redondear(Number(venta.saldoPendiente ?? 0)),
+      fechaVencimientoPago: venta.fechaVencimientoPago
+        ? this.formatearFecha(venta.fechaVencimientoPago)
+        : null,
+    }));
+
+    return {
+      resumen: {
+        ventasConSaldo: detalle.length,
+        totalPorCobrar: this.redondear(
+          detalle.reduce((sum, item) => sum + item.saldoPendiente, 0),
+        ),
+      },
+      detalle,
+    };
+  }
+
+  async vencimientosCuentasPorCobrar(dto: ConsultaVencimientosDto) {
+    this.validarFecha(dto.fechaCorte, 'fechaCorte');
+
+    const raw = await this.ventasRepository
+      .createQueryBuilder('venta')
+      .select(
+        `SUM(
+          CASE
+            WHEN venta.fechaVencimientoPago IS NULL
+            THEN 1
+            ELSE 0
+          END
+        )`,
+        'sinVencimientoCantidad',
+      )
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.fechaVencimientoPago IS NULL
+              THEN venta.saldoPendiente
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'sinVencimientoSaldo',
+      )
+      .addSelect(
+        `SUM(
+          CASE
+            WHEN venta.fechaVencimientoPago < :fechaCorte
+            THEN 1
+            ELSE 0
+          END
+        )`,
+        'vencidasCantidad',
+      )
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.fechaVencimientoPago < :fechaCorte
+              THEN venta.saldoPendiente
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'vencidasSaldo',
+      )
+      .addSelect(
+        `SUM(
+          CASE
+            WHEN venta.fechaVencimientoPago = :fechaCorte
+            THEN 1
+            ELSE 0
+          END
+        )`,
+        'venceHoyCantidad',
+      )
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.fechaVencimientoPago = :fechaCorte
+              THEN venta.saldoPendiente
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'venceHoySaldo',
+      )
+      .addSelect(
+        `SUM(
+          CASE
+            WHEN venta.fechaVencimientoPago > :fechaCorte
+            THEN 1
+            ELSE 0
+          END
+        )`,
+        'porVencerCantidad',
+      )
+      .addSelect(
+        `COALESCE(
+          SUM(
+            CASE
+              WHEN venta.fechaVencimientoPago > :fechaCorte
+              THEN venta.saldoPendiente
+              ELSE 0
+            END
+          ),
+          0
+        )`,
+        'porVencerSaldo',
+      )
+      .where('venta.estadoVenta <> :anulada', {
+        anulada: 'ANULADA',
+      })
+      .andWhere('venta.saldoPendiente > 0')
+      .setParameter('fechaCorte', dto.fechaCorte)
+      .getRawOne<{
+        sinVencimientoCantidad: string;
+        sinVencimientoSaldo: string;
+        vencidasCantidad: string;
+        vencidasSaldo: string;
+        venceHoyCantidad: string;
+        venceHoySaldo: string;
+        porVencerCantidad: string;
+        porVencerSaldo: string;
+      }>();
+
+    return {
+      fechaCorte: dto.fechaCorte,
+      sinVencimiento: {
+        cantidad: Number(raw?.sinVencimientoCantidad ?? 0),
+        saldo: this.redondear(Number(raw?.sinVencimientoSaldo ?? 0)),
+      },
+      vencidas: {
+        cantidad: Number(raw?.vencidasCantidad ?? 0),
+        saldo: this.redondear(Number(raw?.vencidasSaldo ?? 0)),
+      },
+      venceEnFechaCorte: {
+        cantidad: Number(raw?.venceHoyCantidad ?? 0),
+        saldo: this.redondear(Number(raw?.venceHoySaldo ?? 0)),
+      },
+      porVencer: {
+        cantidad: Number(raw?.porVencerCantidad ?? 0),
+        saldo: this.redondear(Number(raw?.porVencerSaldo ?? 0)),
+      },
     };
   }
 }

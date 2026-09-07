@@ -223,6 +223,58 @@ describe('ReportesController', () => {
         mercaderiaOriginal: 75000,
         costoRealOriginal: 82000,
       }),
+      resumenPagos: jest.fn().mockResolvedValue({
+        periodo: { fechaDesde: null, fechaHasta: null },
+        cantidadPagos: 12,
+        ventasConPago: 8,
+        montoRegistrado: 50000,
+        montoVentasActivas: 27500,
+        montoVentasAnuladas: 22500,
+      }),
+      pagosPorMetodo: jest.fn().mockResolvedValue([
+        {
+          metodoPago: 'SINPE',
+          pagos: 3,
+          montoTotal: 16500,
+          montoVentasActivas: 16500,
+          montoVentasAnuladas: 0,
+        },
+      ]),
+      evolucionPagos: jest.fn().mockResolvedValue([
+        {
+          fecha: '2026-09-10',
+          pagos: 2,
+          montoTotal: 10000,
+          montoVentasActivas: 10000,
+          montoVentasAnuladas: 0,
+        },
+      ]),
+      conciliacionPagos: jest.fn().mockResolvedValue({
+        resumen: {
+          ventasActivas: 7,
+          conciliadas: 6,
+          historialIncompleto: 1,
+          inconsistentes: 0,
+          montoPagadoVenta: 32500,
+          montoLedger: 27500,
+          diferenciaCobertura: 5000,
+        },
+        detalle: [],
+      }),
+      cuentasPorCobrar: jest.fn().mockResolvedValue({
+        resumen: {
+          ventasConSaldo: 3,
+          totalPorCobrar: 10000,
+        },
+        detalle: [],
+      }),
+      vencimientosCuentasPorCobrar: jest.fn().mockResolvedValue({
+        fechaCorte: '2026-09-12',
+        sinVencimiento: { cantidad: 3, saldo: 10000 },
+        vencidas: { cantidad: 0, saldo: 0 },
+        venceEnFechaCorte: { cantidad: 0, saldo: 0 },
+        porVencer: { cantidad: 0, saldo: 0 },
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -360,5 +412,47 @@ describe('ReportesController', () => {
     const res = await controller.comprasCanceladas(dto);
     expect(reportesService.comprasCanceladas).toHaveBeenCalledWith(dto);
     expect(res.cantidadPedidos).toBe(4);
+  });
+
+  it('GET /reportes/pagos/resumen debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = { fechaDesde: '2026-09-01' };
+    const res = await controller.resumenPagos(dto);
+    expect(reportesService.resumenPagos).toHaveBeenCalledWith(dto);
+    expect(res.cantidadPagos).toBe(12);
+  });
+
+  it('GET /reportes/pagos/evolucion debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = {};
+    const res = await controller.evolucionPagos(dto);
+    expect(reportesService.evolucionPagos).toHaveBeenCalledWith(dto);
+    expect(res).toHaveLength(1);
+  });
+
+  it('GET /reportes/pagos/metodos debe delegar al servicio', async () => {
+    const dto: ConsultaPeriodoDto = {};
+    const res = await controller.pagosPorMetodo(dto);
+    expect(reportesService.pagosPorMetodo).toHaveBeenCalledWith(dto);
+    expect(res[0].metodoPago).toBe('SINPE');
+  });
+
+  it('GET /reportes/pagos/conciliacion debe delegar al servicio', async () => {
+    const res = await controller.conciliacionPagos();
+    expect(reportesService.conciliacionPagos).toHaveBeenCalled();
+    expect(res.resumen.ventasActivas).toBe(7);
+  });
+
+  it('GET /reportes/cuentas-por-cobrar debe delegar al servicio', async () => {
+    const res = await controller.cuentasPorCobrar();
+    expect(reportesService.cuentasPorCobrar).toHaveBeenCalled();
+    expect(res.resumen.ventasConSaldo).toBe(3);
+  });
+
+  it('GET /reportes/cuentas-por-cobrar/vencimientos debe delegar al servicio', async () => {
+    const dto = { fechaCorte: '2026-09-12' };
+    const res = await controller.vencimientosCuentasPorCobrar(dto);
+    expect(reportesService.vencimientosCuentasPorCobrar).toHaveBeenCalledWith(
+      dto,
+    );
+    expect(res.fechaCorte).toBe('2026-09-12');
   });
 });

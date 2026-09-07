@@ -9,6 +9,7 @@ import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { MovimientoInventario } from '../../database/entities/movimiento-inventario.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
+import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
@@ -29,6 +30,7 @@ describe('ReportesService', () => {
   let movimientosRepository: jest.Mocked<
     Partial<Repository<MovimientoInventario>>
   >;
+  let pagosRepository: jest.Mocked<Partial<Repository<PagoVenta>>>;
 
   let ventasQueryBuilder: Partial<SelectQueryBuilder<VentaEntity>>;
   let detallesQueryBuilder: Partial<SelectQueryBuilder<DetalleVenta>>;
@@ -38,15 +40,20 @@ describe('ReportesService', () => {
     SelectQueryBuilder<DetallePedidoCompra>
   >;
   let productosQueryBuilder: Partial<SelectQueryBuilder<Producto>>;
+  let pagosQueryBuilder: Partial<SelectQueryBuilder<PagoVenta>>;
 
   beforeEach(async () => {
     ventasQueryBuilder = {
+      leftJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      setParameter: jest.fn().mockReturnThis(),
       groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({
         cantidad: '7',
         cantidadVentas: '7',
@@ -306,6 +313,54 @@ describe('ReportesService', () => {
       createQueryBuilder: jest.fn(),
     };
 
+    pagosQueryBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      setParameter: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        cantidadPagos: '12',
+        ventasConPago: '8',
+        montoRegistrado: '50000.00',
+        montoVentasActivas: '27500.00',
+        montoVentasAnuladas: '22500.00',
+      }),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          metodoPago: 'SINPE',
+          pagos: '3',
+          montoTotal: '16500.00',
+          montoVentasActivas: '16500.00',
+          montoVentasAnuladas: '0.00',
+        },
+        {
+          metodoPago: 'TARJETA',
+          pagos: '1',
+          montoTotal: '6500.00',
+          montoVentasActivas: '6500.00',
+          montoVentasAnuladas: '0.00',
+        },
+        {
+          metodoPago: 'EFECTIVO',
+          pagos: '2',
+          montoTotal: '4500.00',
+          montoVentasActivas: '4500.00',
+          montoVentasAnuladas: '0.00',
+        },
+      ]),
+    };
+
+    pagosRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(pagosQueryBuilder),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReportesService,
@@ -344,6 +399,10 @@ describe('ReportesService', () => {
         {
           provide: getRepositoryToken(MovimientoInventario),
           useValue: movimientosRepository,
+        },
+        {
+          provide: getRepositoryToken(PagoVenta),
+          useValue: pagosRepository,
         },
       ],
     }).compile();
@@ -1138,6 +1197,384 @@ describe('ReportesService', () => {
         'pedido.estado = :cancelado',
         { cancelado: 'CANCELADO' },
       );
+    });
+  });
+
+  describe('Periodo Datetime (9F)', () => {
+    it('debe aplicar fechaDesdeDatetime con T00:00:00.000', async () => {
+      await service.resumenPagos({ fechaDesde: '2026-09-12' });
+
+      expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'pago.createdAt >= :fechaDesdeDatetime',
+        { fechaDesdeDatetime: '2026-09-12T00:00:00.000' },
+      );
+    });
+
+    it('debe aplicar fechaHastaExclusiva con T00:00:00.000 del día siguiente', async () => {
+      await service.resumenPagos({ fechaHasta: '2026-09-12' });
+
+      expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'pago.createdAt < :fechaHastaExclusiva',
+        { fechaHastaExclusiva: '2026-09-13T00:00:00.000' },
+      );
+    });
+
+    it('debe calcular límite superior exclusivo para fin de mes (2026-09-30 -> 2026-10-01)', async () => {
+      await service.resumenPagos({ fechaHasta: '2026-09-30' });
+
+      expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'pago.createdAt < :fechaHastaExclusiva',
+        { fechaHastaExclusiva: '2026-10-01T00:00:00.000' },
+      );
+    });
+
+    it('debe calcular límite superior exclusivo para fin de año (2026-12-31 -> 2027-01-01)', async () => {
+      await service.resumenPagos({ fechaHasta: '2026-12-31' });
+
+      expect(pagosQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'pago.createdAt < :fechaHastaExclusiva',
+        { fechaHastaExclusiva: '2027-01-01T00:00:00.000' },
+      );
+    });
+  });
+
+  describe('Resumen de Pagos (9F)', () => {
+    it('debe retornar resumen de pagos separando activas de anuladas y cuadrando la suma', async () => {
+      (pagosQueryBuilder.getRawOne as jest.Mock).mockResolvedValueOnce({
+        cantidadPagos: '10',
+        ventasConPago: '6',
+        montoRegistrado: '50000.00',
+        montoVentasActivas: '30000.00',
+        montoVentasAnuladas: '20000.00',
+      });
+
+      const res = await service.resumenPagos({});
+
+      expect(res).toEqual({
+        periodo: { fechaDesde: null, fechaHasta: null },
+        cantidadPagos: 10,
+        ventasConPago: 6,
+        montoRegistrado: 50000,
+        montoVentasActivas: 30000,
+        montoVentasAnuladas: 20000,
+      });
+
+      expect(res.montoRegistrado).toBe(
+        res.montoVentasActivas + res.montoVentasAnuladas,
+      );
+    });
+
+    it('debe manejar cero pagos sin devolver valores nulos', async () => {
+      (pagosQueryBuilder.getRawOne as jest.Mock).mockResolvedValueOnce({
+        cantidadPagos: '0',
+        ventasConPago: '0',
+        montoRegistrado: '0',
+        montoVentasActivas: '0',
+        montoVentasAnuladas: '0',
+      });
+
+      const res = await service.resumenPagos({});
+
+      expect(res).toEqual({
+        periodo: { fechaDesde: null, fechaHasta: null },
+        cantidadPagos: 0,
+        ventasConPago: 0,
+        montoRegistrado: 0,
+        montoVentasActivas: 0,
+        montoVentasAnuladas: 0,
+      });
+    });
+  });
+
+  describe('Pagos por Método (9F)', () => {
+    it('debe retornar desglose de métodos con totales activos y anulados ordenados por montoTotal DESC', async () => {
+      (pagosQueryBuilder.getRawMany as jest.Mock).mockResolvedValueOnce([
+        {
+          metodoPago: 'SINPE',
+          pagos: '3',
+          montoTotal: '16500.00',
+          montoVentasActivas: '16500.00',
+          montoVentasAnuladas: '0.00',
+        },
+        {
+          metodoPago: 'TARJETA',
+          pagos: '2',
+          montoTotal: '10000.00',
+          montoVentasActivas: '6500.00',
+          montoVentasAnuladas: '3500.00',
+        },
+      ]);
+
+      const res = await service.pagosPorMetodo({});
+
+      expect(res).toEqual([
+        {
+          metodoPago: 'SINPE',
+          pagos: 3,
+          montoTotal: 16500,
+          montoVentasActivas: 16500,
+          montoVentasAnuladas: 0,
+        },
+        {
+          metodoPago: 'TARJETA',
+          pagos: 2,
+          montoTotal: 10000,
+          montoVentasActivas: 6500,
+          montoVentasAnuladas: 3500,
+        },
+      ]);
+
+      expect(pagosQueryBuilder.groupBy).toHaveBeenCalledWith('pago.metodoPago');
+      expect(pagosQueryBuilder.orderBy).toHaveBeenCalledWith(
+        'SUM(pago.monto)',
+        'DESC',
+      );
+      expect(pagosQueryBuilder.addOrderBy).toHaveBeenCalledWith(
+        'pago.metodoPago',
+        'ASC',
+      );
+    });
+  });
+
+  describe('Evolución de Pagos (9F)', () => {
+    it('debe agrupar por createdAt del pago y conservar pagos de anuladas', async () => {
+      (pagosQueryBuilder.getRawMany as jest.Mock).mockResolvedValueOnce([
+        {
+          fecha: '2026-09-10',
+          pagos: '2',
+          montoTotal: '10000.00',
+          montoVentasActivas: '8000.00',
+          montoVentasAnuladas: '2000.00',
+        },
+        {
+          fecha: '2026-09-12',
+          pagos: '4',
+          montoTotal: '17500.00',
+          montoVentasActivas: '17500.00',
+          montoVentasAnuladas: '0.00',
+        },
+      ]);
+
+      const res = await service.evolucionPagos({});
+
+      expect(res).toEqual([
+        {
+          fecha: '2026-09-10',
+          pagos: 2,
+          montoTotal: 10000,
+          montoVentasActivas: 8000,
+          montoVentasAnuladas: 2000,
+        },
+        {
+          fecha: '2026-09-12',
+          pagos: 4,
+          montoTotal: 17500,
+          montoVentasActivas: 17500,
+          montoVentasAnuladas: 0,
+        },
+      ]);
+
+      expect(pagosQueryBuilder.select).toHaveBeenCalledWith(
+        'CAST(pago.createdAt AS date)',
+        'fecha',
+      );
+      expect(pagosQueryBuilder.groupBy).toHaveBeenCalledWith(
+        'CAST(pago.createdAt AS date)',
+      );
+    });
+  });
+
+  describe('Conciliación de Pagos (9F)', () => {
+    it('debe clasificar ventas en CONCILIADA, HISTORIAL_INCOMPLETO e INCONSISTENTE_EXCESO_LEDGER', async () => {
+      (ventasQueryBuilder.getRawMany as jest.Mock).mockResolvedValueOnce([
+        {
+          idVenta: '1',
+          numeroVenta: 'V-001',
+          fechaVenta: '2026-09-10',
+          totalVenta: '5000.00',
+          montoPagadoVenta: '5000.00',
+          saldoPendiente: '0.00',
+          cantidadPagosLedger: '1',
+          montoLedger: '5000.00',
+        },
+        {
+          idVenta: '2',
+          numeroVenta: 'V-002',
+          fechaVenta: '2026-09-10',
+          totalVenta: '5000.00',
+          montoPagadoVenta: '5000.00',
+          saldoPendiente: '0.00',
+          cantidadPagosLedger: '0',
+          montoLedger: '0.00',
+        },
+        {
+          idVenta: '3',
+          numeroVenta: 'V-003',
+          fechaVenta: '2026-09-11',
+          totalVenta: '8000.00',
+          montoPagadoVenta: '8000.00',
+          saldoPendiente: '0.00',
+          cantidadPagosLedger: '1',
+          montoLedger: '3000.00',
+        },
+        {
+          idVenta: '4',
+          numeroVenta: 'V-004',
+          fechaVenta: '2026-09-12',
+          totalVenta: '5000.00',
+          montoPagadoVenta: '5000.00',
+          saldoPendiente: '0.00',
+          cantidadPagosLedger: '2',
+          montoLedger: '6000.00',
+        },
+        {
+          idVenta: '5',
+          numeroVenta: 'V-005',
+          fechaVenta: '2026-09-12',
+          totalVenta: '10000.00',
+          montoPagadoVenta: '0.00',
+          saldoPendiente: '10000.00',
+          cantidadPagosLedger: '0',
+          montoLedger: '0.00',
+        },
+      ]);
+
+      const res = await service.conciliacionPagos();
+
+      expect(res.resumen).toEqual({
+        ventasActivas: 5,
+        conciliadas: 2, // V-001 (5000=5000) y V-005 (0=0)
+        historialIncompleto: 2, // V-002 (5000>0) y V-003 (8000>3000)
+        inconsistentes: 1, // V-004 (5000<6000)
+        montoPagadoVenta: 23000,
+        montoLedger: 14000,
+        diferenciaCobertura: 9000,
+      });
+
+      expect(res.detalle[0].estado).toBe('CONCILIADA');
+      expect(res.detalle[1].estado).toBe('HISTORIAL_INCOMPLETO');
+      expect(res.detalle[1].diferencia).toBe(5000);
+      expect(res.detalle[2].estado).toBe('HISTORIAL_INCOMPLETO');
+      expect(res.detalle[2].diferencia).toBe(5000);
+      expect(res.detalle[3].estado).toBe('INCONSISTENTE_EXCESO_LEDGER');
+      expect(res.detalle[3].diferencia).toBe(-1000);
+      expect(res.detalle[4].estado).toBe('CONCILIADA');
+
+      expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
+        'venta.estadoVenta <> :anulada',
+        { anulada: 'ANULADA' },
+      );
+    });
+  });
+
+  describe('Cuentas por Cobrar (9F)', () => {
+    it('debe listar ventas activas con saldo y asignar fallback mostrador', async () => {
+      (ventasQueryBuilder.getRawMany as jest.Mock).mockResolvedValueOnce([
+        {
+          idVenta: '2103',
+          numeroVenta: 'V-2103',
+          fechaVenta: '2026-09-10',
+          clienteNombre: null,
+          estadoPago: 'PARCIAL',
+          totalVenta: '5000.00',
+          montoPagado: '3500.00',
+          saldoPendiente: '1500.00',
+          fechaVencimientoPago: null,
+        },
+        {
+          idVenta: '1554',
+          numeroVenta: 'V-1554',
+          fechaVenta: '2026-09-11',
+          clienteNombre: '   ',
+          estadoPago: 'PARCIAL',
+          totalVenta: '5000.00',
+          montoPagado: '3000.00',
+          saldoPendiente: '2000.00',
+          fechaVencimientoPago: null,
+        },
+        {
+          idVenta: '699897',
+          numeroVenta: 'V-699897',
+          fechaVenta: '2026-09-12',
+          clienteNombre: 'Cliente Con Deuda',
+          estadoPago: 'EN_DEUDA',
+          totalVenta: '6500.00',
+          montoPagado: '0.00',
+          saldoPendiente: '6500.00',
+          fechaVencimientoPago: '2026-09-20',
+        },
+      ]);
+
+      const res = await service.cuentasPorCobrar();
+
+      expect(res.resumen).toEqual({
+        ventasConSaldo: 3,
+        totalPorCobrar: 10000,
+      });
+
+      expect(res.detalle[0].cliente).toBe('Venta mostrador');
+      expect(res.detalle[1].cliente).toBe('Venta mostrador');
+      expect(res.detalle[2].cliente).toBe('Cliente Con Deuda');
+      expect(res.detalle[2].fechaVencimientoPago).toBe('2026-09-20');
+
+      expect(ventasQueryBuilder.where).toHaveBeenCalledWith(
+        'venta.estadoVenta <> :anulada',
+        { anulada: 'ANULADA' },
+      );
+      expect(ventasQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'venta.saldoPendiente > 0',
+      );
+    });
+  });
+
+  describe('Vencimientos de Cuentas por Cobrar (9F)', () => {
+    it('debe rechazar fechaCorte ausente o inválida', async () => {
+      await expect(
+        service.vencimientosCuentasPorCobrar({ fechaCorte: '' }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.vencimientosCuentasPorCobrar({ fechaCorte: '2026-02-31' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe retornar los 4 buckets de vencimiento cuadrando con las ventas con saldo', async () => {
+      (ventasQueryBuilder.getRawOne as jest.Mock).mockResolvedValueOnce({
+        sinVencimientoCantidad: '3',
+        sinVencimientoSaldo: '10000.00',
+        vencidasCantidad: '0',
+        vencidasSaldo: '0.00',
+        venceHoyCantidad: '0',
+        venceHoySaldo: '0.00',
+        porVencerCantidad: '0',
+        porVencerSaldo: '0.00',
+      });
+
+      const res = await service.vencimientosCuentasPorCobrar({
+        fechaCorte: '2026-09-12',
+      });
+
+      expect(res).toEqual({
+        fechaCorte: '2026-09-12',
+        sinVencimiento: { cantidad: 3, saldo: 10000 },
+        vencidas: { cantidad: 0, saldo: 0 },
+        venceEnFechaCorte: { cantidad: 0, saldo: 0 },
+        porVencer: { cantidad: 0, saldo: 0 },
+      });
+
+      const totalCantidad =
+        res.sinVencimiento.cantidad +
+        res.vencidas.cantidad +
+        res.venceEnFechaCorte.cantidad +
+        res.porVencer.cantidad;
+
+      const totalSaldo =
+        res.sinVencimiento.saldo +
+        res.vencidas.saldo +
+        res.venceEnFechaCorte.saldo +
+        res.porVencer.saldo;
+
+      expect(totalCantidad).toBe(3);
+      expect(totalSaldo).toBe(10000);
     });
   });
 });

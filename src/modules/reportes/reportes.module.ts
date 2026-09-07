@@ -7,6 +7,7 @@ import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { MovimientoInventario } from '../../database/entities/movimiento-inventario.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
+import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
@@ -26,6 +27,7 @@ import { ReportesService } from './reportes.service';
       OrigenCompra,
       LoteProducto,
       MovimientoInventario,
+      PagoVenta,
     ]),
   ],
   controllers: [ReportesController],

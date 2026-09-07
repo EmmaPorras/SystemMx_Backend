@@ -3,6 +3,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ConsultaInventarioHistoricoDto } from './dto/consulta-inventario-historico.dto';
 import { ConsultaPeriodoDto } from './dto/consulta-periodo.dto';
 import { ConsultaResumenDto } from './dto/consulta-resumen.dto';
+import { ConsultaVencimientosDto } from './dto/consulta-vencimientos.dto';
 import { ReportesService } from './reportes.service';
 
 @Controller('reportes')
@@ -92,5 +93,35 @@ export class ReportesController {
   @Get('compras/canceladas')
   comprasCanceladas(@Query() dto: ConsultaPeriodoDto) {
     return this.reportesService.comprasCanceladas(dto);
+  }
+
+  @Get('pagos/resumen')
+  resumenPagos(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.resumenPagos(dto);
+  }
+
+  @Get('pagos/evolucion')
+  evolucionPagos(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.evolucionPagos(dto);
+  }
+
+  @Get('pagos/metodos')
+  pagosPorMetodo(@Query() dto: ConsultaPeriodoDto) {
+    return this.reportesService.pagosPorMetodo(dto);
+  }
+
+  @Get('pagos/conciliacion')
+  conciliacionPagos() {
+    return this.reportesService.conciliacionPagos();
+  }
+
+  @Get('cuentas-por-cobrar/vencimientos')
+  vencimientosCuentasPorCobrar(@Query() dto: ConsultaVencimientosDto) {
+    return this.reportesService.vencimientosCuentasPorCobrar(dto);
+  }
+
+  @Get('cuentas-por-cobrar')
+  cuentasPorCobrar() {
+    return this.reportesService.cuentasPorCobrar();
   }
 }
