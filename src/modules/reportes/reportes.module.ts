@@ -10,8 +10,10 @@ import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
+import { Usuario } from '../../database/entities/usuario.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
 
+import { ReportesAuditoriaController } from './reportes-auditoria.controller';
 import { ReportesController } from './reportes.controller';
 import { ReportesService } from './reportes.service';
 
@@ -28,9 +30,10 @@ import { ReportesService } from './reportes.service';
       LoteProducto,
       MovimientoInventario,
       PagoVenta,
+      Usuario,
     ]),
   ],
-  controllers: [ReportesController],
+  controllers: [ReportesController, ReportesAuditoriaController],
   providers: [ReportesService],
   exports: [ReportesService],
 })
