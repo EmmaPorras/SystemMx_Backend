@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -12,6 +13,9 @@ import { Categoria } from './categoria.entity';
 import { TarifaIva } from './tarifa-iva.entity';
 
 @Entity({ name: 'producto' })
+@Index('UX_producto_nombre', ['nombre'], {
+  unique: true,
+})
 export class Producto {
   @PrimaryGeneratedColumn({ name: 'id_producto' })
   idProducto!: number;

@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 
 import { DetalleVenta } from './detalle-venta.entity';
+import { PagoVenta } from './pago-venta.entity';
 
 @Entity({ name: 'venta' })
 export class VentaEntity {
@@ -20,7 +21,12 @@ export class VentaEntity {
   @Column({ name: 'fecha_venta', type: 'date' })
   fechaVenta!: string;
 
-  @Column({ name: 'cliente_nombre', type: 'nvarchar', length: 100, nullable: true })
+  @Column({
+    name: 'cliente_nombre',
+    type: 'nvarchar',
+    length: 100,
+    nullable: true,
+  })
   clienteNombre?: string | null;
 
   @Column({ name: 'medio_pago', type: 'nvarchar', length: 30 })
@@ -110,7 +116,12 @@ export class VentaEntity {
   @Column({ name: 'fecha_vencimiento_pago', type: 'date', nullable: true })
   fechaVencimientoPago?: string | null;
 
-  @Column({ name: 'observaciones', type: 'nvarchar', length: 150, nullable: true })
+  @Column({
+    name: 'observaciones',
+    type: 'nvarchar',
+    length: 150,
+    nullable: true,
+  })
   observaciones?: string | null;
 
   @Column({ name: 'en_papelera', type: 'bit' })
@@ -124,4 +135,7 @@ export class VentaEntity {
 
   @OneToMany(() => DetalleVenta, (detalle) => detalle.venta)
   detalles!: DetalleVenta[];
+
+  @OneToMany(() => PagoVenta, (pago) => pago.venta)
+  pagos!: PagoVenta[];
 }

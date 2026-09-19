@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -24,7 +25,7 @@ export class CreatePedidoDetalleDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
+  @MaxLength(150)
   productoNombre!: string;
 
   @IsString()
@@ -42,7 +43,7 @@ export class CreatePedidoDetalleDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  @Max(99999)
+  @Max(0)
   cantidadRecibida?: number;
 
   @Type(() => Number)
@@ -58,7 +59,7 @@ export class CreatePedidoDetalleDto {
   precioVentaRecomendado!: number;
 
   @IsString()
-  @IsIn(['EN_PROCESO', 'EN_STOCK', 'VENDIDO_PARCIAL', 'AGOTADO'])
+  @IsIn(['EN_PROCESO'])
   estadoLote!: string;
 }
 
@@ -69,8 +70,7 @@ export class CreatePedidoDto {
   @Max(999)
   numeroPedido!: number;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsDateString()
   fecha!: string;
 
   @IsString()
@@ -94,7 +94,7 @@ export class CreatePedidoDto {
   tipoCambio!: number;
 
   @IsString()
-  @IsIn(['REGISTRADO', 'EN_TRANSITO', 'RECIBIDO', 'CANCELADO'])
+  @IsIn(['REGISTRADO', 'EN_TRANSITO'])
   estado!: string;
 
   @IsOptional()

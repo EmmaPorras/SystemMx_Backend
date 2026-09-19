@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -13,6 +14,7 @@ import { PedidoCompraEntity } from './pedido-compra.entity';
 import { Producto } from './producto.entity';
 
 @Entity({ name: 'lote_producto' })
+@Index('IX_lote_producto_id_producto', ['idProducto'])
 export class LoteProducto {
   @PrimaryGeneratedColumn({ name: 'id_lote' })
   idLote!: number;

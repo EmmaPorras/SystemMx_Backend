@@ -11,6 +11,8 @@ import {
 import { CreateTarifaIvaDto } from './dto/create-tarifa-iva.dto';
 import { UpdateTarifaIvaDto } from './dto/update-tarifa-iva.dto';
 import { TarifasIvaService } from './tarifas-iva.service';
+import { Roles } from '../auth/roles.decorator';
+import { RolUsuario } from '../usuarios/rol-usuario.enum';
 
 @Controller('tarifas-iva')
 export class TarifasIvaController {
@@ -26,11 +28,13 @@ export class TarifasIvaController {
     return this.tarifasIvaService.findOne(id);
   }
 
+  @Roles(RolUsuario.ADMIN)
   @Post()
   create(@Body() createTarifaIvaDto: CreateTarifaIvaDto) {
     return this.tarifasIvaService.create(createTarifaIvaDto);
   }
 
+  @Roles(RolUsuario.ADMIN)
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -39,6 +43,7 @@ export class TarifasIvaController {
     return this.tarifasIvaService.update(id, updateTarifaIvaDto);
   }
 
+  @Roles(RolUsuario.ADMIN)
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.tarifasIvaService.remove(id);

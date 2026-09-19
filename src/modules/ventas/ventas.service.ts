@@ -9,12 +9,12 @@ import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
 
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
+import { PagoVenta } from '../../database/entities/pago-venta.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
-import {
-  CreateVentaDetalleDto,
-  CreateVentaDto,
-} from './dto/create-venta.dto';
-import { UpdatePagoVentaDto } from './dto/update-pago-venta.dto';
+import { ActorAuditoria } from '../auth/auth.types';
+import { InventarioService } from '../inventario/inventario.service';
+import { CreateVentaDetalleDto, CreateVentaDto } from './dto/create-venta.dto';
+import { RegistrarPagoVentaDto } from './dto/registrar-pago-venta.dto';
 
 type FindAllVentasFilters = {
   papelera?: string;
@@ -33,6 +33,7 @@ type LoteAsignado = {
 };
 
 type DetalleVentaCalculado = {
+  lote: LoteProducto;
   idProducto: number;
   idLote: number;
   cantidad: number;
@@ -59,6 +60,11 @@ export class VentasService {
 
     @InjectRepository(VentaEntity)
     private readonly ventasRepository: Repository<VentaEntity>,
+
+    @InjectRepository(PagoVenta)
+    private readonly pagosRepository: Repository<PagoVenta>,
+
+    private readonly inventarioService: InventarioService,
   ) {}
 
   async findAll(filters: FindAllVentasFilters = {}) {
@@ -154,7 +160,7 @@ export class VentasService {
     }));
   }
 
-  async create(dto: CreateVentaDto) {
+  async create(dto: CreateVentaDto, actor: ActorAuditoria) {
     await this.validarNumeroVentaDisponible(dto.numeroVenta);
 
     let ventaIdCreada = 0;
@@ -237,13 +243,121 @@ export class VentasService {
         });
 
         await manager.save(DetalleVenta, detalle);
+
+        await this.inventarioService.registrarMovimiento(manager, {
+          lote: detalleCalculado.lote,
+          tipoMovimiento: 'SALIDA_VENTA',
+          cantidad: detalleCalculado.cantidad,
+          referenciaId: ventaGuardada.idVenta,
+          actor,
+        });
+      }
+
+      if (montoPagado > 0) {
+        await this.crearRegistroPago(manager, ventaGuardada, actor, {
+          monto: montoPagado,
+          metodoPago: dto.medioPago,
+        });
       }
     });
 
     return this.findOne(ventaIdCreada);
   }
 
-  async actualizarPago(id: number, dto: UpdatePagoVentaDto) {
+  async registrarPago(
+    id: number,
+    dto: RegistrarPagoVentaDto,
+    actor: ActorAuditoria,
+  ) {
+    const ventaId = this.validarId(id, 'ID de venta inválido.');
+
+    await this.dataSource.transaction(async (manager) => {
+      const ventaRepository = manager.getRepository(VentaEntity);
+
+      /*
+       * Bloqueo imprescindible:
+       * dos pagos simultáneos no pueden
+       * consumir el mismo saldo.
+       */
+      const venta = await ventaRepository
+        .createQueryBuilder('venta')
+        .setLock('pessimistic_write')
+        .where('venta.id_venta = :ventaId', {
+          ventaId,
+        })
+        .getOne();
+
+      if (!venta) {
+        throw new NotFoundException('Venta no encontrada.');
+      }
+
+      if (venta.estadoVenta === 'ANULADA') {
+        throw new ConflictException(
+          'No se pueden registrar pagos en una venta anulada.',
+        );
+      }
+
+      const totalVenta = Number(venta.totalVenta);
+      const montoAnterior = Number(venta.montoPagado);
+      const saldoActual = Number(venta.saldoPendiente);
+
+      if (
+        !Number.isFinite(totalVenta) ||
+        !Number.isFinite(montoAnterior) ||
+        !Number.isFinite(saldoActual) ||
+        totalVenta < 0 ||
+        montoAnterior < 0 ||
+        saldoActual < 0
+      ) {
+        throw new ConflictException(
+          'La venta contiene importes de pago inconsistentes.',
+        );
+      }
+
+      if (saldoActual <= 0) {
+        throw new ConflictException('La venta ya está pagada completamente.');
+      }
+
+      const monto = this.redondear(dto.monto);
+
+      if (monto <= 0) {
+        throw new BadRequestException(
+          'El monto del pago debe ser mayor que cero.',
+        );
+      }
+
+      if (monto > saldoActual) {
+        throw new BadRequestException(
+          `El pago no puede superar el saldo pendiente de ${saldoActual}.`,
+        );
+      }
+
+      await this.crearRegistroPago(manager, venta, actor, {
+        monto,
+        metodoPago: dto.metodoPago,
+        referencia: dto.referencia,
+        observaciones: dto.observaciones,
+      });
+
+      const nuevoMontoPagado = this.redondear(montoAnterior + monto);
+      const nuevoSaldo = this.redondear(totalVenta - nuevoMontoPagado);
+
+      venta.montoPagado = nuevoMontoPagado;
+      venta.saldoPendiente = nuevoSaldo;
+      venta.estadoPago = this.calcularEstadoPago(totalVenta, nuevoMontoPagado);
+      venta.medioPago = this.calcularMedioPagoAgregado(
+        venta.medioPago,
+        montoAnterior,
+        dto.metodoPago,
+      );
+
+      await ventaRepository.save(venta);
+    });
+
+    return this.findOne(ventaId);
+  }
+
+  async listarPagosVenta(id: number) {
     const ventaId = this.validarId(id, 'ID de venta inválido.');
 
     const venta = await this.ventasRepository.findOne({
@@ -256,28 +370,27 @@ export class VentasService {
       throw new NotFoundException('Venta no encontrada.');
     }
 
-    if (venta.estadoVenta === 'ANULADA') {
-      throw new BadRequestException(
-        'No se puede actualizar el pago de una venta anulada.',
-      );
-    }
+    const pagos = await this.pagosRepository.find({
+      where: {
+        idVenta: ventaId,
+      },
+      order: {
+        createdAt: 'ASC',
+        idPagoVenta: 'ASC',
+      },
+    });
 
-    const totalVenta = Number(venta.totalVenta);
-    const montoPagado = this.redondear(dto.montoPagado);
-
-    if (montoPagado > totalVenta) {
-      throw new BadRequestException(
-        'El monto pagado no puede ser mayor al total de la venta.',
-      );
-    }
-
-    venta.montoPagado = montoPagado;
-    venta.saldoPendiente = this.redondear(totalVenta - montoPagado);
-    venta.estadoPago = this.calcularEstadoPago(totalVenta, montoPagado);
-
-    await this.ventasRepository.save(venta);
-
-    return this.findOne(ventaId);
+    return pagos.map((pago) => ({
+      idPagoVenta: pago.idPagoVenta,
+      idVenta: pago.idVenta,
+      idUsuario: pago.idUsuario ?? null,
+      usuario: pago.usuario ?? null,
+      metodoPago: pago.metodoPago,
+      monto: Number(pago.monto),
+      referencia: pago.referencia ?? null,
+      observaciones: pago.observaciones ?? null,
+      createdAt: pago.createdAt,
+    }));
   }
 
   async enviarAPapelera(id: number) {
@@ -320,62 +433,116 @@ export class VentasService {
     return this.findOne(ventaId);
   }
 
-  async anularVenta(id: number) {
+  async anularVenta(id: number, actor: ActorAuditoria) {
     const ventaId = this.validarId(id, 'ID de venta inválido.');
 
     await this.dataSource.transaction(async (manager) => {
-      const venta = await manager.getRepository(VentaEntity).findOne({
-        where: {
-          idVenta: ventaId,
-        },
-        relations: {
-          detalles: {
-            lote: true,
-          },
-        },
-      });
+      const ventaRepository = manager.getRepository(VentaEntity);
+      const detalleRepository = manager.getRepository(DetalleVenta);
+      const loteRepository = manager.getRepository(LoteProducto);
+
+      /*
+       * 1. Bloqueamos primero la Venta.
+       * Esto evita que dos anulaciones puedan procesarla al mismo tiempo.
+       */
+      const venta = await ventaRepository
+        .createQueryBuilder('venta')
+        .setLock('pessimistic_write')
+        .where('venta.id_venta = :ventaId', {
+          ventaId,
+        })
+        .getOne();
 
       if (!venta) {
         throw new NotFoundException('Venta no encontrada.');
       }
 
       if (venta.estadoVenta === 'ANULADA') {
-        throw new BadRequestException('La venta ya está anulada.');
+        throw new ConflictException('La venta ya está anulada.');
       }
 
-      for (const detalle of venta.detalles ?? []) {
-        const lote = detalle.lote;
+      /*
+       * 2. Los detalles son históricos. No los modificamos.
+       */
+      const detalles = await detalleRepository.find({
+        where: {
+          idVenta: ventaId,
+        },
+        order: {
+          idDetalleVenta: 'ASC',
+        },
+      });
+
+      if (detalles.length === 0) {
+        throw new ConflictException(
+          'La venta no contiene detalles para revertir.',
+        );
+      }
+
+      /*
+       * 3. Obtenemos los lotes únicos.
+       */
+      const loteIds = [...new Set(detalles.map((detalle) => detalle.idLote))];
+
+      /*
+       * 4. Bloqueamos TODOS los lotes en un orden determinista.
+       */
+      const lotes = await loteRepository
+        .createQueryBuilder('lote')
+        .setLock('pessimistic_write')
+        .where('lote.id_lote IN (:...loteIds)', {
+          loteIds,
+        })
+        .orderBy('lote.id_lote', 'ASC')
+        .getMany();
+
+      if (lotes.length !== loteIds.length) {
+        throw new ConflictException(
+          'Uno o más lotes asociados a la venta no existen.',
+        );
+      }
+
+      const lotesPorId = new Map(lotes.map((lote) => [lote.idLote, lote]));
+
+      /*
+       * 5. Reponemos cada DetalleVenta y registramos su movimiento.
+       */
+      for (const detalle of detalles) {
+        const lote = lotesPorId.get(detalle.idLote);
 
         if (!lote) {
-          throw new BadRequestException(
+          throw new ConflictException(
             `No se encontró el lote asociado al detalle ${detalle.idDetalleVenta}.`,
           );
         }
 
-        lote.cantidadDisponible =
-          Number(lote.cantidadDisponible) + Number(detalle.cantidad);
-
-        const cantidadRecibida = Number(
-          lote.cantidadRecibida ?? lote.cantidadInicial,
-        );
-
-        if (lote.cantidadDisponible <= 0) {
-          lote.estadoLote = 'AGOTADO';
-        } else if (lote.cantidadDisponible >= cantidadRecibida) {
-          lote.estadoLote = 'EN_STOCK';
-        } else {
-          lote.estadoLote = 'VENDIDO_PARCIAL';
+        if (lote.idProducto !== detalle.idProducto) {
+          throw new ConflictException(
+            `El lote ${lote.idLote} no corresponde al producto del detalle ${detalle.idDetalleVenta}.`,
+          );
         }
 
-        await manager.save(LoteProducto, lote);
+        const cantidad = Number(detalle.cantidad);
+
+        await this.reingresarStockLote(manager, lote, cantidad);
+
+        await this.inventarioService.registrarMovimiento(manager, {
+          lote,
+          tipoMovimiento: 'REINGRESO_ANULACION_VENTA',
+          cantidad,
+          referenciaId: venta.idVenta,
+          actor,
+        });
       }
 
+      /*
+       * 6. Finalmente anulamos la Venta.
+       */
       venta.estadoVenta = 'ANULADA';
       venta.estadoPago = 'ANULADA';
-      venta.montoPagado = 0;
       venta.saldoPendiente = 0;
 
-      await manager.save(VentaEntity, venta);
+      await ventaRepository.save(venta);
     });
 
     return this.findOne(ventaId);
@@ -423,9 +590,7 @@ export class VentasService {
       descuentoPendiente = this.redondear(descuentoPendiente - descuento);
 
       const baseImponible = this.redondear(subtotal - descuento);
-      const iva = this.redondear(
-        baseImponible * (tarifa.porcentajeIva / 100),
-      );
+      const iva = this.redondear(baseImponible * (tarifa.porcentajeIva / 100));
       const totalLinea = this.redondear(baseImponible + iva);
       const costoTotal = this.redondear(
         asignacion.cantidad * asignacion.costoUnitarioReal,
@@ -433,6 +598,7 @@ export class VentasService {
       const gananciaBruta = this.redondear(baseImponible - costoTotal);
 
       return {
+        lote: asignacion.lote,
         idProducto: detalleDto.productoId,
         idLote: asignacion.lote.idLote,
         cantidad: asignacion.cantidad,
@@ -476,15 +642,17 @@ export class VentasService {
       );
     }
 
-    const lote = await manager.getRepository(LoteProducto).findOne({
-      where: {
-        idLote: detalleDto.loteId,
-        idProducto: detalleDto.productoId,
-      },
-      relations: {
-        producto: true,
-      },
-    });
+    const lote = await manager
+      .getRepository(LoteProducto)
+      .createQueryBuilder('lote')
+      .setLock('pessimistic_write')
+      .where('lote.id_lote = :loteId', {
+        loteId: detalleDto.loteId,
+      })
+      .andWhere('lote.id_producto = :productoId', {
+        productoId: detalleDto.productoId,
+      })
+      .getOne();
 
     if (!lote) {
       throw new NotFoundException('Lote no encontrado para ese producto.');
@@ -521,20 +689,20 @@ export class VentasService {
     manager: EntityManager,
     detalleDto: CreateVentaDetalleDto,
   ): Promise<LoteAsignado[]> {
-    const lotesDisponibles = await manager.getRepository(LoteProducto).find({
-      where: {
-        idProducto: detalleDto.productoId,
-        cantidadDisponible: MoreThan(0),
-        estadoLote: In(['EN_STOCK', 'VENDIDO_PARCIAL']),
-      },
-      relations: {
-        producto: true,
-      },
-      order: {
-        fechaEntrada: 'ASC',
-        idLote: 'ASC',
-      },
-    });
+    const lotesDisponibles = await manager
+      .getRepository(LoteProducto)
+      .createQueryBuilder('lote')
+      .setLock('pessimistic_write')
+      .where('lote.id_producto = :productoId', {
+        productoId: detalleDto.productoId,
+      })
+      .andWhere('lote.cantidad_disponible > 0')
+      .andWhere('lote.estado_lote IN (:...estados)', {
+        estados: ['EN_STOCK', 'VENDIDO_PARCIAL'],
+      })
+      .orderBy('lote.fecha_entrada', 'ASC')
+      .addOrderBy('lote.id_lote', 'ASC')
+      .getMany();
 
     if (lotesDisponibles.length === 0) {
       throw new BadRequestException(
@@ -577,7 +745,20 @@ export class VentasService {
     lote: LoteProducto,
     cantidadVendida: number,
   ) {
+    if (!Number.isInteger(cantidadVendida) || cantidadVendida <= 0) {
+      throw new BadRequestException(
+        'La cantidad vendida debe ser un entero positivo.',
+      );
+    }
+
     const disponibleActual = Number(lote.cantidadDisponible);
+
+    if (!Number.isInteger(disponibleActual) || disponibleActual < 0) {
+      throw new ConflictException(
+        `El lote ${lote.idLote} contiene un stock inválido.`,
+      );
+    }
+
     const nuevoDisponible = disponibleActual - cantidadVendida;
 
     if (nuevoDisponible < 0) {
@@ -588,6 +769,53 @@ export class VentasService {
 
     lote.cantidadDisponible = nuevoDisponible;
     lote.estadoLote = nuevoDisponible === 0 ? 'AGOTADO' : 'VENDIDO_PARCIAL';
+
+    await manager.save(LoteProducto, lote);
+  }
+
+  private async reingresarStockLote(
+    manager: EntityManager,
+    lote: LoteProducto,
+    cantidadReingreso: number,
+  ): Promise<void> {
+    if (!Number.isInteger(cantidadReingreso) || cantidadReingreso <= 0) {
+      throw new ConflictException(
+        'La cantidad a reingresar debe ser un entero positivo.',
+      );
+    }
+
+    const cantidadRecibida = Number(lote.cantidadRecibida);
+    const cantidadDisponible = Number(lote.cantidadDisponible);
+
+    if (
+      !Number.isInteger(cantidadRecibida) ||
+      !Number.isInteger(cantidadDisponible) ||
+      cantidadRecibida < 0 ||
+      cantidadDisponible < 0 ||
+      cantidadDisponible > cantidadRecibida
+    ) {
+      throw new ConflictException(
+        `El lote ${lote.idLote} contiene cantidades inconsistentes.`,
+      );
+    }
+
+    const nuevoDisponible = cantidadDisponible + cantidadReingreso;
+
+    if (nuevoDisponible > cantidadRecibida) {
+      throw new ConflictException(
+        `La anulación excedería la cantidad recibida del lote ${lote.idLote}.`,
+      );
+    }
+
+    lote.cantidadDisponible = nuevoDisponible;
+
+    if (nuevoDisponible === 0) {
+      lote.estadoLote = 'AGOTADO';
+    } else if (nuevoDisponible === cantidadRecibida) {
+      lote.estadoLote = 'EN_STOCK';
+    } else {
+      lote.estadoLote = 'VENDIDO_PARCIAL';
+    }
 
     await manager.save(LoteProducto, lote);
   }
@@ -644,8 +872,10 @@ export class VentasService {
         throw new NotFoundException('Tarifa IVA no encontrada.');
       }
 
-      if (!Boolean(tarifa.activo)) {
-        throw new BadRequestException('La tarifa IVA seleccionada no está activa.');
+      if (!tarifa.activo) {
+        throw new BadRequestException(
+          'La tarifa IVA seleccionada no está activa.',
+        );
       }
 
       return {
@@ -792,5 +1022,81 @@ export class VentasService {
         detalle: detalle.detalle ?? '',
       })),
     };
+  }
+
+  private normalizarTextoOpcional(
+    value: string | null | undefined,
+  ): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalizado = value.trim();
+
+    return normalizado || null;
+  }
+
+  private calcularMedioPagoAgregado(
+    medioActual: string,
+    montoPagadoAnterior: number,
+    nuevoMetodo: string,
+  ): string {
+    if (montoPagadoAnterior <= 0) {
+      return nuevoMetodo;
+    }
+
+    if (medioActual === 'MIXTO') {
+      return 'MIXTO';
+    }
+
+    if (medioActual === nuevoMetodo) {
+      return medioActual;
+    }
+
+    return 'MIXTO';
+  }
+
+  private async crearRegistroPago(
+    manager: EntityManager,
+    venta: VentaEntity,
+    actor: ActorAuditoria,
+    input: {
+      monto: number;
+      metodoPago: string;
+      referencia?: string | null;
+      observaciones?: string | null;
+    },
+  ): Promise<PagoVenta> {
+    if (!actor || !Number.isInteger(actor.idUsuario) || actor.idUsuario <= 0) {
+      throw new ConflictException('El usuario de auditoría es inválido.');
+    }
+
+    const username = actor.username?.trim();
+
+    if (!username) {
+      throw new ConflictException('El usuario de auditoría es inválido.');
+    }
+
+    const monto = this.redondear(input.monto);
+
+    if (!Number.isFinite(monto) || monto <= 0) {
+      throw new BadRequestException(
+        'El monto del pago debe ser mayor que cero.',
+      );
+    }
+
+    const pagoRepository = manager.getRepository(PagoVenta);
+
+    const pago = pagoRepository.create({
+      idVenta: venta.idVenta,
+      idUsuario: actor.idUsuario,
+      usuario: username,
+      metodoPago: input.metodoPago,
+      monto,
+      referencia: this.normalizarTextoOpcional(input.referencia),
+      observaciones: this.normalizarTextoOpcional(input.observaciones),
+    });
+
+    return pagoRepository.save(pago);
   }
 }

@@ -6,6 +6,7 @@ import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
+import { InventarioModule } from '../inventario/inventario.module';
 import { PedidosController } from './pedidos.controller';
 import { PedidosService } from './pedidos.service';
 
@@ -18,6 +19,7 @@ import { PedidosService } from './pedidos.service';
       Producto,
       OrigenCompra,
     ]),
+    InventarioModule,
   ],
   controllers: [PedidosController],
   providers: [PedidosService],

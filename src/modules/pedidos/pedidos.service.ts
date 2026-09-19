@@ -5,32 +5,22 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
 
 import { DetallePedidoCompra } from '../../database/entities/detalle-pedido-compra.entity';
+import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { OrigenCompra } from '../../database/entities/origen-compra.entity';
 import { PedidoCompraEntity } from '../../database/entities/pedido-compra.entity';
 import { Producto } from '../../database/entities/producto.entity';
+import { ActorAuditoria } from '../auth/auth.types';
+import { InventarioService } from '../inventario/inventario.service';
 import {
   CreatePedidoDetalleDto,
   CreatePedidoDto,
 } from './dto/create-pedido.dto';
+import { RecepcionPedidoDto } from './dto/recepcion-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
-
-type ProductoSugeridoSql = {
-  idProducto: number;
-  nombre: string;
-  nombreBusqueda: string;
-  precioVentaSugerido: number | string | null;
-  activo: boolean | number;
-};
-
-type CantidadesLoteCalculadas = {
-  cantidadRecibida: number;
-  cantidadDisponible: number;
-  fechaEntrada: string | null;
-};
 
 @Injectable()
 export class PedidosService {
@@ -39,6 +29,8 @@ export class PedidosService {
 
     @InjectRepository(PedidoCompraEntity)
     private readonly pedidosRepository: Repository<PedidoCompraEntity>,
+
+    private readonly inventarioService: InventarioService,
   ) {}
 
   async findAll() {
@@ -90,17 +82,35 @@ export class PedidosService {
       return [];
     }
 
-    const resultados = await this.dataSource.query<ProductoSugeridoSql[]>(
-      'EXEC dbo.sp_buscar_productos_sugeridos @texto = @0',
-      [textoBusqueda],
-    );
+    const terminos = textoBusqueda.toLowerCase().split(' ').filter(Boolean);
 
-    return resultados.map((producto) => ({
-      id: Number(producto.idProducto),
+    const productosRepository = this.dataSource.getRepository(Producto);
+
+    const query = productosRepository
+      .createQueryBuilder('producto')
+      .where('producto.activo = :activo', {
+        activo: true,
+      });
+
+    terminos.forEach((termino, index) => {
+      query.andWhere(`LOWER(producto.nombre) LIKE :termino${index}`, {
+        [`termino${index}`]: `%${termino}%`,
+      });
+    });
+
+    const productos = await query
+      .orderBy('producto.nombre', 'ASC')
+      .take(10)
+      .getMany();
+
+    return productos.map((producto) => ({
+      id: producto.idProducto,
       nombre: producto.nombre,
-      nombreBusqueda: producto.nombreBusqueda,
-      precioVentaSugerido: Number(producto.precioVentaSugerido ?? 0),
-      activo: Boolean(producto.activo),
+      nombreBusqueda: this.normalizarNombreProducto(
+        producto.nombre,
+      ).toLowerCase(),
+      precioVentaSugerido: Number(producto.precioVentaSugeridoSinIva ?? 0),
+      activo: producto.activo,
     }));
   }
 
@@ -129,8 +139,7 @@ export class PedidosService {
 
     await this.dataSource.transaction(async (manager) => {
       const subtotalProductos = dto.detalles.reduce(
-        (acc, detalle) =>
-          acc + detalle.cantidad * detalle.costoUnitarioOrigen,
+        (acc, detalle) => acc + detalle.cantidad * detalle.costoUnitarioOrigen,
         0,
       );
 
@@ -144,7 +153,7 @@ export class PedidosService {
         nombrePedido: `Pedido ${dto.numeroPedido}`,
         idOrigenCompra: dto.proveedorId,
         fechaPedido: dto.fecha,
-        fechaRecepcion: dto.estado === 'RECIBIDO' ? dto.fecha : null,
+        fechaRecepcion: null,
         estado: dto.estado,
         inversionTotal,
         costoEnvio: 0,
@@ -199,6 +208,8 @@ export class PedidosService {
     }
 
     await this.dataSource.transaction(async (manager) => {
+      await this.validarEdicionSegura(manager, pedidoActual, dto);
+
       const numeroPedido = dto.numeroPedido ?? pedidoActual.numeroPedido;
       const fecha = dto.fecha ?? pedidoActual.fechaPedido;
       const estado = dto.estado ?? pedidoActual.estado;
@@ -233,7 +244,7 @@ export class PedidosService {
         nombrePedido: `Pedido ${numeroPedido}`,
         idOrigenCompra: proveedorId,
         fechaPedido: fecha,
-        fechaRecepcion: estado === 'RECIBIDO' ? fecha : null,
+        fechaRecepcion: pedidoActual.fechaRecepcion,
         estado,
         inversionTotal,
         observaciones,
@@ -295,13 +306,16 @@ export class PedidosService {
     }
 
     await this.dataSource.transaction(async (manager) => {
-      await manager.delete(LoteProducto, { idPedido: pedidoId });
-      await manager.delete(DetallePedidoCompra, { idPedido: pedidoId });
-      await manager.delete(PedidoCompraEntity, { idPedido: pedidoId });
+      await this.validarCancelacionSegura(manager, pedido);
+
+      await manager.update(PedidoCompraEntity, pedidoId, {
+        estado: 'CANCELADO',
+        fechaRecepcion: null,
+      });
     });
 
     return {
-      message: 'Pedido eliminado correctamente.',
+      message: 'Pedido cancelado correctamente.',
       id: pedidoId,
     };
   }
@@ -318,11 +332,6 @@ export class PedidosService {
     const totalColones = totalOrigen * pedidoDto.tipoCambio;
     const costoTotalReal = totalColones;
     const costoUnitarioReal = costoTotalReal / detalleDto.cantidad;
-
-    const cantidadesLote = this.calcularCantidadesLote(
-      detalleDto,
-      pedidoDto.fecha,
-    );
 
     const detalle = manager.create(DetallePedidoCompra, {
       idPedido,
@@ -344,10 +353,7 @@ export class PedidosService {
       observaciones: null,
     });
 
-    const detalleGuardado = await manager.save(
-      DetallePedidoCompra,
-      detalle,
-    );
+    const detalleGuardado = await manager.save(DetallePedidoCompra, detalle);
 
     const lote = manager.create(LoteProducto, {
       idPedido,
@@ -355,12 +361,12 @@ export class PedidosService {
       idDetallePedido: detalleGuardado.idDetallePedido,
       codigoLote: detalleDto.loteCodigo,
       cantidadInicial: detalleDto.cantidad,
-      cantidadRecibida: cantidadesLote.cantidadRecibida,
-      cantidadDisponible: cantidadesLote.cantidadDisponible,
+      cantidadRecibida: 0,
+      cantidadDisponible: 0,
       costoUnitarioReal,
       precioVentaRecomendado: detalleDto.precioVentaRecomendado,
-      estadoLote: detalleDto.estadoLote,
-      fechaEntrada: cantidadesLote.fechaEntrada,
+      estadoLote: 'EN_PROCESO',
+      fechaEntrada: null,
       precioVentaFinal: null,
       tipoLote: 'COMPRA',
       costoPendienteAlVender: 0,
@@ -368,89 +374,6 @@ export class PedidosService {
     });
 
     await manager.save(LoteProducto, lote);
-  }
-
-  private calcularCantidadesLote(
-    detalleDto: CreatePedidoDetalleDto,
-    fechaPedido: string,
-  ): CantidadesLoteCalculadas {
-    const cantidad = Number(detalleDto.cantidad);
-    const estadoLote = detalleDto.estadoLote;
-    const cantidadRecibidaInput =
-      detalleDto.cantidadRecibida !== undefined &&
-      detalleDto.cantidadRecibida !== null
-        ? Number(detalleDto.cantidadRecibida)
-        : null;
-
-    if (!Number.isInteger(cantidad) || cantidad <= 0) {
-      throw new BadRequestException('La cantidad del lote debe ser mayor a 0.');
-    }
-
-    if (estadoLote === 'EN_PROCESO') {
-      return {
-        cantidadRecibida: 0,
-        cantidadDisponible: 0,
-        fechaEntrada: null,
-      };
-    }
-
-    if (estadoLote === 'EN_STOCK' || estadoLote === 'VENDIDO_PARCIAL') {
-      const cantidadRecibida = cantidadRecibidaInput ?? cantidad;
-
-      if (!Number.isInteger(cantidadRecibida)) {
-        throw new BadRequestException(
-          'La cantidad recibida debe ser un número entero.',
-        );
-      }
-
-      if (cantidadRecibida <= 0) {
-        throw new BadRequestException(
-          'Si el lote está en stock, la cantidad recibida debe ser mayor a 0.',
-        );
-      }
-
-      if (cantidadRecibida > cantidad) {
-        throw new BadRequestException(
-          'La cantidad recibida no puede ser mayor a la cantidad del lote.',
-        );
-      }
-
-      return {
-        cantidadRecibida,
-        cantidadDisponible: cantidadRecibida,
-        fechaEntrada: fechaPedido,
-      };
-    }
-
-    if (estadoLote === 'AGOTADO') {
-      const cantidadRecibida = cantidadRecibidaInput ?? cantidad;
-
-      if (!Number.isInteger(cantidadRecibida)) {
-        throw new BadRequestException(
-          'La cantidad recibida debe ser un número entero.',
-        );
-      }
-
-      if (cantidadRecibida < 0) {
-        throw new BadRequestException(
-          'La cantidad recibida no puede ser negativa.',
-        );
-      }
-
-      if (cantidadRecibida > cantidad) {
-        throw new BadRequestException(
-          'La cantidad recibida no puede ser mayor a la cantidad del lote.',
-        );
-      }
-
-      return {
-        cantidadRecibida,
-        cantidadDisponible: 0,
-        fechaEntrada: cantidadRecibida > 0 ? fechaPedido : null,
-      };
-    }
-
-    throw new BadRequestException('Estado de lote inválido.');
   }
 
   private async obtenerProductoParaDetalle(
@@ -540,6 +463,12 @@ export class PedidosService {
         `El proveedor con ID ${proveedorId} no existe.`,
       );
     }
+
+    if (proveedor.estado !== 'ACTIVO') {
+      throw new ConflictException(
+        `El proveedor con ID ${proveedorId} está inactivo.`,
+      );
+    }
   }
 
   private async validarNumeroPedidoDisponible(
@@ -562,6 +491,303 @@ export class PedidosService {
     }
   }
 
+  private tieneCambiosEstructurales(dto: UpdatePedidoDto): boolean {
+    return (
+      dto.numeroPedido !== undefined ||
+      dto.fecha !== undefined ||
+      dto.origen !== undefined ||
+      dto.proveedorId !== undefined ||
+      dto.monedaCompra !== undefined ||
+      dto.tipoCambio !== undefined ||
+      dto.estado !== undefined ||
+      dto.detalles !== undefined
+    );
+  }
+
+  private loteTieneInventarioMaterializado(lote: LoteProducto): boolean {
+    const tieneFechaEntrada =
+      lote.fechaEntrada !== null && lote.fechaEntrada !== undefined;
+
+    return (
+      Number(lote.cantidadRecibida) > 0 ||
+      Number(lote.cantidadDisponible) > 0 ||
+      tieneFechaEntrada ||
+      ['EN_STOCK', 'VENDIDO_PARCIAL', 'AGOTADO'].includes(lote.estadoLote)
+    );
+  }
+
+  private async validarEdicionSegura(
+    manager: EntityManager,
+    pedidoActual: PedidoCompraEntity,
+    dto: UpdatePedidoDto,
+  ): Promise<void> {
+    if (pedidoActual.estado === 'CANCELADO') {
+      throw new ConflictException('No se puede modificar un pedido cancelado.');
+    }
+
+    if (!this.tieneCambiosEstructurales(dto)) {
+      return;
+    }
+
+    const lotes = await manager.getRepository(LoteProducto).find({
+      where: {
+        idPedido: pedidoActual.idPedido,
+      },
+    });
+
+    const loteIds = lotes.map((lote) => lote.idLote);
+
+    let cantidadDetallesVenta = 0;
+
+    if (loteIds.length > 0) {
+      cantidadDetallesVenta = await manager.getRepository(DetalleVenta).count({
+        where: {
+          idLote: In(loteIds),
+        },
+      });
+    }
+
+    if (cantidadDetallesVenta > 0) {
+      throw new ConflictException(
+        'No se puede modificar estructuralmente el pedido porque uno o más lotes ya fueron utilizados en ventas.',
+      );
+    }
+
+    const tieneInventarioMaterializado = lotes.some((lote) =>
+      this.loteTieneInventarioMaterializado(lote),
+    );
+
+    if (pedidoActual.estado === 'RECIBIDO' || tieneInventarioMaterializado) {
+      throw new ConflictException(
+        'No se puede modificar estructuralmente el pedido porque ya tiene mercancía recibida o inventario generado.',
+      );
+    }
+
+    const cambiaMoneda =
+      dto.monedaCompra !== undefined &&
+      dto.monedaCompra !== pedidoActual.monedaCompra;
+
+    const cambiaTipoCambio =
+      dto.tipoCambio !== undefined &&
+      Number(dto.tipoCambio) !== Number(pedidoActual.tipoCambio);
+
+    if ((cambiaMoneda || cambiaTipoCambio) && dto.detalles === undefined) {
+      throw new BadRequestException(
+        'Para cambiar la moneda o el tipo de cambio debe enviar también los detalles del pedido para recalcular sus costos.',
+      );
+    }
+  }
+
+  private async validarCancelacionSegura(
+    manager: EntityManager,
+    pedido: PedidoCompraEntity,
+  ): Promise<void> {
+    if (pedido.estado === 'CANCELADO') {
+      throw new ConflictException('El pedido ya se encuentra cancelado.');
+    }
+
+    const lotes = await manager.getRepository(LoteProducto).find({
+      where: {
+        idPedido: pedido.idPedido,
+      },
+    });
+
+    const loteIds = lotes.map((lote) => lote.idLote);
+
+    if (loteIds.length > 0) {
+      const ventasAsociadas = await manager.getRepository(DetalleVenta).count({
+        where: {
+          idLote: In(loteIds),
+        },
+      });
+
+      if (ventasAsociadas > 0) {
+        throw new ConflictException(
+          'No se puede cancelar el pedido porque uno o más lotes ya fueron utilizados en ventas.',
+        );
+      }
+    }
+
+    const tieneInventarioMaterializado = lotes.some((lote) =>
+      this.loteTieneInventarioMaterializado(lote),
+    );
+
+    const tieneFechaRecepcion =
+      pedido.fechaRecepcion !== null && pedido.fechaRecepcion !== undefined;
+
+    if (
+      pedido.estado === 'RECIBIDO' ||
+      tieneFechaRecepcion ||
+      tieneInventarioMaterializado
+    ) {
+      throw new ConflictException(
+        'No se puede cancelar el pedido porque ya tiene mercancía recibida o inventario generado.',
+      );
+    }
+  }
+
+  private normalizarFechaSql(fecha: string): string {
+    return fecha.slice(0, 10);
+  }
+
+  async recibir(id: number, dto: RecepcionPedidoDto, actor: ActorAuditoria) {
+    const pedidoId = Number(id);
+
+    if (!Number.isFinite(pedidoId) || pedidoId <= 0) {
+      throw new BadRequestException('ID de pedido inválido.');
+    }
+
+    const fechaRecepcion = this.normalizarFechaSql(dto.fechaRecepcion);
+
+    await this.dataSource.transaction(async (manager) => {
+      const pedidoRepository = manager.getRepository(PedidoCompraEntity);
+      const loteRepository = manager.getRepository(LoteProducto);
+
+      const pedido = await pedidoRepository
+        .createQueryBuilder('pedido')
+        .setLock('pessimistic_write')
+        .where('pedido.idPedido = :pedidoId', {
+          pedidoId,
+        })
+        .getOne();
+
+      if (!pedido) {
+        throw new NotFoundException('Pedido no encontrado.');
+      }
+
+      if (pedido.estado === 'CANCELADO') {
+        throw new ConflictException(
+          'No se puede recibir mercancía de un pedido cancelado.',
+        );
+      }
+
+      if (pedido.estado === 'RECIBIDO') {
+        throw new ConflictException('El pedido ya fue recibido completamente.');
+      }
+
+      if (fechaRecepcion < pedido.fechaPedido) {
+        throw new BadRequestException(
+          'La fecha de recepción no puede ser anterior a la fecha del pedido.',
+        );
+      }
+
+      const loteIdsSolicitados = dto.detalles.map((detalle) => detalle.idLote);
+      const loteIdsUnicos = new Set(loteIdsSolicitados);
+
+      if (loteIdsUnicos.size !== loteIdsSolicitados.length) {
+        throw new BadRequestException(
+          'No se puede incluir el mismo lote más de una vez en una recepción.',
+        );
+      }
+
+      const lotes = await loteRepository
+        .createQueryBuilder('lote')
+        .setLock('pessimistic_write')
+        .where('lote.idPedido = :pedidoId', {
+          pedidoId,
+        })
+        .getMany();
+
+      if (lotes.length === 0) {
+        throw new ConflictException('El pedido no tiene lotes para recibir.');
+      }
+
+      const lotesPorId = new Map(lotes.map((lote) => [lote.idLote, lote]));
+
+      for (const detalleDto of dto.detalles) {
+        const lote = lotesPorId.get(detalleDto.idLote);
+
+        if (!lote) {
+          throw new BadRequestException(
+            `El lote con ID ${detalleDto.idLote} no pertenece al pedido ${pedidoId}.`,
+          );
+        }
+
+        const cantidadInicial = Number(lote.cantidadInicial);
+        const cantidadRecibidaAnterior = Number(lote.cantidadRecibida);
+        const cantidadDisponibleAnterior = Number(lote.cantidadDisponible);
+
+        if (
+          !Number.isInteger(cantidadInicial) ||
+          !Number.isInteger(cantidadRecibidaAnterior) ||
+          !Number.isInteger(cantidadDisponibleAnterior) ||
+          cantidadInicial <= 0 ||
+          cantidadRecibidaAnterior < 0 ||
+          cantidadDisponibleAnterior < 0 ||
+          cantidadRecibidaAnterior > cantidadInicial ||
+          cantidadDisponibleAnterior > cantidadRecibidaAnterior
+        ) {
+          throw new ConflictException(
+            `El lote ${lote.idLote} contiene cantidades inconsistentes.`,
+          );
+        }
+
+        if (lote.fechaEntrada && fechaRecepcion < lote.fechaEntrada) {
+          throw new BadRequestException(
+            `La nueva recepción del lote ${lote.idLote} no puede ser anterior a su primera entrada.`,
+          );
+        }
+
+        const nuevaCantidadRecibida =
+          cantidadRecibidaAnterior + detalleDto.cantidadRecibida;
+
+        if (nuevaCantidadRecibida > cantidadInicial) {
+          const pendiente = cantidadInicial - cantidadRecibidaAnterior;
+
+          throw new BadRequestException(
+            `El lote ${lote.idLote} solo tiene ${pendiente} unidades pendientes de recibir.`,
+          );
+        }
+      }
+
+      for (const detalleDto of dto.detalles) {
+        const lote = lotesPorId.get(detalleDto.idLote)!;
+
+        const cantidadRecibidaAnterior = Number(lote.cantidadRecibida);
+        const cantidadDisponibleAnterior = Number(lote.cantidadDisponible);
+
+        const nuevaCantidadRecibida =
+          cantidadRecibidaAnterior + detalleDto.cantidadRecibida;
+
+        const nuevaCantidadDisponible =
+          cantidadDisponibleAnterior + detalleDto.cantidadRecibida;
+
+        lote.cantidadRecibida = nuevaCantidadRecibida;
+        lote.cantidadDisponible = nuevaCantidadDisponible;
+        lote.fechaEntrada = lote.fechaEntrada ?? fechaRecepcion;
+
+        if (nuevaCantidadDisponible <= 0) {
+          lote.estadoLote = 'AGOTADO';
+        } else if (nuevaCantidadDisponible >= nuevaCantidadRecibida) {
+          lote.estadoLote = 'EN_STOCK';
+        } else {
+          lote.estadoLote = 'VENDIDO_PARCIAL';
+        }
+
+        await loteRepository.save(lote);
+
+        await this.inventarioService.registrarMovimiento(manager, {
+          lote,
+          tipoMovimiento: 'ENTRADA_COMPRA',
+          cantidad: detalleDto.cantidadRecibida,
+          referenciaId: pedido.idPedido,
+          actor,
+        });
+      }
+
+      const todosRecibidos = lotes.every(
+        (lote) => Number(lote.cantidadRecibida) >= Number(lote.cantidadInicial),
+      );
+
+      pedido.estado = todosRecibidos ? 'RECIBIDO' : 'EN_TRANSITO';
+      pedido.fechaRecepcion = todosRecibidos ? fechaRecepcion : null;
+
+      await pedidoRepository.save(pedido);
+    });
+
+    return this.findOne(pedidoId);
+  }
+
   private mapPedidoToResponse(pedido: PedidoCompraEntity) {
     const detalles = (pedido.lotes ?? []).map((lote) => {
       const producto = lote.producto;
@@ -570,6 +796,7 @@ export class PedidosService {
 
       return {
         idTemporal: String(lote.idLote),
+        loteId: lote.idLote,
         productoId: lote.idProducto,
         productoNombre: producto?.nombre ?? `Producto ${lote.idProducto}`,
         loteCodigo: lote.codigoLote,
@@ -577,6 +804,7 @@ export class PedidosService {
         cantidadRecibida,
         cantidadPendiente: Math.max(cantidadInicial - cantidadRecibida, 0),
         cantidadDisponible: Number(lote.cantidadDisponible),
+        fechaEntrada: lote.fechaEntrada ?? null,
         costoUnitarioOrigen: Number(
           lote.detallePedido?.costoUnitarioOrigen ?? lote.costoUnitarioReal,
         ),
