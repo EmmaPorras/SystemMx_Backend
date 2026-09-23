@@ -101,7 +101,7 @@ export class VentasService {
   }
 
   async findOne(id: number) {
-    const ventaId = this.validarId(id, 'ID de venta inválido.');
+    const ventaId = this.validarId(id, 'ID de venta invÃ¡lido.');
 
     const venta = await this.ventasRepository.findOne({
       where: {
@@ -160,12 +160,57 @@ export class VentasService {
     }));
   }
 
-  async create(dto: CreateVentaDto, actor: ActorAuditoria) {
-    await this.validarNumeroVentaDisponible(dto.numeroVenta);
+  async obtenerSiguienteNumero() {
+    const [ultimaVenta] = await this.ventasRepository.find({
+      select: {
+        numeroVenta: true,
+      },
+      order: {
+        numeroVenta: 'DESC',
+      },
+      take: 1,
+    });
 
+    const numeroVenta = Number(ultimaVenta?.numeroVenta ?? 0) + 1;
+
+    if (numeroVenta > 999999) {
+      throw new ConflictException(
+        'Se alcanzó el límite máximo de numeración de ventas.',
+      );
+    }
+
+    return {
+      numeroVenta,
+    };
+  }
+
+  private async obtenerSiguienteNumeroConManager(manager: EntityManager) {
+    const [ultimaVenta] = await manager.getRepository(VentaEntity).find({
+      select: {
+        numeroVenta: true,
+      },
+      order: {
+        numeroVenta: 'DESC',
+      },
+      take: 1,
+    });
+
+    const numeroVenta = Number(ultimaVenta?.numeroVenta ?? 0) + 1;
+
+    if (numeroVenta > 999999) {
+      throw new ConflictException(
+        'Se alcanzó el límite máximo de numeración de ventas.',
+      );
+    }
+
+    return numeroVenta;
+  }
+
+  async create(dto: CreateVentaDto, actor: ActorAuditoria) {
     let ventaIdCreada = 0;
 
-    await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction('SERIALIZABLE', async (manager) => {
+      const numeroVenta = await this.obtenerSiguienteNumeroConManager(manager);
       const detallesCalculados: DetalleVentaCalculado[] = [];
 
       for (const detalleDto of dto.detalles) {
@@ -196,7 +241,7 @@ export class VentasService {
       );
 
       const venta = manager.create(VentaEntity, {
-        numeroVenta: dto.numeroVenta,
+        numeroVenta,
         fechaVenta: dto.fechaVenta,
         clienteNombre: dto.clienteNombre?.trim() || null,
         medioPago: dto.medioPago,
@@ -269,14 +314,14 @@ export class VentasService {
     dto: RegistrarPagoVentaDto,
     actor: ActorAuditoria,
   ) {
-    const ventaId = this.validarId(id, 'ID de venta inválido.');
+    const ventaId = this.validarId(id, 'ID de venta invÃ¡lido.');
 
     await this.dataSource.transaction(async (manager) => {
       const ventaRepository = manager.getRepository(VentaEntity);
 
       /*
        * Bloqueo imprescindible:
-       * dos pagos simultáneos no pueden
+       * dos pagos simultÃ¡neos no pueden
        * consumir el mismo saldo.
        */
       const venta = await ventaRepository
@@ -315,7 +360,7 @@ export class VentasService {
       }
 
       if (saldoActual <= 0) {
-        throw new ConflictException('La venta ya está pagada completamente.');
+        throw new ConflictException('La venta ya estÃ¡ pagada completamente.');
       }
 
       const monto = this.redondear(dto.monto);
@@ -358,7 +403,7 @@ export class VentasService {
   }
 
   async listarPagosVenta(id: number) {
-    const ventaId = this.validarId(id, 'ID de venta inválido.');
+    const ventaId = this.validarId(id, 'ID de venta invÃ¡lido.');
 
     const venta = await this.ventasRepository.findOne({
       where: {
@@ -394,7 +439,7 @@ export class VentasService {
   }
 
   async enviarAPapelera(id: number) {
-    const ventaId = this.validarId(id, 'ID de venta inválido.');
+    const ventaId = this.validarId(id, 'ID de venta invÃ¡lido.');
 
     const venta = await this.ventasRepository.findOne({
       where: {
@@ -414,7 +459,7 @@ export class VentasService {
   }
 
   async restaurarDePapelera(id: number) {
-    const ventaId = this.validarId(id, 'ID de venta inválido.');
+    const ventaId = this.validarId(id, 'ID de venta invÃ¡lido.');
 
     const venta = await this.ventasRepository.findOne({
       where: {
@@ -434,7 +479,7 @@ export class VentasService {
   }
 
   async anularVenta(id: number, actor: ActorAuditoria) {
-    const ventaId = this.validarId(id, 'ID de venta inválido.');
+    const ventaId = this.validarId(id, 'ID de venta invÃ¡lido.');
 
     await this.dataSource.transaction(async (manager) => {
       const ventaRepository = manager.getRepository(VentaEntity);
@@ -458,11 +503,11 @@ export class VentasService {
       }
 
       if (venta.estadoVenta === 'ANULADA') {
-        throw new ConflictException('La venta ya está anulada.');
+        throw new ConflictException('La venta ya estÃ¡ anulada.');
       }
 
       /*
-       * 2. Los detalles son históricos. No los modificamos.
+       * 2. Los detalles son histÃ³ricos. No los modificamos.
        */
       const detalles = await detalleRepository.find({
         where: {
@@ -480,7 +525,7 @@ export class VentasService {
       }
 
       /*
-       * 3. Obtenemos los lotes únicos.
+       * 3. Obtenemos los lotes Ãºnicos.
        */
       const loteIds = [...new Set(detalles.map((detalle) => detalle.idLote))];
 
@@ -498,7 +543,7 @@ export class VentasService {
 
       if (lotes.length !== loteIds.length) {
         throw new ConflictException(
-          'Uno o más lotes asociados a la venta no existen.',
+          'Uno o mÃ¡s lotes asociados a la venta no existen.',
         );
       }
 
@@ -512,7 +557,7 @@ export class VentasService {
 
         if (!lote) {
           throw new ConflictException(
-            `No se encontró el lote asociado al detalle ${detalle.idDetalleVenta}.`,
+            `No se encontrÃ³ el lote asociado al detalle ${detalle.idDetalleVenta}.`,
           );
         }
 
@@ -564,7 +609,34 @@ export class VentasService {
       detalleDto.cantidad * detalleDto.precioUnitario,
     );
 
-    const descuentoTotal = this.redondear(detalleDto.descuento ?? 0);
+    /*
+     * El descuento principal se recibe como porcentaje.
+     * Conservamos soporte temporal para el antiguo campo descuento
+     * expresado como monto, pero el frontend actual ya no lo envía.
+     */
+    const porcentajeDescuentoRecibido =
+      detalleDto.porcentajeDescuento !== undefined &&
+      detalleDto.porcentajeDescuento !== null
+        ? Number(detalleDto.porcentajeDescuento)
+        : null;
+
+    if (
+      porcentajeDescuentoRecibido !== null &&
+      (!Number.isFinite(porcentajeDescuentoRecibido) ||
+        porcentajeDescuentoRecibido < 0 ||
+        porcentajeDescuentoRecibido > 100)
+    ) {
+      throw new BadRequestException(
+        'El porcentaje de descuento debe estar entre 0 y 100.',
+      );
+    }
+
+    const descuentoTotal =
+      porcentajeDescuentoRecibido !== null
+        ? this.redondear(
+            subtotalOriginal * (porcentajeDescuentoRecibido / 100),
+          )
+        : this.redondear(detalleDto.descuento ?? 0);
 
     if (descuentoTotal > subtotalOriginal) {
       throw new BadRequestException(
@@ -755,7 +827,7 @@ export class VentasService {
 
     if (!Number.isInteger(disponibleActual) || disponibleActual < 0) {
       throw new ConflictException(
-        `El lote ${lote.idLote} contiene un stock inválido.`,
+        `El lote ${lote.idLote} contiene un stock invÃ¡lido.`,
       );
     }
 
@@ -803,7 +875,7 @@ export class VentasService {
 
     if (nuevoDisponible > cantidadRecibida) {
       throw new ConflictException(
-        `La anulación excedería la cantidad recibida del lote ${lote.idLote}.`,
+        `La anulaciÃ³n excederÃ­a la cantidad recibida del lote ${lote.idLote}.`,
       );
     }
 
@@ -874,7 +946,7 @@ export class VentasService {
 
       if (!tarifa.activo) {
         throw new BadRequestException(
-          'La tarifa IVA seleccionada no está activa.',
+          'La tarifa IVA seleccionada no estÃ¡ activa.',
         );
       }
 
@@ -943,18 +1015,6 @@ export class VentasService {
     return 'EN_DEUDA';
   }
 
-  private async validarNumeroVentaDisponible(numeroVenta: number) {
-    const ventaExistente = await this.ventasRepository.findOne({
-      where: {
-        numeroVenta,
-      },
-    });
-
-    if (ventaExistente) {
-      throw new ConflictException(`Ya existe la venta ${numeroVenta}.`);
-    }
-  }
-
   private validarId(id: number, mensaje: string) {
     const numericId = Number(id);
 
@@ -1009,6 +1069,12 @@ export class VentasService {
         precioUnitario: Number(detalle.precioUnitario),
         subtotal: Number(detalle.subtotal),
         descuento: Number(detalle.descuento),
+        porcentajeDescuento:
+          Number(detalle.subtotal) > 0
+            ? this.redondear(
+                (Number(detalle.descuento) / Number(detalle.subtotal)) * 100,
+              )
+            : 0,
         baseImponible: Number(detalle.baseImponible),
         tipoTarifa: detalle.tipoTarifa,
         idTarifaIva: detalle.idTarifaIva,
@@ -1068,13 +1134,13 @@ export class VentasService {
     },
   ): Promise<PagoVenta> {
     if (!actor || !Number.isInteger(actor.idUsuario) || actor.idUsuario <= 0) {
-      throw new ConflictException('El usuario de auditoría es inválido.');
+      throw new ConflictException('El usuario de auditorÃ­a es invÃ¡lido.');
     }
 
     const username = actor.username?.trim();
 
     if (!username) {
-      throw new ConflictException('El usuario de auditoría es inválido.');
+      throw new ConflictException('El usuario de auditorÃ­a es invÃ¡lido.');
     }
 
     const monto = this.redondear(input.monto);
