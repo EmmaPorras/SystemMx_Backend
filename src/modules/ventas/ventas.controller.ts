@@ -37,6 +37,11 @@ export class VentasController {
     return this.ventasService.obtenerInventarioDisponible();
   }
 
+  @Get('siguiente-numero')
+  obtenerSiguienteNumero() {
+    return this.ventasService.obtenerSiguienteNumero();
+  }
+
   @Get(':id/pagos')
   listarPagos(@Param('id', ParseIntPipe) id: number) {
     return this.ventasService.listarPagosVenta(id);
