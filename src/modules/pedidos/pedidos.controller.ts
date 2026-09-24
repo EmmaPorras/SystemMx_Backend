@@ -32,6 +32,11 @@ export class PedidosController {
     return this.pedidosService.buscarProductosSugeridos(busqueda);
   }
 
+  @Get('siguiente-numero')
+  obtenerSiguienteNumero() {
+    return this.pedidosService.obtenerSiguienteNumero();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.pedidosService.findOne(id);
@@ -68,3 +73,4 @@ export class PedidosController {
     return this.pedidosService.remove(id);
   }
 }
+

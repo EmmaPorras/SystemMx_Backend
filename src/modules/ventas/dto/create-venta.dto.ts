@@ -39,9 +39,33 @@ export class CreateVentaDetalleDto {
   @Max(99999999)
   precioUnitario!: number;
 
+  /*
+   * Nuevo contrato: el descuento se recibe como porcentaje.
+   * El servicio calcula el monto monetario oficial y lo guarda
+   * en la columna detalle_venta.descuento.
+   */
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({
+    maxDecimalPlaces: 2,
+    allowInfinity: false,
+    allowNaN: false,
+  })
+  @Min(0)
+  @Max(100)
+  porcentajeDescuento?: number;
+
+  /*
+   * Compatibilidad temporal con clientes antiguos que todavía
+   * envíen descuento como monto. El frontend actual ya no lo usa.
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({
+    maxDecimalPlaces: 2,
+    allowInfinity: false,
+    allowNaN: false,
+  })
   @Min(0)
   @Max(99999999)
   descuento?: number;
@@ -75,11 +99,19 @@ export class CreateVentaDetalleDto {
 }
 
 export class CreateVentaDto {
+  /*
+   * Compatibilidad temporal:
+   * si un cliente antiguo todavía envía numeroVenta,
+   * se valida pero el servicio NO lo utiliza.
+   * El número oficial se asigna automáticamente
+   * dentro de la transacción de creación.
+   */
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(999999)
-  numeroVenta!: number;
+  numeroVenta?: number;
 
   @IsDateString()
   fechaVenta!: string;

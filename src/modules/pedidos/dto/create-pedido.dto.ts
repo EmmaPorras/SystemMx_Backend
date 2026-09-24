@@ -28,6 +28,16 @@ export class CreatePedidoDetalleDto {
   @MaxLength(150)
   productoNombre!: string;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  categoriaId!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  marca?: string;
+
   @IsString()
   @IsNotEmpty()
   @Matches(/^L([1-9]|10)$/)
@@ -64,12 +74,6 @@ export class CreatePedidoDetalleDto {
 }
 
 export class CreatePedidoDto {
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(999)
-  numeroPedido!: number;
-
   @IsDateString()
   fecha!: string;
 
@@ -89,7 +93,7 @@ export class CreatePedidoDto {
 
   @Type(() => Number)
   @IsNumber()
-  @Min(0)
+  @Min(0.01)
   @Max(999.99)
   tipoCambio!: number;
 

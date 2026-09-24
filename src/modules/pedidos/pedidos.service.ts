@@ -5,8 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 
+import { Categoria } from '../../database/entities/categoria.entity';
 import { DetallePedidoCompra } from '../../database/entities/detalle-pedido-compra.entity';
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
@@ -38,7 +39,9 @@ export class PedidosService {
       relations: {
         origenCompra: true,
         lotes: {
-          producto: true,
+          producto: {
+            categoria: true,
+          },
           detallePedido: true,
         },
       },
@@ -62,7 +65,9 @@ export class PedidosService {
       relations: {
         origenCompra: true,
         lotes: {
-          producto: true,
+          producto: {
+            categoria: true,
+          },
           detallePedido: true,
         },
       },
@@ -88,6 +93,7 @@ export class PedidosService {
 
     const query = productosRepository
       .createQueryBuilder('producto')
+      .leftJoinAndSelect('producto.categoria', 'categoria')
       .where('producto.activo = :activo', {
         activo: true,
       });
@@ -110,8 +116,41 @@ export class PedidosService {
         producto.nombre,
       ).toLowerCase(),
       precioVentaSugerido: Number(producto.precioVentaSugeridoSinIva ?? 0),
+      categoriaId: producto.idCategoria ?? null,
+      categoriaNombre: producto.categoria?.nombre ?? null,
+      marca: producto.marca ?? null,
       activo: producto.activo,
     }));
+  }
+
+  async obtenerSiguienteNumero() {
+    const [ultimoPedido] = await this.pedidosRepository.find({
+      select: {
+        numeroPedido: true,
+      },
+      order: {
+        numeroPedido: 'DESC',
+      },
+      take: 1,
+    });
+
+    return {
+      numeroPedido: Number(ultimoPedido?.numeroPedido ?? 0) + 1,
+    };
+  }
+
+  private async obtenerSiguienteNumeroConManager(manager: EntityManager) {
+    const [ultimoPedido] = await manager.getRepository(PedidoCompraEntity).find({
+      select: {
+        numeroPedido: true,
+      },
+      order: {
+        numeroPedido: 'DESC',
+      },
+      take: 1,
+    });
+
+    return Number(ultimoPedido?.numeroPedido ?? 0) + 1;
   }
 
   private async findOneByNumeroPedido(numeroPedido: number) {
@@ -120,7 +159,9 @@ export class PedidosService {
       relations: {
         origenCompra: true,
         lotes: {
-          producto: true,
+          producto: {
+            categoria: true,
+          },
           detallePedido: true,
         },
       },
@@ -135,9 +176,13 @@ export class PedidosService {
 
   async create(dto: CreatePedidoDto) {
     await this.validarProveedorExiste(dto.proveedorId);
-    await this.validarNumeroPedidoDisponible(dto.numeroPedido);
 
-    await this.dataSource.transaction(async (manager) => {
+    let numeroPedidoCreado = 0;
+
+    await this.dataSource.transaction('SERIALIZABLE', async (manager) => {
+      const numeroPedido = await this.obtenerSiguienteNumeroConManager(manager);
+      numeroPedidoCreado = numeroPedido;
+
       const subtotalProductos = dto.detalles.reduce(
         (acc, detalle) => acc + detalle.cantidad * detalle.costoUnitarioOrigen,
         0,
@@ -149,8 +194,8 @@ export class PedidosService {
       }, 0);
 
       const pedido = manager.create(PedidoCompraEntity, {
-        numeroPedido: dto.numeroPedido,
-        nombrePedido: `Pedido ${dto.numeroPedido}`,
+        numeroPedido,
+        nombrePedido: `Pedido ${numeroPedido}`,
         idOrigenCompra: dto.proveedorId,
         fechaPedido: dto.fecha,
         fechaRecepcion: null,
@@ -181,7 +226,7 @@ export class PedidosService {
       }
     });
 
-    return this.findOneByNumeroPedido(dto.numeroPedido);
+    return this.findOneByNumeroPedido(numeroPedidoCreado);
   }
 
   async update(id: number, dto: UpdatePedidoDto) {
@@ -203,14 +248,10 @@ export class PedidosService {
       await this.validarProveedorExiste(dto.proveedorId);
     }
 
-    if (dto.numeroPedido && dto.numeroPedido !== pedidoActual.numeroPedido) {
-      await this.validarNumeroPedidoDisponible(dto.numeroPedido, pedidoId);
-    }
-
     await this.dataSource.transaction(async (manager) => {
       await this.validarEdicionSegura(manager, pedidoActual, dto);
 
-      const numeroPedido = dto.numeroPedido ?? pedidoActual.numeroPedido;
+      const numeroPedido = pedidoActual.numeroPedido;
       const fecha = dto.fecha ?? pedidoActual.fechaPedido;
       const estado = dto.estado ?? pedidoActual.estado;
       const monedaCompra = dto.monedaCompra ?? pedidoActual.monedaCompra;
@@ -265,7 +306,6 @@ export class PedidosService {
         await manager.delete(DetallePedidoCompra, { idPedido: pedidoId });
 
         const pedidoDtoCompleto: CreatePedidoDto = {
-          numeroPedido,
           fecha,
           origen,
           proveedorId,
@@ -381,6 +421,11 @@ export class PedidosService {
     detalleDto: CreatePedidoDetalleDto,
   ) {
     const productosRepository = manager.getRepository(Producto);
+    const categoria = await this.obtenerCategoriaActiva(
+      manager,
+      detalleDto.categoriaId,
+    );
+    const marca = this.normalizarMarca(detalleDto.marca);
 
     if (detalleDto.productoId) {
       const productoExistente = await productosRepository.findOne({
@@ -395,13 +440,18 @@ export class PedidosService {
         );
       }
 
-      return productoExistente;
+      productoExistente.idCategoria = categoria.idCategoria;
+      productoExistente.marca = marca;
+
+      return productosRepository.save(productoExistente);
     }
 
     return this.obtenerOCrearProducto(
       manager,
       detalleDto.productoNombre,
       detalleDto.precioVentaRecomendado,
+      categoria.idCategoria,
+      marca,
     );
   }
 
@@ -409,6 +459,8 @@ export class PedidosService {
     manager: EntityManager,
     productoNombre: string,
     precioVentaRecomendado: number,
+    categoriaId: number,
+    marca: string | null,
   ) {
     const nombreNormalizado = this.normalizarNombreProducto(productoNombre);
 
@@ -422,11 +474,13 @@ export class PedidosService {
       .getOne();
 
     if (productoExistente) {
-      return productoExistente;
+      productoExistente.idCategoria = categoriaId;
+      productoExistente.marca = marca;
+      return productosRepository.save(productoExistente);
     }
 
     const nuevoProducto = productosRepository.create({
-      idCategoria: null,
+      idCategoria: categoriaId,
       idTarifaIva: null,
       nombre: nombreNormalizado,
       descripcion: null,
@@ -434,7 +488,7 @@ export class PedidosService {
       precioVentaSugeridoSinIva: precioVentaRecomendado,
       stockMinimo: 0,
       activo: true,
-      marca: null,
+      marca,
       variante: null,
       imagenUrl: null,
       precioVentaEstandarConIva: null,
@@ -443,6 +497,39 @@ export class PedidosService {
     });
 
     return productosRepository.save(nuevoProducto);
+  }
+
+  private async obtenerCategoriaActiva(
+    manager: EntityManager,
+    categoriaId: number,
+  ) {
+    const categoria = await manager.getRepository(Categoria).findOne({
+      where: {
+        idCategoria: categoriaId,
+      },
+    });
+
+    if (!categoria) {
+      throw new NotFoundException(
+        `La categoría con ID ${categoriaId} no existe.`,
+      );
+    }
+
+    if (!categoria.activo) {
+      throw new ConflictException(
+        `La categoría "${categoria.nombre}" está inactiva.`,
+      );
+    }
+
+    return categoria;
+  }
+
+  private normalizarMarca(marca: string | undefined): string | null {
+    if (!marca) {
+      return null;
+    }
+
+    return marca.trim().replace(/\s+/g, ' ') || null;
   }
 
   private normalizarNombreProducto(nombre: string) {
@@ -471,29 +558,8 @@ export class PedidosService {
     }
   }
 
-  private async validarNumeroPedidoDisponible(
-    numeroPedido: number,
-    pedidoIdActual?: number,
-  ) {
-    const pedidoExistente = await this.pedidosRepository.findOne({
-      where: pedidoIdActual
-        ? {
-            numeroPedido,
-            idPedido: Not(pedidoIdActual),
-          }
-        : {
-            numeroPedido,
-          },
-    });
-
-    if (pedidoExistente) {
-      throw new ConflictException(`Ya existe el Pedido ${numeroPedido}.`);
-    }
-  }
-
   private tieneCambiosEstructurales(dto: UpdatePedidoDto): boolean {
     return (
-      dto.numeroPedido !== undefined ||
       dto.fecha !== undefined ||
       dto.origen !== undefined ||
       dto.proveedorId !== undefined ||
@@ -799,6 +865,9 @@ export class PedidosService {
         loteId: lote.idLote,
         productoId: lote.idProducto,
         productoNombre: producto?.nombre ?? `Producto ${lote.idProducto}`,
+        categoriaId: producto?.idCategoria ?? null,
+        categoriaNombre: producto?.categoria?.nombre ?? '',
+        marca: producto?.marca ?? '',
         loteCodigo: lote.codigoLote,
         cantidad: cantidadInicial,
         cantidadRecibida,
