@@ -7,7 +7,7 @@ services:
     repo: https://github.com/EmmaPorras/SystemMx_Backend
     branch: deploy-neon
     buildCommand: npm install && npm run build
-    startCommand: npm run migration:run:dist && npm run start:prod
+    startCommand: npm run start:prod
     initialDeployHook: npm run bootstrap:user:dist
     autoDeployTrigger: commit
     envVars:
