@@ -65,7 +65,7 @@ export class DetalleVenta {
   })
   baseImponible!: number;
 
-  @Column({ name: 'tipo_tarifa', type: 'nvarchar', length: 30 })
+  @Column({ name: 'tipo_tarifa', type: 'varchar', length: 30 })
   tipoTarifa!: string;
 
   @Column({ name: 'id_tarifa_iva', type: 'int', nullable: true })
@@ -119,16 +119,16 @@ export class DetalleVenta {
   })
   gananciaBruta!: number;
 
-  @Column({ name: 'modo_descuento_lote', type: 'nvarchar', length: 30 })
+  @Column({ name: 'modo_descuento_lote', type: 'varchar', length: 30 })
   modoDescuentoLote!: string;
 
-  @Column({ name: 'detalle', type: 'nvarchar', length: 150, nullable: true })
+  @Column({ name: 'detalle', type: 'varchar', length: 150, nullable: true })
   detalle?: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
 
   @ManyToOne(() => VentaEntity, (venta) => venta.detalles)
