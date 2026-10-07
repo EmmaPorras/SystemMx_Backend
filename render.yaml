@@ -5,37 +5,25 @@ services:
     plan: free
     region: virginia
     repo: https://github.com/EmmaPorras/SystemMx_Backend
-    branch: main
-    buildCommand: npm ci && npm run build
+    branch: deploy-neon
+    buildCommand: npm install && npm run build
     startCommand: npm run migration:run:dist && npm run start:prod
     initialDeployHook: npm run bootstrap:user:dist
     autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NODE_VERSION
-        value: "24.21.0"
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_SECONDS
         value: "3600"
       - key: CORS_ORIGINS
         value: https://systemmx-web-200684331.onrender.com
-      - key: DB_HOST
+      - key: DATABASE_URL
         sync: false
-      - key: DB_PORT
-        value: "1433"
-      - key: DB_USERNAME
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
-      - key: DB_DATABASE
+      - key: DATABASE_URL_UNPOOLED
         sync: false
       - key: DB_LOGGING
-        value: "false"
-      - key: DB_ENCRYPT
-        value: "true"
-      - key: DB_TRUST_SERVER_CERTIFICATE
         value: "false"
       - key: SYSTEMMX_BOOTSTRAP_USERNAME
         sync: false
@@ -53,8 +41,6 @@ services:
     staticPublishPath: ./dist
     autoDeployTrigger: commit
     envVars:
-      - key: NODE_VERSION
-        value: "24.21.0"
       - key: VITE_API_URL
         value: https://systemmx-api-200684331.onrender.com/api
     routes:
