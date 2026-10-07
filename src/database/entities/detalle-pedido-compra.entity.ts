@@ -25,7 +25,7 @@ export class DetallePedidoCompra {
   @Column({ name: 'cantidad', type: 'int' })
   cantidad!: number;
 
-  @Column({ name: 'moneda_origen', type: 'nvarchar', length: 10 })
+  @Column({ name: 'moneda_origen', type: 'varchar', length: 10 })
   monedaOrigen!: string;
 
   @Column({
@@ -118,16 +118,16 @@ export class DetallePedidoCompra {
   })
   precioVentaFinal?: number | null;
 
-  @Column({ name: 'metodo_reparto_gastos', type: 'nvarchar', length: 30 })
+  @Column({ name: 'metodo_reparto_gastos', type: 'varchar', length: 30 })
   metodoRepartoGastos!: string;
 
-  @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
+  @Column({ name: 'observaciones', type: 'varchar', nullable: true })
   observaciones?: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
 
   @ManyToOne(() => PedidoCompraEntity, (pedido) => pedido.detalles)
