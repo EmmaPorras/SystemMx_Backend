@@ -25,7 +25,7 @@ export class PedidoCompraEntity {
   @Column({ name: 'numero_pedido', type: 'int' })
   numeroPedido!: number;
 
-  @Column({ name: 'nombre_pedido', type: 'nvarchar', length: 150 })
+  @Column({ name: 'nombre_pedido', type: 'varchar', length: 150 })
   nombrePedido!: string;
 
   @Column({ name: 'id_origen_compra', type: 'int' })
@@ -37,7 +37,7 @@ export class PedidoCompraEntity {
   @Column({ name: 'fecha_recepcion', type: 'date', nullable: true })
   fechaRecepcion?: string | null;
 
-  @Column({ name: 'estado', type: 'nvarchar', length: 30 })
+  @Column({ name: 'estado', type: 'varchar', length: 30 })
   estado!: string;
 
   @Column({
@@ -64,18 +64,18 @@ export class PedidoCompraEntity {
   })
   impuestosImportacion!: number;
 
-  @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
+  @Column({ name: 'observaciones', type: 'varchar', nullable: true })
   observaciones?: string | null;
 
   @Column({
     name: 'pais_compra',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 100,
     nullable: true,
   })
   paisCompra?: string | null;
 
-  @Column({ name: 'moneda_compra', type: 'nvarchar', length: 10 })
+  @Column({ name: 'moneda_compra', type: 'varchar', length: 10 })
   monedaCompra!: string;
 
   @Column({
@@ -118,7 +118,7 @@ export class PedidoCompraEntity {
   })
   otrosGastos!: number;
 
-  @Column({ name: 'metodo_reparto_gastos', type: 'nvarchar', length: 30 })
+  @Column({ name: 'metodo_reparto_gastos', type: 'varchar', length: 30 })
   metodoRepartoGastos!: string;
 
   @Column({
@@ -130,10 +130,10 @@ export class PedidoCompraEntity {
   })
   diasDuracion?: number | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
 
   @ManyToOne(() => OrigenCompra)
