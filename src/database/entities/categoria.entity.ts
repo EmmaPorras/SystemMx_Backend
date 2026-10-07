@@ -18,14 +18,14 @@ export class Categoria {
 
   @Column({
     name: 'nombre',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 100,
   })
   nombre!: string;
 
   @Column({
     name: 'descripcion',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 255,
     nullable: true,
   })
@@ -33,20 +33,20 @@ export class Categoria {
 
   @Column({
     name: 'activo',
-    type: 'bit',
+    type: 'boolean',
     default: true,
   })
   activo!: boolean;
 
   @CreateDateColumn({
     name: 'created_at',
-    type: 'datetime2',
+    type: 'timestamptz',
   })
   createdAt!: Date;
 
   @UpdateDateColumn({
     name: 'updated_at',
-    type: 'datetime2',
+    type: 'timestamptz',
   })
   updatedAt!: Date;
 
