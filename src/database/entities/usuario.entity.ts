@@ -14,13 +14,13 @@ import { RolUsuario } from '../../modules/usuarios/rol-usuario.enum';
 @Index('UX_usuario_username_normalizado', ['usernameNormalizado'], {
   unique: true,
 })
-@Check('CK_usuario_username_longitud', 'LEN(LTRIM(RTRIM([username]))) >= 3')
+@Check('CK_usuario_username_longitud', 'char_length(trim("username")) >= 3')
 @Check(
   'CK_usuario_username_normalizado_longitud',
-  'LEN(LTRIM(RTRIM([username_normalizado]))) >= 3',
+  'char_length(trim("username_normalizado")) >= 3',
 )
-@Check('CK_usuario_rol_valido', "[rol] IN ('ADMIN', 'OPERADOR', 'CONSULTA')")
-@Check('CK_usuario_version_credenciales', '[version_credenciales] >= 1')
+@Check('CK_usuario_rol_valido', '"rol" IN (\'ADMIN\', \'OPERADOR\', \'CONSULTA\')')
+@Check('CK_usuario_version_credenciales', '"version_credenciales" >= 1')
 export class Usuario {
   @PrimaryGeneratedColumn({
     name: 'id_usuario',
@@ -29,28 +29,28 @@ export class Usuario {
 
   @Column({
     name: 'username',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 50,
   })
   username!: string;
 
   @Column({
     name: 'username_normalizado',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 50,
   })
   usernameNormalizado!: string;
 
   @Column({
     name: 'nombre',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 100,
   })
   nombre!: string;
 
   @Column({
     name: 'password_hash',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 255,
     select: false,
   })
@@ -58,7 +58,7 @@ export class Usuario {
 
   @Column({
     name: 'rol',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 30,
     default: RolUsuario.CONSULTA,
   })
@@ -66,8 +66,8 @@ export class Usuario {
 
   @Column({
     name: 'activo',
-    type: 'bit',
-    default: () => '1',
+    type: 'boolean',
+    default: true,
   })
   activo!: boolean;
 
@@ -80,15 +80,15 @@ export class Usuario {
 
   @CreateDateColumn({
     name: 'created_at',
-    type: 'datetime2',
-    default: () => 'GETDATE()',
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
   })
   createdAt!: Date;
 
   @UpdateDateColumn({
     name: 'updated_at',
-    type: 'datetime2',
-    default: () => 'GETDATE()',
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt!: Date;
 }
