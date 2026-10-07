@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: systemmx-api-200684331
+    runtime: node
+    plan: free
+    region: virginia
+    repo: https://github.com/EmmaPorras/SystemMx_Backend
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm run migration:run:dist && npm run start:prod
+    initialDeployHook: npm run bootstrap:user:dist
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24.21.0"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_SECONDS
+        value: "3600"
+      - key: CORS_ORIGINS
+        value: https://systemmx-web-200684331.onrender.com
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "1433"
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_LOGGING
+        value: "false"
+      - key: DB_ENCRYPT
+        value: "true"
+      - key: DB_TRUST_SERVER_CERTIFICATE
+        value: "false"
+      - key: SYSTEMMX_BOOTSTRAP_USERNAME
+        sync: false
+      - key: SYSTEMMX_BOOTSTRAP_NOMBRE
+        sync: false
+      - key: SYSTEMMX_BOOTSTRAP_PASSWORD
+        sync: false
+
+  - type: web
+    name: systemmx-web-200684331
+    runtime: static
+    repo: https://github.com/EmmaPorras/SystemMx_Frontend
+    branch: main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "24.21.0"
+      - key: VITE_API_URL
+        value: https://systemmx-api-200684331.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
