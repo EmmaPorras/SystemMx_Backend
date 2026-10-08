@@ -61,8 +61,9 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
       let whereFilter: Record<string, any> = {};
       const builder = {
         addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn((condition: string, params: Record<string, any>) => {
-          whereFilter = params;
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn((condition: string, params?: Record<string, any>) => {
+          if (params) whereFilter = params;
           return builder;
         }),
         andWhere: jest.fn().mockReturnThis(),
@@ -72,6 +73,9 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
           }
           if (whereFilter.usernameNormalizado) {
             return dbUsuarios.find((u) => u.usernameNormalizado === whereFilter.usernameNormalizado) || null;
+          }
+          if (whereFilter.idUsuario) {
+            return dbUsuarios.find((u) => u.idUsuario === whereFilter.idUsuario) || null;
           }
           return null;
         }),
@@ -126,6 +130,42 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
         Object.assign(t, partial);
       });
       return { affected: 1 };
+    }),
+    createQueryBuilder: jest.fn(() => {
+      let whereHash = '';
+      let updateSet: Record<string, any> = {};
+      let updateWhere: Record<string, any> = {};
+
+      const builder = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn((condition: string, params?: Record<string, any>) => {
+          if (params?.tokenHash) whereHash = params.tokenHash;
+          if (params?.idToken !== undefined) updateWhere = params;
+          return builder;
+        }),
+        getOne: jest.fn(async () => {
+          if (whereHash) {
+            return dbTokens.find((t) => t.tokenHash === whereHash) || null;
+          }
+          return null;
+        }),
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn((vals: Record<string, any>) => {
+          updateSet = vals;
+          return builder;
+        }),
+        execute: jest.fn(async () => {
+          const t = dbTokens.find(
+            (item) => item.idToken === updateWhere.idToken && item.usado === updateWhere.usado,
+          );
+          if (t) {
+            Object.assign(t, updateSet);
+            return { affected: 1 };
+          }
+          return { affected: 0 };
+        }),
+      };
+      return builder;
     }),
   };
 
@@ -227,7 +267,7 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
         username: 'colaborador.nuevo',
         password: 'CualquierPassword123!',
       }),
-    ).rejects.toThrow('pendiente de activación');
+    ).rejects.toThrow('pendiente de activaci');
   });
 
   it('4. Usuario valida su token de invitacion y activa su cuenta', async () => {

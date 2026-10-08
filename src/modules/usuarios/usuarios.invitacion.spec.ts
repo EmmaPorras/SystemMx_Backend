@@ -1,26 +1,27 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import * as crypto from 'crypto';
 
-import { Usuario } from '../../database/entities/usuario.entity';
-import { TokenAccionUsuario } from '../../database/entities/token-accion-usuario.entity';
+import { UsuariosService } from './usuarios.service';
 import { MailService } from '../mail/mail.service';
 import { PasswordHasherService } from './password-hasher.service';
+import { Usuario } from '../../database/entities/usuario.entity';
+import { TokenAccionUsuario } from '../../database/entities/token-accion-usuario.entity';
 import { RolUsuario } from './rol-usuario.enum';
 import { EstadoActivacionUsuario } from './estado-activacion.enum';
 import { TipoTokenAccion } from './tipo-token-accion.enum';
-import { UsuariosService } from './usuarios.service';
 
-describe('UsuariosService - Invitaciones y Recuperación', () => {
+describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccional', () => {
   let service: UsuariosService;
 
   const mockUsuarioRepo = {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
 
   const mockTokenRepo = {
@@ -28,10 +29,11 @@ describe('UsuariosService - Invitaciones y Recuperación', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
 
   const mockPasswordHasher = {
-    hash: jest.fn().mockResolvedValue('$argon2id$mockedhash'),
+    hash: jest.fn().mockResolvedValue(''),
     verify: jest.fn(),
   };
 
@@ -48,14 +50,19 @@ describe('UsuariosService - Invitaciones y Recuperación', () => {
     }),
   };
 
-  const mockTransactionManager = {
-    getRepository: jest.fn(),
-  };
+  let tokenQbMock: any;
+  let userQbMock: any;
+  let userRepoSaveMock: any;
 
   const mockDataSource = {
     transaction: jest.fn().mockImplementation(async (cb) => {
-      const userRepo = { update: jest.fn().mockResolvedValue({ affected: 1 }) };
-      const tokenRepo = { update: jest.fn().mockResolvedValue({ affected: 1 }) };
+      const userRepo = {
+        createQueryBuilder: jest.fn().mockReturnValue(userQbMock),
+        save: userRepoSaveMock,
+      };
+      const tokenRepo = {
+        createQueryBuilder: jest.fn().mockReturnValue(tokenQbMock),
+      };
       return cb({
         getRepository: (entity: any) => (entity === Usuario ? userRepo : tokenRepo),
       });
@@ -64,6 +71,23 @@ describe('UsuariosService - Invitaciones y Recuperación', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    userRepoSaveMock = jest.fn(async (u) => u);
+
+    tokenQbMock = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn(),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+
+    userQbMock = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -246,6 +270,175 @@ describe('UsuariosService - Invitaciones y Recuperación', () => {
       });
 
       await expect(service.reenviarInvitacion(12)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('Consumo Atómico Transaccional de Tokens', () => {
+    const rawToken = 'mi_token_de_prueba_1234567890';
+    const nuevaPasswordValida = 'PasswordSegura2026!';
+
+    it('activarCuentaConToken: debe aplicar pessimistic_write, UPDATE condicional, marcar ACTIVO e incrementar versionCredenciales', async () => {
+      const mockTokenEntity = {
+        idToken: 77,
+        idUsuario: 5,
+        tipo: TipoTokenAccion.INVITACION,
+        usado: false,
+        expiraEn: new Date(Date.now() + 3600000),
+      };
+
+      const mockUserEntity = {
+        idUsuario: 5,
+        nombre: 'Juan',
+        activo: true,
+        estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+        versionCredenciales: 1,
+        passwordHash: 'hash-antiguo',
+      };
+
+      tokenQbMock.getOne.mockResolvedValue(mockTokenEntity);
+      userQbMock.getOne.mockResolvedValue(mockUserEntity);
+      tokenQbMock.execute.mockResolvedValue({ affected: 1 });
+
+      const res = await service.activarCuentaConToken(rawToken, nuevaPasswordValida);
+
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(tokenQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(userQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(tokenQbMock.update).toHaveBeenCalled();
+      expect(mockUserEntity.estadoActivacion).toBe(EstadoActivacionUsuario.ACTIVO);
+      expect(mockUserEntity.versionCredenciales).toBe(2);
+      expect(mockUserEntity.passwordHash).toBe('');
+      expect(userRepoSaveMock).toHaveBeenCalledWith(mockUserEntity);
+      expect(res.success).toBe(true);
+      expect(res.mensaje).toContain('Cuenta activada exitosamente');
+    });
+
+    it('activarCuentaConToken: debe fallar si el token no existe', async () => {
+      tokenQbMock.getOne.mockResolvedValue(null);
+
+      await expect(
+        service.activarCuentaConToken(rawToken, nuevaPasswordValida),
+      ).rejects.toThrow('El enlace es inválido o no existe.');
+      expect(userRepoSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('activarCuentaConToken: debe fallar si el tipo de token es incorrecto (RECUPERACION en lugar de INVITACION)', async () => {
+      tokenQbMock.getOne.mockResolvedValue({
+        idToken: 77,
+        idUsuario: 5,
+        tipo: TipoTokenAccion.RECUPERACION_PASSWORD,
+        usado: false,
+        expiraEn: new Date(Date.now() + 3600000),
+      });
+
+      await expect(
+        service.activarCuentaConToken(rawToken, nuevaPasswordValida),
+      ).rejects.toThrow('Tipo de enlace inválido.');
+      expect(userRepoSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('activarCuentaConToken: debe fallar si el token ya está marcado como usado', async () => {
+      tokenQbMock.getOne.mockResolvedValue({
+        idToken: 77,
+        idUsuario: 5,
+        tipo: TipoTokenAccion.INVITACION,
+        usado: true,
+        expiraEn: new Date(Date.now() + 3600000),
+      });
+
+      await expect(
+        service.activarCuentaConToken(rawToken, nuevaPasswordValida),
+      ).rejects.toThrow('Este enlace ya ha sido utilizado.');
+      expect(userRepoSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('activarCuentaConToken: debe fallar si el token ha expirado', async () => {
+      tokenQbMock.getOne.mockResolvedValue({
+        idToken: 77,
+        idUsuario: 5,
+        tipo: TipoTokenAccion.INVITACION,
+        usado: false,
+        expiraEn: new Date(Date.now() - 10000),
+      });
+
+      await expect(
+        service.activarCuentaConToken(rawToken, nuevaPasswordValida),
+      ).rejects.toThrow('Este enlace ha expirado.');
+      expect(userRepoSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('activarCuentaConToken: debe fallar si el usuario asociado no está activo', async () => {
+      tokenQbMock.getOne.mockResolvedValue({
+        idToken: 77,
+        idUsuario: 5,
+        tipo: TipoTokenAccion.INVITACION,
+        usado: false,
+        expiraEn: new Date(Date.now() + 3600000),
+      });
+      userQbMock.getOne.mockResolvedValue({
+        idUsuario: 5,
+        activo: false,
+      });
+
+      await expect(
+        service.activarCuentaConToken(rawToken, nuevaPasswordValida),
+      ).rejects.toThrow('La cuenta asociada no está disponible.');
+      expect(userRepoSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('activarCuentaConToken: condición de carrera (affected = 0 en UPDATE condicional) debe abortar sin guardar usuario', async () => {
+      tokenQbMock.getOne.mockResolvedValue({
+        idToken: 77,
+        idUsuario: 5,
+        tipo: TipoTokenAccion.INVITACION,
+        usado: false,
+        expiraEn: new Date(Date.now() + 3600000),
+      });
+      userQbMock.getOne.mockResolvedValue({
+        idUsuario: 5,
+        activo: true,
+        versionCredenciales: 1,
+      });
+      // Simulando que otra transacción consumió el token en la ventana milimétrica
+      tokenQbMock.execute.mockResolvedValue({ affected: 0 });
+
+      await expect(
+        service.activarCuentaConToken(rawToken, nuevaPasswordValida),
+      ).rejects.toThrow('Este enlace ya ha sido utilizado.');
+      expect(userRepoSaveMock).not.toHaveBeenCalled();
+    });
+
+    it('restablecerPasswordConToken: debe aplicar pessimistic_write, actualizar contraseña e incrementar versionCredenciales', async () => {
+      const mockTokenEntity = {
+        idToken: 88,
+        idUsuario: 10,
+        tipo: TipoTokenAccion.RECUPERACION_PASSWORD,
+        usado: false,
+        expiraEn: new Date(Date.now() + 3600000),
+      };
+
+      const mockUserEntity = {
+        idUsuario: 10,
+        nombre: 'Admin',
+        activo: true,
+        versionCredenciales: 3,
+        passwordHash: 'hash-anterior',
+      };
+
+      tokenQbMock.getOne.mockResolvedValue(mockTokenEntity);
+      userQbMock.getOne.mockResolvedValue(mockUserEntity);
+      tokenQbMock.execute.mockResolvedValue({ affected: 1 });
+
+      const res = await service.restablecerPasswordConToken(rawToken, nuevaPasswordValida);
+
+      expect(mockDataSource.transaction).toHaveBeenCalled();
+      expect(tokenQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(userQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(mockUserEntity.versionCredenciales).toBe(4);
+      expect(mockUserEntity.passwordHash).toBe('');
+      expect(userRepoSaveMock).toHaveBeenCalledWith(mockUserEntity);
+      expect(res.success).toBe(true);
+      expect(res.mensaje).toContain('Contraseña restablecida exitosamente');
     });
   });
 });

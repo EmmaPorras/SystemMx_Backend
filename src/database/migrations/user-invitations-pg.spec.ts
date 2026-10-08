@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import * as crypto from 'crypto';
 import { UserInvitationsAndTokens1788762400000 } from './1788762400000-UserInvitationsAndTokens';
 
-describe('Validación de Migración Real y Concurrencia PostgreSQL (pg-mem)', () => {
+describe('Validación de Esquema y Restricciones DDL PostgreSQL (Emulación pg-mem)', () => {
   let db: any;
   let dataSource: DataSource;
 

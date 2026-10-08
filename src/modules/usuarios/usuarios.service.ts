@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ConflictException,
   Injectable,
@@ -683,7 +683,19 @@ export class UsuariosService {
     }
   }
 
-  async activarCuentaConToken(rawToken: string, nuevaPassword: string) {
+  private async consumirTokenTransaccional(
+    rawToken: string,
+    tipoEsperado: TipoTokenAccion,
+    nuevaPassword: string,
+  ): Promise<{ usuario: Usuario; tokenEntity: TokenAccionUsuario }> {
+    if (
+      !rawToken ||
+      typeof rawToken !== 'string' ||
+      rawToken.trim().length === 0
+    ) {
+      throw new BadRequestException('Token de acción requerido.');
+    }
+
     if (
       typeof nuevaPassword !== 'string' ||
       nuevaPassword.length < 12 ||
@@ -694,28 +706,86 @@ export class UsuariosService {
       );
     }
 
-    const tokenEntity = await this.validarTokenAccion(
-      rawToken,
-      TipoTokenAccion.INVITACION,
-    );
-
+    const tokenHash = this.hashToken(rawToken.trim());
     const passwordHash = await this.passwordHasher.hash(nuevaPassword);
 
-    await this.dataSource.transaction(async (manager) => {
-      const userRepo = manager.getRepository(Usuario);
+    return this.dataSource.transaction(async (manager) => {
       const tokenRepo = manager.getRepository(TokenAccionUsuario);
+      const userRepo = manager.getRepository(Usuario);
 
-      await userRepo.update(tokenEntity.idUsuario, {
-        passwordHash,
-        estadoActivacion: EstadoActivacionUsuario.ACTIVO,
-        versionCredenciales: () => 'version_credenciales + 1',
-      });
+      // 1. Bloqueo pesimista y consulta del token dentro de la transacción
+      const tokenEntity = await tokenRepo
+        .createQueryBuilder('token')
+        .setLock('pessimistic_write')
+        .where('token.tokenHash = :tokenHash', { tokenHash })
+        .getOne();
 
-      await tokenRepo.update(tokenEntity.idToken, {
-        usado: true,
-        usadoEn: new Date(),
-      });
+      if (!tokenEntity) {
+        throw new BadRequestException('El enlace es inválido o no existe.');
+      }
+
+      if (tokenEntity.tipo !== tipoEsperado) {
+        throw new BadRequestException('Tipo de enlace inválido.');
+      }
+
+      if (tokenEntity.usado) {
+        throw new BadRequestException('Este enlace ya ha sido utilizado.');
+      }
+
+      if (new Date() > new Date(tokenEntity.expiraEn)) {
+        throw new BadRequestException('Este enlace ha expirado.');
+      }
+
+      // 2. Bloqueo pesimista y consulta del usuario asociado
+      const usuario = await userRepo
+        .createQueryBuilder('usuario')
+        .setLock('pessimistic_write')
+        .where('usuario.idUsuario = :idUsuario', {
+          idUsuario: tokenEntity.idUsuario,
+        })
+        .getOne();
+
+      if (!usuario || !usuario.activo) {
+        throw new BadRequestException('La cuenta asociada no está disponible.');
+      }
+
+      // 3. Consumo atómico condicional del token (garantiza exactamente 1 consumidor)
+      const updateTokenResult = await tokenRepo
+        .createQueryBuilder()
+        .update(TokenAccionUsuario)
+        .set({
+          usado: true,
+          usadoEn: new Date(),
+        })
+        .where('idToken = :idToken AND usado = :usado', {
+          idToken: tokenEntity.idToken,
+          usado: false,
+        })
+        .execute();
+
+      if (updateTokenResult.affected === 0) {
+        throw new BadRequestException('Este enlace ya ha sido utilizado.');
+      }
+
+      // 4. Modificar cuenta de usuario de forma atómica
+      usuario.passwordHash = passwordHash;
+      if (tipoEsperado === TipoTokenAccion.INVITACION) {
+        usuario.estadoActivacion = EstadoActivacionUsuario.ACTIVO;
+      }
+      usuario.versionCredenciales = Number(usuario.versionCredenciales) + 1;
+
+      await userRepo.save(usuario);
+
+      return { usuario, tokenEntity };
     });
+  }
+
+  async activarCuentaConToken(rawToken: string, nuevaPassword: string) {
+    await this.consumirTokenTransaccional(
+      rawToken,
+      TipoTokenAccion.INVITACION,
+      nuevaPassword,
+    );
 
     return {
       success: true,
@@ -724,41 +794,16 @@ export class UsuariosService {
   }
 
   async restablecerPasswordConToken(rawToken: string, nuevaPassword: string) {
-    if (
-      typeof nuevaPassword !== 'string' ||
-      nuevaPassword.length < 12 ||
-      nuevaPassword.length > 128
-    ) {
-      throw new BadRequestException(
-        'La contraseña debe tener entre 12 y 128 caracteres.',
-      );
-    }
-
-    const tokenEntity = await this.validarTokenAccion(
+    await this.consumirTokenTransaccional(
       rawToken,
       TipoTokenAccion.RECUPERACION_PASSWORD,
+      nuevaPassword,
     );
-
-    const passwordHash = await this.passwordHasher.hash(nuevaPassword);
-
-    await this.dataSource.transaction(async (manager) => {
-      const userRepo = manager.getRepository(Usuario);
-      const tokenRepo = manager.getRepository(TokenAccionUsuario);
-
-      await userRepo.update(tokenEntity.idUsuario, {
-        passwordHash,
-        versionCredenciales: () => 'version_credenciales + 1',
-      });
-
-      await tokenRepo.update(tokenEntity.idToken, {
-        usado: true,
-        usadoEn: new Date(),
-      });
-    });
 
     return {
       success: true,
-      mensaje: 'Contraseña restablecida exitosamente. Ya puedes iniciar sesión con tu nueva contraseña.',
+      mensaje:
+        'Contraseña restablecida exitosamente. Ya puedes iniciar sesión con tu nueva contraseña.',
     };
   }
 }
