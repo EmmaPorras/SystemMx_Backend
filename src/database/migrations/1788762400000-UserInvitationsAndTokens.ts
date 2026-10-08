@@ -1,4 +1,4 @@
-﻿import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class UserInvitationsAndTokens1788762400000 implements MigrationInterface {
   name = 'UserInvitationsAndTokens1788762400000';
@@ -14,8 +14,8 @@ export class UserInvitationsAndTokens1788762400000 implements MigrationInterface
       await queryRunner.query(`ALTER TABLE "usuario" ADD COLUMN IF NOT EXISTS "email_normalizado" varchar(255);`);
       await queryRunner.query(`ALTER TABLE "usuario" ADD COLUMN IF NOT EXISTS "estado_activacion" varchar(30) NOT NULL DEFAULT 'ACTIVO';`);
 
-      // Asegurar que usuarios existentes sin estado tengan 'ACTIVO'
-      await queryRunner.query(`UPDATE "usuario" SET "estado_activacion" = 'ACTIVO' WHERE "estado_activacion" != 'PENDIENTE_ACTIVACION' OR "estado_activacion" IS NULL;`);
+      // Asegurar que usuarios existentes sin estado tengan 'ACTIVO' preservando PENDIENTE_ACTIVACION
+      await queryRunner.query(`UPDATE "usuario" SET "estado_activacion" = 'ACTIVO' WHERE "estado_activacion" IS NULL OR "estado_activacion" != 'PENDIENTE_ACTIVACION';`);
 
       await queryRunner.query(`ALTER TABLE "usuario" DROP CONSTRAINT IF EXISTS "CK_usuario_estado_activacion";`);
       await queryRunner.query(`
@@ -81,7 +81,7 @@ export class UserInvitationsAndTokens1788762400000 implements MigrationInterface
       `);
 
       await queryRunner.query(`
-        UPDATE [usuario] SET [estado_activacion] = 'ACTIVO';
+        UPDATE [usuario] SET [estado_activacion] = 'ACTIVO' WHERE [estado_activacion] IS NULL;
       `);
 
       await queryRunner.query(`
