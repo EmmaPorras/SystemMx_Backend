@@ -80,7 +80,7 @@ export class UsuariosService {
   ): string {
     const base = this.getFrontendUrl();
     const hasHash = base.includes('#');
-    const separator = hasHash ? (base.endsWith('/') ? '' : '/') : '/#';
+    const separator = hasHash ? (base.endsWith('/') ? '' : '/') : '/#/'; 
     return `${base}${separator}${route.replace(/^\/+/, '')}?token=${token}`;
   }
 
