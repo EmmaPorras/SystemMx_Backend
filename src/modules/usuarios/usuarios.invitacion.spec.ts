@@ -114,7 +114,7 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
         email: 'juanito@gmail.com',
         emailNormalizado: 'juanito@gmail.com',
         nombre: 'Juanito',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         activo: true,
         estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
         createdAt: new Date(),
@@ -131,7 +131,7 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
         username: 'juanito24',
         email: 'juanito@gmail.com',
         nombre: 'Juanito',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         lang: 'es',
       });
 
@@ -154,7 +154,7 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
           username: 'juanito24',
           email: 'juanito@gmail.com',
           nombre: 'Juanito',
-          rol: RolUsuario.OPERADOR,
+          rol: RolUsuario.VENTAS,
         }),
       ).rejects.toThrow(ConflictException);
     });
@@ -167,7 +167,7 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
           username: 'juanito24',
           email: 'juanito@gmail.com',
           nombre: 'Juanito',
-          rol: RolUsuario.OPERADOR,
+          rol: RolUsuario.VENTAS,
         }),
       ).rejects.toThrow(ConflictException);
     });
@@ -179,7 +179,7 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
         username: 'juanito24',
         email: 'juanito@gmail.com',
         nombre: 'Juanito',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         activo: true,
         estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
       };
@@ -195,7 +195,7 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
           username: 'juanito24',
           email: 'juanito@gmail.com',
           nombre: 'Juanito',
-          rol: RolUsuario.OPERADOR,
+          rol: RolUsuario.VENTAS,
         }),
       ).rejects.toThrow(BadRequestException);
     });

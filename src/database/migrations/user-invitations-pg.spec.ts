@@ -28,7 +28,7 @@ describe('Validación de Esquema y Restricciones DDL PostgreSQL (Emulación pg-m
         "username_normalizado" VARCHAR(50) NOT NULL UNIQUE,
         "password_hash" VARCHAR(255) NOT NULL,
         "nombre" VARCHAR(150) NOT NULL,
-        "rol" VARCHAR(30) NOT NULL DEFAULT 'OPERADOR',
+        "rol" VARCHAR(30) NOT NULL DEFAULT 'VENTAS',
         "activo" BOOLEAN NOT NULL DEFAULT true,
         "version_credenciales" INT NOT NULL DEFAULT 1,
         "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -76,14 +76,14 @@ describe('Validación de Esquema y Restricciones DDL PostgreSQL (Emulación pg-m
     // Insertar usuario nuevo con email
     db.public.none(`
       INSERT INTO "usuario" ("username", "username_normalizado", "email", "email_normalizado", "password_hash", "nombre", "rol", "activo", "estado_activacion")
-      VALUES ('colaborador.1', 'colaborador.1', 'user1@systemmx.com', 'user1@systemmx.com', 'hash1', 'Colab Uno', 'OPERADOR', true, 'PENDIENTE_ACTIVACION');
+      VALUES ('colaborador.1', 'colaborador.1', 'user1@systemmx.com', 'user1@systemmx.com', 'hash1', 'Colab Uno', 'VENTAS', true, 'PENDIENTE_ACTIVACION');
     `);
 
     // Intentar insertar otro usuario con el mismo email normalizado debe arrojar violación de unicidad
     expect(() => {
       db.public.none(`
         INSERT INTO "usuario" ("username", "username_normalizado", "email", "email_normalizado", "password_hash", "nombre", "rol", "activo", "estado_activacion")
-        VALUES ('colaborador.2', 'colaborador.2', 'user1@systemmx.com', 'user1@systemmx.com', 'hash2', 'Colab Dos', 'OPERADOR', true, 'PENDIENTE_ACTIVACION');
+        VALUES ('colaborador.2', 'colaborador.2', 'user1@systemmx.com', 'user1@systemmx.com', 'hash2', 'Colab Dos', 'VENTAS', true, 'PENDIENTE_ACTIVACION');
       `);
     }).toThrow();
   });

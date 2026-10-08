@@ -1,3 +1,5 @@
+import { Roles } from '../auth/roles.decorator';
+import { RolUsuario } from '../usuarios/rol-usuario.enum';
 import { Controller, Get, Query } from '@nestjs/common';
 
 import { ConsultaInventarioHistoricoDto } from './dto/consulta-inventario-historico.dto';
@@ -6,6 +8,7 @@ import { ConsultaResumenDto } from './dto/consulta-resumen.dto';
 import { ConsultaVencimientosDto } from './dto/consulta-vencimientos.dto';
 import { ReportesService } from './reportes.service';
 
+@Roles(RolUsuario.ADMIN, RolUsuario.CONSULTA)
 @Controller('reportes')
 export class ReportesController {
   constructor(private readonly reportesService: ReportesService) {}
@@ -115,11 +118,15 @@ export class ReportesController {
     return this.reportesService.conciliacionPagos();
   }
 
+  // Sólo el módulo de cuentas por cobrar es accesible para VENTAS.
+  // Los demás reportes globales siguen siendo ADMIN/CONSULTA.
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Get('cuentas-por-cobrar/vencimientos')
   vencimientosCuentasPorCobrar(@Query() dto: ConsultaVencimientosDto) {
     return this.reportesService.vencimientosCuentasPorCobrar(dto);
   }
 
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Get('cuentas-por-cobrar')
   cuentasPorCobrar() {
     return this.reportesService.cuentasPorCobrar();

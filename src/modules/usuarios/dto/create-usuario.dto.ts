@@ -1,4 +1,4 @@
-import {
+﻿import {
   IsEnum,
   IsString,
   Matches,
@@ -24,7 +24,7 @@ export class CreateUsuarioDto {
   nombre!: string;
 
   @IsString()
-  @MinLength(12)
+  @MinLength(8)
   @MaxLength(128)
   password!: string;
 
