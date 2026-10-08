@@ -1,4 +1,4 @@
-import { validate } from 'class-validator';
+﻿import { validate } from 'class-validator';
 import { CreateUsuarioDto } from './create-usuario.dto';
 import { RolUsuario } from '../rol-usuario.enum';
 
@@ -7,7 +7,7 @@ describe('CreateUsuarioDto', () => {
     const dto = new CreateUsuarioDto();
     dto.username = 'admin.taller';
     dto.nombre = 'Administrador General';
-    dto.password = 'ClaveSegura12345';
+    dto.password = 'ClaveSegura123';
     dto.rol = RolUsuario.ADMIN;
     return dto;
   };
@@ -99,16 +99,23 @@ describe('CreateUsuarioDto', () => {
   });
 
   describe('validaciones de password', () => {
-    it('debe aceptar contraseña de 12 caracteres exactos', async () => {
+    it('debe aceptar contraseña de 8 caracteres exactos', async () => {
+      const dto = crearDtoValido();
+      dto.password = '12345678';
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('debe aceptar contraseña de 12 caracteres', async () => {
       const dto = crearDtoValido();
       dto.password = '123456789012';
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
     });
 
-    it('debe rechazar contraseña menor a 12 caracteres (11 caracteres)', async () => {
+    it('debe rechazar contraseña menor a 8 caracteres (7 caracteres)', async () => {
       const dto = crearDtoValido();
-      dto.password = '12345678901';
+      dto.password = '1234567';
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].property).toBe('password');
