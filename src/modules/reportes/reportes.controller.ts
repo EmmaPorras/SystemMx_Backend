@@ -118,11 +118,15 @@ export class ReportesController {
     return this.reportesService.conciliacionPagos();
   }
 
+  // Sólo el módulo de cuentas por cobrar es accesible para VENTAS.
+  // Los demás reportes globales siguen siendo ADMIN/CONSULTA.
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Get('cuentas-por-cobrar/vencimientos')
   vencimientosCuentasPorCobrar(@Query() dto: ConsultaVencimientosDto) {
     return this.reportesService.vencimientosCuentasPorCobrar(dto);
   }
 
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Get('cuentas-por-cobrar')
   cuentasPorCobrar() {
     return this.reportesService.cuentasPorCobrar();
