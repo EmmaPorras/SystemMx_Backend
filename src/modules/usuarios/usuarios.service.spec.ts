@@ -8,6 +8,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 
 import { Usuario } from '../../database/entities/usuario.entity';
+import { TokenAccionUsuario } from '../../database/entities/token-accion-usuario.entity';
+import { ConfigService } from '@nestjs/config';
+import { MailService } from '../mail/mail.service';
 import { PasswordHasherService } from './password-hasher.service';
 import { RolUsuario } from './rol-usuario.enum';
 import { UsuariosService } from './usuarios.service';
@@ -32,6 +35,27 @@ describe('UsuariosService', () => {
   let mockTransactionManager: {
     getRepository: jest.Mock;
     save: jest.Mock;
+  };
+
+  const tokenAccionRepositoryMock = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const configServiceMock = {
+    get: jest.fn((key: string) => {
+      if (key === 'SYSTEMMX_FRONTEND_URL') return 'https://systemmx-web-200684331.onrender.com';
+      if (key === 'SYSTEMMX_INVITACION_EXPIRES_HOURS') return '24';
+      if (key === 'SYSTEMMX_RECUPERACION_EXPIRES_MINUTES') return '30';
+      return null;
+    }),
+  };
+
+  const mailServiceMock = {
+    enviarCorreoAccion: jest.fn().mockResolvedValue({ exito: true, proveedor: 'simulado' }),
   };
 
   const dataSourceMock = {
@@ -60,12 +84,24 @@ describe('UsuariosService', () => {
           useValue: usuariosRepositoryMock,
         },
         {
+          provide: getRepositoryToken(TokenAccionUsuario),
+          useValue: tokenAccionRepositoryMock,
+        },
+        {
           provide: PasswordHasherService,
           useValue: passwordHasherMock,
         },
         {
           provide: DataSource,
           useValue: dataSourceMock,
+        },
+        {
+          provide: ConfigService,
+          useValue: configServiceMock,
+        },
+        {
+          provide: MailService,
+          useValue: mailServiceMock,
         },
       ],
     }).compile();
