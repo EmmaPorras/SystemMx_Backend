@@ -231,7 +231,7 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
         username: 'colaborador.nuevo',
         nombre: 'Carlos Santana',
         email: 'carlos@systemmx.com',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         lang: 'es',
       },
       '192.168.1.50',

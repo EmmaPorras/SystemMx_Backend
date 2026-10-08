@@ -1,9 +1,12 @@
+import { Roles } from '../auth/roles.decorator';
+import { RolUsuario } from '../usuarios/rol-usuario.enum';
 import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 
 import { ConsultaLotesDto } from './dto/consulta-lotes.dto';
 import { ConsultaMovimientosDto } from './dto/consulta-movimientos.dto';
 import { InventarioService } from './inventario.service';
 
+@Roles(RolUsuario.ADMIN, RolUsuario.VENTAS, RolUsuario.COMPRAS, RolUsuario.CONSULTA)
 @Controller('inventario')
 export class InventarioController {
   constructor(private readonly inventarioService: InventarioService) {}

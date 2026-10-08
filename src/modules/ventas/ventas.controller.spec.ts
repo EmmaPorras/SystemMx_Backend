@@ -63,7 +63,7 @@ describe('VentasController', () => {
     idUsuario: 2,
     username: 'operador1',
     nombre: 'Operador Uno',
-    rol: 'OPERADOR' as const,
+    rol: 'VENTAS' as const,
     activo: true,
     createdAt: new Date(),
     updatedAt: new Date(),

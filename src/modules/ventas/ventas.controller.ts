@@ -17,6 +17,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolUsuario } from '../usuarios/rol-usuario.enum';
 import type { UsuarioPublico } from '../usuarios/usuarios.types';
 
+@Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
 @Controller('ventas')
 export class VentasController {
   constructor(private readonly ventasService: VentasService) {}
@@ -52,13 +53,13 @@ export class VentasController {
     return this.ventasService.findOne(id);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Post()
   create(@Body() dto: CreateVentaDto, @CurrentUser() usuario: UsuarioPublico) {
     return this.ventasService.create(dto, usuario);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Post(':id/pagos')
   registrarPago(
     @Param('id', ParseIntPipe) id: number,
@@ -68,19 +69,19 @@ export class VentasController {
     return this.ventasService.registrarPago(id, dto, usuario);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Patch(':id/papelera')
   enviarAPapelera(@Param('id', ParseIntPipe) id: number) {
     return this.ventasService.enviarAPapelera(id);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Patch(':id/restaurar')
   restaurarDePapelera(@Param('id', ParseIntPipe) id: number) {
     return this.ventasService.restaurarDePapelera(id);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS)
   @Patch(':id/anular')
   anularVenta(
     @Param('id', ParseIntPipe) id: number,

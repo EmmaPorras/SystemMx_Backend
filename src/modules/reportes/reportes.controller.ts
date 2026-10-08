@@ -1,3 +1,5 @@
+import { Roles } from '../auth/roles.decorator';
+import { RolUsuario } from '../usuarios/rol-usuario.enum';
 import { Controller, Get, Query } from '@nestjs/common';
 
 import { ConsultaInventarioHistoricoDto } from './dto/consulta-inventario-historico.dto';
@@ -6,6 +8,7 @@ import { ConsultaResumenDto } from './dto/consulta-resumen.dto';
 import { ConsultaVencimientosDto } from './dto/consulta-vencimientos.dto';
 import { ReportesService } from './reportes.service';
 
+@Roles(RolUsuario.ADMIN, RolUsuario.CONSULTA)
 @Controller('reportes')
 export class ReportesController {
   constructor(private readonly reportesService: ReportesService) {}

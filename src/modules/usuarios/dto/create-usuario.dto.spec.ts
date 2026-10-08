@@ -138,9 +138,9 @@ describe('CreateUsuarioDto', () => {
       expect(errors.length).toBe(0);
     });
 
-    it('debe aceptar rol OPERADOR', async () => {
+    it('debe aceptar rol VENTAS y COMPRAS', async () => {
       const dto = crearDtoValido();
-      dto.rol = RolUsuario.OPERADOR;
+      dto.rol = RolUsuario.VENTAS;
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
     });

@@ -34,7 +34,7 @@ export class InvitarUsuarioDto {
   nombre!: string;
 
   @IsEnum(RolUsuario, {
-    message: 'El rol debe ser ADMIN, OPERADOR o CONSULTA.',
+    message: 'El rol debe ser ADMIN, VENTAS, COMPRAS o CONSULTA.',
   })
   rol!: RolUsuario;
 

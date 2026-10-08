@@ -135,7 +135,7 @@ describeIntegration('UsuariosService - Concurrencia Real Multi-Conexión Postgre
       emailNormalizado: testEmail.toLowerCase(),
       nombre: 'Usuario Concurrente Test',
       passwordHash: await passwordHasher.hash('TemporalPassword123!'),
-      rol: RolUsuario.OPERADOR,
+      rol: RolUsuario.VENTAS,
       activo: true,
       estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
       versionCredenciales: 1,
