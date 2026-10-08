@@ -29,6 +29,85 @@ interface MockQueryBuilder {
 }
 
 describe('VentasService', () => {
+  describe('create - Tarifas dinámicas de IVA (Etapa 12K)', () => {
+    it('debe calcular y guardar exactamente 5% de impuesto cuando se usa una tarifa activa de 5%', async () => {
+      const loteMock = crearLote({
+        idLote: 20,
+        idProducto: 10,
+        cantidadDisponible: 10,
+        costoUnitarioReal: 1000,
+        precioVentaRecomendado: 2000,
+      });
+
+      const qbMock = crearQueryBuilderMock();
+      qbMock.getOne.mockResolvedValue(loteMock);
+
+      const tarifaMock = {
+        idTarifaIva: 5,
+        codigo: 'IVA5',
+        descripcion: 'Tarifa Reducida 5%',
+        porcentaje: 5,
+        estado: 'ACTIVA',
+      };
+
+      manager.getRepository.mockImplementation((entity: any) => {
+        const repo: any = {
+          find: jest.fn().mockResolvedValue([]),
+          findOne: jest.fn().mockImplementation((options: any) => {
+            if (options?.where?.idTarifaIva === 5) {
+              return Promise.resolve(tarifaMock);
+            }
+            return Promise.resolve(null);
+          }),
+          createQueryBuilder: jest.fn().mockReturnValue(qbMock),
+          create: jest.fn((plain: unknown) => plain),
+          save: managerSaveMock,
+        };
+        return repo;
+      });
+
+      const dto: CreateVentaDto = {
+        fechaVenta: '2026-10-08',
+        clienteNombre: 'Cliente Tarifa 5',
+        medioPago: 'EFECTIVO',
+        detalles: [
+          {
+            productoId: 10,
+            loteId: 20,
+            cantidad: 2,
+            precioUnitario: 10000, // Subtotal = 20,000. 5% IVA = 1,000. Total = 21,000
+            tipoTarifa: 'ESPECIAL',
+            idTarifaIva: 5,
+            modoDescuentoLote: 'MANUAL',
+          },
+        ],
+      };
+
+      await service.create(dto, actor);
+
+      // Verificamos que la venta guardada tenga subtotal 20000, ivaTotal 1000, totalVenta 21000
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        VentaEntity,
+        expect.objectContaining({
+          subtotal: 20000,
+          ivaTotal: 1000,
+          totalVenta: 21000,
+        }),
+      );
+
+      // Verificamos que el detalle guardado tenga porcentajeIva = 5 e iva = 1000
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        DetalleVenta,
+        expect.objectContaining({
+          idTarifaIva: 5,
+          porcentajeIva: 5,
+          iva: 1000,
+          totalLinea: 21000,
+        }),
+      );
+    });
+  });
+
   let service: VentasService;
   let ventasRepository: jest.Mocked<Repository<VentaEntity>>;
   let ventasRepoSaveMock: jest.Mock;

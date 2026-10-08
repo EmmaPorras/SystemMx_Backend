@@ -10,6 +10,7 @@ import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
 import { PagoVenta } from '../../database/entities/pago-venta.entity';
+import { TarifaIva } from '../../database/entities/tarifa-iva.entity';
 import { VentaEntity } from '../../database/entities/venta.entity';
 import { ActorAuditoria } from '../auth/auth.types';
 import { InventarioService } from '../inventario/inventario.service';
@@ -896,6 +897,27 @@ export class VentasService {
     manager: EntityManager,
     detalleDto: CreateVentaDetalleDto,
   ): Promise<TarifaCalculada> {
+    if (detalleDto.idTarifaIva) {
+      const tarifa = await manager.getRepository(TarifaIva).findOne({
+        where: { idTarifaIva: detalleDto.idTarifaIva },
+      });
+
+      if (!tarifa) {
+        throw new NotFoundException('Tarifa IVA no encontrada.');
+      }
+
+      if (tarifa.estado !== 'ACTIVA') {
+        throw new BadRequestException(
+          'La tarifa IVA seleccionada no está activa.',
+        );
+      }
+
+      return {
+        idTarifaIva: Number(tarifa.idTarifaIva),
+        porcentajeIva: Number(tarifa.porcentaje),
+      };
+    }
+
     if (detalleDto.tipoTarifa === 'EXENTO') {
       return {
         idTarifaIva: null,
@@ -916,43 +938,6 @@ export class VentasService {
       return {
         idTarifaIva: null,
         porcentajeIva: this.redondear(detalleDto.porcentajeIva),
-      };
-    }
-
-    if (detalleDto.idTarifaIva) {
-      const tarifas = await manager.query<
-        Array<{
-          idTarifaIva: number;
-          porcentaje: number | string;
-          activo: boolean | number;
-        }>
-      >(
-        `
-        SELECT TOP 1
-          id_tarifa_iva AS idTarifaIva,
-          porcentaje,
-          activo
-        FROM dbo.tarifa_iva
-        WHERE id_tarifa_iva = @0
-        `,
-        [detalleDto.idTarifaIva],
-      );
-
-      const tarifa = tarifas[0];
-
-      if (!tarifa) {
-        throw new NotFoundException('Tarifa IVA no encontrada.');
-      }
-
-      if (!tarifa.activo) {
-        throw new BadRequestException(
-          'La tarifa IVA seleccionada no estÃ¡ activa.',
-        );
-      }
-
-      return {
-        idTarifaIva: Number(tarifa.idTarifaIva),
-        porcentajeIva: Number(tarifa.porcentaje),
       };
     }
 
