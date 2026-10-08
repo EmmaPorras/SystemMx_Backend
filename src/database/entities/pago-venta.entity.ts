@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Check,
   Column,
@@ -76,14 +77,14 @@ export class PagoVenta {
 
   @CreateDateColumn({
     name: 'created_at',
-    type: 'timestamptz',
+    type: resolveColumnType('timestamptz', 'datetime2'),
     default: () => 'CURRENT_TIMESTAMP',
   })
   createdAt!: Date;
 
   @UpdateDateColumn({
     name: 'updated_at',
-    type: 'timestamptz',
+    type: resolveColumnType('timestamptz', 'datetime2'),
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt!: Date;

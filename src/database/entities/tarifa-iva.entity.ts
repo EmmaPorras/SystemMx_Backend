@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Column,
   CreateDateColumn,
@@ -43,14 +44,14 @@ export class TarifaIva {
 
   @Column({
     name: 'activo',
-    type: 'boolean',
+    type: resolveColumnType('boolean', 'bit'),
     transformer: estadoTarifaTransformer,
   })
   estado!: string;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
   updatedAt!: Date;
 }

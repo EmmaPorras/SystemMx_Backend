@@ -274,33 +274,50 @@ describe('MailService y Seguridad Google Apps Script', () => {
       expect(passedOptions?.redirect).toBe('follow');
     });
 
-    it('debe reintentar ante fallo transitorio de conexión y tener éxito en el segundo intento', async () => {
+    it('no debe reintentar automáticamente ante fallo de conexión para evitar envíos duplicados', async () => {
       let attempts = 0;
       global.fetch = jest.fn().mockImplementation(async () => {
         attempts++;
-        if (attempts === 1) {
-          throw new Error('Connection reset by peer');
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            processedAt: new Date().toISOString(),
-          }),
-        };
+        throw new Error('Connection reset by peer');
       });
 
-      const res = await service.enviarCorreoAccion({
-        to: 'juanito@gmail.com',
-        recipientName: 'Juanito',
+      await expect(
+        service.enviarCorreoAccion({
+          to: 'juanito@gmail.com',
+          recipientName: 'Juanito',
+          type: 'INVITACION',
+          actionUrl: 'https://systemmx-web-200684331.onrender.com/#/activar-cuenta?token=' + 'a'.repeat(64),
+          expirationMinutes: 1440,
+        }),
+      ).rejects.toThrow('No se pudo enviar el correo de notificación: Connection reset by peer');
+
+      expect(attempts).toBe(1);
+    });
+
+    it('enmascara tokens en logs y no expone el secreto ni tokens completos', async () => {
+      const warnSpy = jest.spyOn((service as any).logger, 'warn').mockImplementation();
+
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'NODE_ENV') return 'development';
+        if (key === 'SYSTEMMX_MAIL_APPS_SCRIPT_URL') return '';
+        if (key === 'SYSTEMMX_MAIL_SECRET') return '';
+        return null;
+      });
+
+      const rawToken = 'b7c7501d9b9d74b2020c1fc5c496651fba1ac8334fc87cf03a330e30c7ca821f';
+      await service.enviarCorreoAccion({
+        to: 'destinatario@gmail.com',
+        recipientName: 'Test',
         type: 'INVITACION',
-        actionUrl: 'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' + 'a'.repeat(64),
+        actionUrl: `https://systemmx-web-200684331.onrender.com/#/activar-cuenta?token=${rawToken}`,
         expirationMinutes: 1440,
       });
 
-      expect(attempts).toBe(2);
-      expect(res.exito).toBe(true);
+      expect(warnSpy).toHaveBeenCalled();
+      const loggedMessage = warnSpy.mock.calls[0][0];
+      expect(loggedMessage).not.toContain(rawToken);
+      expect(loggedMessage).toContain('token=b7c7***821f');
+      warnSpy.mockRestore();
     });
   });
   describe('5. Prohibición estricta de proveedor simulado en producción', () => {

@@ -1,6 +1,7 @@
-import 'dotenv/config';
+﻿import 'dotenv/config';
 
 import { DataSource, type DataSourceOptions } from 'typeorm';
+import { detectDatabaseType } from './column-types';
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
@@ -81,12 +82,35 @@ function migrationCredentials(env: NodeJS.ProcessEnv): {
 export function createMigrationDataSourceOptions(
   env: NodeJS.ProcessEnv = process.env,
 ): DataSourceOptions {
-  // Soporte de PostgreSQL / Neon (Producción en Render)
-  const databaseUrl = optional(env, 'DATABASE_URL_UNPOOLED') ?? optional(env, 'DATABASE_URL');
-  if (databaseUrl) {
+  const dbType = detectDatabaseType(env);
+
+  // Soporte de PostgreSQL / Neon (Producción en Render o DB_TYPE=postgres)
+  if (dbType === 'postgres') {
+    const databaseUrl =
+      optional(env, 'DATABASE_URL_UNPOOLED') ?? optional(env, 'DATABASE_URL');
+
+    if (databaseUrl) {
+      return {
+        type: 'postgres',
+        url: databaseUrl,
+        entities: [__dirname + '/entities/*.entity{.ts,.js}'],
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        synchronize: false,
+        migrationsRun: false,
+        migrationsTableName: 'migrations',
+        migrationsTransactionMode: 'all',
+        logging: booleanValue(env, 'DB_LOGGING', false),
+      };
+    }
+
+    const credentials = migrationCredentials(env);
     return {
       type: 'postgres',
-      url: databaseUrl,
+      host: optional(env, 'DB_HOST') || 'localhost',
+      port: env.DB_PORT ? portValue(env) : 5432,
+      username: credentials.username,
+      password: credentials.password,
+      database: required(env, 'DB_DATABASE'),
       entities: [__dirname + '/entities/*.entity{.ts,.js}'],
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       synchronize: false,
@@ -97,49 +121,33 @@ export function createMigrationDataSourceOptions(
     };
   }
 
-  // Soporte de SQL Server (Desarrollo local)
+  // Soporte de SQL Server (Desarrollo local por defecto o DB_TYPE=mssql)
   const credentials = migrationCredentials(env);
 
   return {
     type: 'mssql',
-
     host: required(env, 'DB_HOST'),
-
     port: portValue(env),
-
     username: credentials.username,
-
     password: credentials.password,
-
     database: required(env, 'DB_DATABASE'),
-
     entities: [__dirname + '/entities/*.entity{.ts,.js}'],
-
     migrations: [__dirname + '/migrations/*{.ts,.js}'],
-
     synchronize: false,
-
     migrationsRun: false,
-
     migrationsTableName: 'migrations',
-
     migrationsTransactionMode: 'all',
-
     logging: booleanValue(env, 'DB_LOGGING', false),
-
     options: {
       encrypt: booleanValue(env, 'DB_ENCRYPT', false),
-
       trustServerCertificate: booleanValue(
         env,
         'DB_TRUST_SERVER_CERTIFICATE',
         false,
       ),
     },
-
     extra: {
       requestTimeout: 60_000,
-
       connectionTimeout: 60_000,
     },
   };

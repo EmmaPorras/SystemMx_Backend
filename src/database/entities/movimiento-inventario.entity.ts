@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Check,
   Column,
@@ -50,7 +51,7 @@ export class MovimientoInventario {
 
   @Column({
     name: 'fecha_movimiento',
-    type: 'timestamptz',
+    type: resolveColumnType('timestamptz', 'datetime2'),
     default: () => 'CURRENT_TIMESTAMP',
   })
   fechaMovimiento!: Date;

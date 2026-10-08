@@ -11,6 +11,7 @@ import * as crypto from 'crypto';
 
 import { Usuario } from '../../database/entities/usuario.entity';
 import { TokenAccionUsuario } from '../../database/entities/token-accion-usuario.entity';
+import { resolveSqlExpr } from '../../database/column-types';
 import { MailService } from '../mail/mail.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { InvitarUsuarioDto } from './dto/invitar-usuario.dto';

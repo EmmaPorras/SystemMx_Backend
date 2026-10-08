@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+﻿import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class UserInvitationsAndTokens1788762400000 implements MigrationInterface {
   name = 'UserInvitationsAndTokens1788762400000';
@@ -10,23 +10,17 @@ export class UserInvitationsAndTokens1788762400000 implements MigrationInterface
       // -------------------------------------------------------------
       // DIALECTO: PostgreSQL (Neon / Render)
       // -------------------------------------------------------------
-      await queryRunner.query(`
-        ALTER TABLE "usuario"
-          ADD COLUMN IF NOT EXISTS "email" varchar(255),
-          ADD COLUMN IF NOT EXISTS "email_normalizado" varchar(255),
-          ADD COLUMN IF NOT EXISTS "estado_activacion" varchar(30) NOT NULL DEFAULT 'ACTIVO';
-      `);
+      await queryRunner.query(`ALTER TABLE "usuario" ADD COLUMN IF NOT EXISTS "email" varchar(255);`);
+      await queryRunner.query(`ALTER TABLE "usuario" ADD COLUMN IF NOT EXISTS "email_normalizado" varchar(255);`);
+      await queryRunner.query(`ALTER TABLE "usuario" ADD COLUMN IF NOT EXISTS "estado_activacion" varchar(30) NOT NULL DEFAULT 'ACTIVO';`);
 
+      // Asegurar que usuarios existentes sin estado tengan 'ACTIVO'
+      await queryRunner.query(`UPDATE "usuario" SET "estado_activacion" = 'ACTIVO';`);
+
+      await queryRunner.query(`ALTER TABLE "usuario" DROP CONSTRAINT IF EXISTS "CK_usuario_estado_activacion";`);
       await queryRunner.query(`
-        DO $$
-        BEGIN
-          IF NOT EXISTS (
-            SELECT 1 FROM pg_constraint WHERE conname = 'CK_usuario_estado_activacion'
-          ) THEN
-            ALTER TABLE "usuario" ADD CONSTRAINT "CK_usuario_estado_activacion"
-              CHECK ("estado_activacion" IN ('ACTIVO', 'PENDIENTE_ACTIVACION'));
-          END IF;
-        END $$;
+        ALTER TABLE "usuario" ADD CONSTRAINT "CK_usuario_estado_activacion"
+          CHECK ("estado_activacion" IN ('ACTIVO', 'PENDIENTE_ACTIVACION'));
       `);
 
       await queryRunner.query(`
@@ -70,14 +64,24 @@ export class UserInvitationsAndTokens1788762400000 implements MigrationInterface
         BEGIN
           ALTER TABLE [usuario] ADD [email] nvarchar(255) NULL;
         END
+      `);
+
+      await queryRunner.query(`
         IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[usuario]') AND name = 'email_normalizado')
         BEGIN
           ALTER TABLE [usuario] ADD [email_normalizado] nvarchar(255) NULL;
         END
+      `);
+
+      await queryRunner.query(`
         IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[usuario]') AND name = 'estado_activacion')
         BEGIN
           ALTER TABLE [usuario] ADD [estado_activacion] nvarchar(30) NOT NULL CONSTRAINT [DF_usuario_estado_activacion] DEFAULT 'ACTIVO';
         END
+      `);
+
+      await queryRunner.query(`
+        UPDATE [usuario] SET [estado_activacion] = 'ACTIVO';
       `);
 
       await queryRunner.query(`
@@ -119,6 +123,9 @@ export class UserInvitationsAndTokens1788762400000 implements MigrationInterface
         BEGIN
           CREATE INDEX [IX_token_accion_hash] ON [token_accion_usuario] ([token_hash]);
         END
+      `);
+
+      await queryRunner.query(`
         IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_token_accion_usuario_tipo')
         BEGIN
           CREATE INDEX [IX_token_accion_usuario_tipo] ON [token_accion_usuario] ([id_usuario], [tipo], [usado]);
@@ -133,30 +140,18 @@ export class UserInvitationsAndTokens1788762400000 implements MigrationInterface
     if (isPostgres) {
       await queryRunner.query(`DROP TABLE IF EXISTS "token_accion_usuario" CASCADE;`);
       await queryRunner.query(`DROP INDEX IF EXISTS "UX_usuario_email_normalizado";`);
-      await queryRunner.query(`
-        DO $$
-        BEGIN
-          IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CK_usuario_estado_activacion') THEN
-            ALTER TABLE "usuario" DROP CONSTRAINT "CK_usuario_estado_activacion";
-          END IF;
-        END $$;
-      `);
-      await queryRunner.query(`
-        ALTER TABLE "usuario"
-          DROP COLUMN IF EXISTS "estado_activacion",
-          DROP COLUMN IF EXISTS "email_normalizado",
-          DROP COLUMN IF EXISTS "email";
-      `);
+      await queryRunner.query(`ALTER TABLE "usuario" DROP CONSTRAINT IF EXISTS "CK_usuario_estado_activacion";`);
+      await queryRunner.query(`ALTER TABLE "usuario" DROP COLUMN IF EXISTS "estado_activacion";`);
+      await queryRunner.query(`ALTER TABLE "usuario" DROP COLUMN IF EXISTS "email_normalizado";`);
+      await queryRunner.query(`ALTER TABLE "usuario" DROP COLUMN IF EXISTS "email";`);
     } else {
-      await queryRunner.query(`
-        IF OBJECT_ID('token_accion_usuario', 'U') IS NOT NULL DROP TABLE [token_accion_usuario];
-        IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'UX_usuario_email_normalizado') DROP INDEX [UX_usuario_email_normalizado] ON [usuario];
-        IF EXISTS (SELECT * FROM sys.check_constraints WHERE name = 'CK_usuario_estado_activacion') ALTER TABLE [usuario] DROP CONSTRAINT [CK_usuario_estado_activacion];
-        IF EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_usuario_estado_activacion') ALTER TABLE [usuario] DROP CONSTRAINT [DF_usuario_estado_activacion];
-        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[usuario]') AND name = 'estado_activacion') ALTER TABLE [usuario] DROP COLUMN [estado_activacion];
-        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[usuario]') AND name = 'email_normalizado') ALTER TABLE [usuario] DROP COLUMN [email_normalizado];
-        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[usuario]') AND name = 'email') ALTER TABLE [usuario] DROP COLUMN [email];
-      `);
+      await queryRunner.query(`IF OBJECT_ID('token_accion_usuario', 'U') IS NOT NULL DROP TABLE [token_accion_usuario];`);
+      await queryRunner.query(`IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'UX_usuario_email_normalizado') DROP INDEX [UX_usuario_email_normalizado] ON [usuario];`);
+      await queryRunner.query(`IF EXISTS (SELECT * FROM sys.check_constraints WHERE name = 'CK_usuario_estado_activacion') ALTER TABLE [usuario] DROP CONSTRAINT [CK_usuario_estado_activacion];`);
+      await queryRunner.query(`IF EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_usuario_estado_activacion') ALTER TABLE [usuario] DROP CONSTRAINT [DF_usuario_estado_activacion];`);
+      await queryRunner.query(`IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[usuario]') AND name = 'estado_activacion') ALTER TABLE [usuario] DROP COLUMN [estado_activacion];`);
+      await queryRunner.query(`IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[usuario]') AND name = 'email_normalizado') ALTER TABLE [usuario] DROP COLUMN [email_normalizado];`);
+      await queryRunner.query(`IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[usuario]') AND name = 'email') ALTER TABLE [usuario] DROP COLUMN [email];`);
     }
   }
 }

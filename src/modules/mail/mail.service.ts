@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
-import { EnviarCorreoAccionParams, EnviarCorreoResultado } from './mail.interface';
+import {
+  EnviarCorreoAccionParams,
+  EnviarCorreoResultado,
+} from './mail.interface';
 
 @Injectable()
 export class MailService {
@@ -16,17 +19,23 @@ export class MailService {
   }
 
   private getSecret(): string {
-    return (this.configService.get<string>('SYSTEMMX_MAIL_SECRET') || '').trim();
+    return (
+      this.configService.get<string>('SYSTEMMX_MAIL_SECRET') || ''
+    ).trim();
   }
 
   private getSenderEmail(): string {
     return (
-      this.configService.get<string>('SYSTEMMX_MAIL_FROM') || 'receptor847@gmail.com'
+      this.configService.get<string>('SYSTEMMX_MAIL_FROM') ||
+      'receptor847@gmail.com'
     ).trim();
   }
 
   calcularHmacSha256(canonicalString: string, secret: string): string {
-    return crypto.createHmac('sha256', secret).update(canonicalString).digest('hex');
+    return crypto
+      .createHmac('sha256', secret)
+      .update(canonicalString)
+      .digest('hex');
   }
 
   construirPayloadCanonico(
@@ -45,6 +54,17 @@ export class MailService {
     return `${timestamp}.${nonce}.${JSON.stringify(corePayload)}`;
   }
 
+  /**
+   * Enmascara tokens sensibles dentro de URLs de acción para auditoría y logs seguros.
+   */
+  private enmascararUrl(url: string): string {
+    if (!url) return '';
+    return url.replace(
+      /token=([a-fA-F0-9]{4})[a-fA-F0-9]+([a-fA-F0-9]{4})/g,
+      'token=$1***$2',
+    );
+  }
+
   async enviarCorreoAccion(
     params: EnviarCorreoAccionParams,
   ): Promise<EnviarCorreoResultado> {
@@ -53,7 +73,9 @@ export class MailService {
 
     const nodeEnv = (
       this.configService.get<string>('NODE_ENV') || 'development'
-    ).trim().toLowerCase();
+    )
+      .trim()
+      .toLowerCase();
     const isProduction = nodeEnv === 'production';
 
     // En producción NUNCA se permite el proveedor simulado:
@@ -68,8 +90,9 @@ export class MailService {
         );
       }
 
+      const urlEnmascarada = this.enmascararUrl(params.actionUrl);
       this.logger.warn(
-        `[SIMULACIÓN CORREO] Para: ${params.to} | Tipo: ${params.type} | Acción: ${params.actionUrl} (Apps Script URL o Secret no configurados)`,
+        `[SIMULACIÓN CORREO] Para: ${params.to} | Tipo: ${params.type} | Acción: ${urlEnmascarada} (Apps Script URL o Secret no configurados)`,
       );
       return {
         exito: true,
@@ -105,93 +128,65 @@ export class MailService {
       signature,
     });
 
-    const maxIntentos = 2;
-    let ultimoError: Error | null = null;
+    // Envío único (single-shot) sin reintentos automáticos para prevenir
+    // duplicación de mensajes si Apps Script ya ejecutó MailApp.sendEmail().
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    for (let intento = 1; intento <= maxIntentos; intento++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const response = await fetch(appsScriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-SystemMx-Timestamp': String(timestamp),
+          'X-SystemMx-Nonce': nonce,
+          'X-SystemMx-Signature': signature,
+        },
+        body: bodyToSend,
+        signal: controller.signal,
+        redirect: 'follow',
+      });
 
-        const response = await fetch(appsScriptUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-SystemMx-Timestamp': String(timestamp),
-            'X-SystemMx-Nonce': nonce,
-            'X-SystemMx-Signature': signature,
-          },
-          body: bodyToSend,
-          signal: controller.signal,
-          redirect: 'follow',
-        });
+      clearTimeout(timeoutId);
 
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const statusText = response.statusText || 'Error HTTP';
-          throw new Error(
-            `Google Apps Script respondió con status ${response.status}: ${statusText}`,
-          );
-        }
-
-        const responseData = (await response.json()) as {
-          success?: boolean;
-          error?: string;
-        };
-
-        // Si Apps Script procesó y rechazó con success: false, NO es error de red transitorio;
-        // no reintentamos para evitar duplicados y arrojamos el motivo de rechazo directamente.
-        if (responseData.success !== true) {
-          const motivo =
-            responseData.error || 'Respuesta no exitosa de Apps Script';
-          this.logger.error(
-            `Google Apps Script rechazó el envío a ${params.to}: ${motivo}`,
-          );
-          throw new Error(motivo);
-        }
-
-        this.logger.log(
-          `Correo de tipo ${params.type} enviado exitosamente vía Apps Script a ${params.to}`,
+      if (!response.ok) {
+        const statusText = response.statusText || 'Error HTTP';
+        throw new Error(
+          `Google Apps Script respondió con status ${response.status}: ${statusText}`,
         );
-
-        return {
-          exito: true,
-          proveedor: 'google_apps_script',
-        };
-      } catch (err: unknown) {
-        ultimoError = err instanceof Error ? err : new Error(String(err));
-
-        // Si el error provino de un rechazo explícito de la aplicación Apps Script, no reintentar
-        const esRechazoValidacion =
-          ultimoError.message.includes('Host no autorizado') ||
-          ultimoError.message.includes('Firma digital') ||
-          ultimoError.message.includes('Firma expirada') ||
-          ultimoError.message.includes('Solicitud duplicada') ||
-          ultimoError.message.includes('Ruta no autorizada') ||
-          ultimoError.message.includes('URL de acción inválida') ||
-          ultimoError.message.includes('Destinatario de correo inválido');
-
-        if (esRechazoValidacion) {
-          throw ultimoError;
-        }
-
-        this.logger.warn(
-          `Intento ${intento}/${maxIntentos} falló por red/timeout al contactar Apps Script para ${params.to}: ${ultimoError.message}`,
-        );
-
-        if (intento < maxIntentos) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
       }
+
+      const responseData = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
+
+      if (responseData.success !== true) {
+        const motivo =
+          responseData.error || 'Respuesta no exitosa de Apps Script';
+        this.logger.error(
+          `Google Apps Script rechazó el envío a ${params.to}: ${motivo}`,
+        );
+        throw new Error(motivo);
+      }
+
+      this.logger.log(
+        `Correo de tipo ${params.type} enviado exitosamente vía Apps Script a ${params.to}`,
+      );
+
+      return {
+        exito: true,
+        proveedor: 'google_apps_script',
+      };
+    } catch (err: unknown) {
+      const errorFinal =
+        err instanceof Error ? err : new Error(String(err));
+      this.logger.error(
+        `Fallo al enviar correo de tipo ${params.type} a ${params.to}: ${errorFinal.message}`,
+      );
+      throw new Error(
+        `No se pudo enviar el correo de notificación: ${errorFinal.message}`,
+      );
     }
-
-    this.logger.error(
-      `Fallo definitivo al enviar correo de tipo ${params.type} a ${params.to}: ${ultimoError?.message}`,
-    );
-
-    throw new Error(
-      `No se pudo enviar el correo de notificación: ${ultimoError?.message}`,
-    );
   }
 }
