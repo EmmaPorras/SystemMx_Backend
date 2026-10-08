@@ -4,12 +4,13 @@ import { createRuntimeTypeOrmOptions } from './runtime-typeorm.options';
 
 interface SqlServerRuntimeOptions {
   type: string;
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  database: string;
-  entities: string[];
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database?: string;
+  url?: string;
+  autoLoadEntities?: boolean;
   synchronize: boolean;
   migrationsRun: boolean;
   dropSchema: boolean;
@@ -19,8 +20,10 @@ interface SqlServerRuntimeOptions {
     trustServerCertificate?: boolean;
   };
   extra?: {
+    max?: number;
     requestTimeout?: number;
     connectionTimeout?: number;
+    connectionTimeoutMillis?: number;
   };
 }
 
@@ -61,7 +64,7 @@ describe('createRuntimeTypeOrmOptions', () => {
     expect(options.dropSchema).toBe(false);
   });
 
-  it('debe mapear correctamente los valores de conexión requeridos', () => {
+  it('debe mapear correctamente los valores de conexión requeridos para MSSQL', () => {
     const config = createMockConfig();
     const options = createRuntimeTypeOrmOptions(
       config,
@@ -73,8 +76,43 @@ describe('createRuntimeTypeOrmOptions', () => {
     expect(options.username).toBe('runtime_user');
     expect(options.password).toBe('runtime_password');
     expect(options.database).toBe('systemmx_test');
-    expect(options.entities).toBeDefined();
-    expect(Array.isArray(options.entities)).toBe(true);
+    expect(options.autoLoadEntities).toBe(true);
+  });
+
+  it('debe mapear correctamente para PostgreSQL cuando DATABASE_URL está configurado', () => {
+    const config = createMockConfig({
+      DATABASE_URL: 'postgres://user:pass@localhost:5432/systemmx_pg',
+    });
+    const options = createRuntimeTypeOrmOptions(
+      config,
+    ) as unknown as SqlServerRuntimeOptions;
+
+    expect(options.type).toBe('postgres');
+    expect(options.url).toBe('postgres://user:pass@localhost:5432/systemmx_pg');
+    expect(options.autoLoadEntities).toBe(true);
+    expect(options.synchronize).toBe(false);
+  });
+
+  it('debe mapear correctamente para PostgreSQL cuando DB_TYPE=postgres', () => {
+    const config = createMockConfig({
+      DB_TYPE: 'postgres',
+      DB_HOST: 'localhost',
+      DB_PORT: '5432',
+      DB_USERNAME: 'pg_user',
+      DB_PASSWORD: 'pg_password',
+      DB_DATABASE: 'pg_db',
+    });
+    const options = createRuntimeTypeOrmOptions(
+      config,
+    ) as unknown as SqlServerRuntimeOptions;
+
+    expect(options.type).toBe('postgres');
+    expect(options.host).toBe('localhost');
+    expect(options.port).toBe(5432);
+    expect(options.username).toBe('pg_user');
+    expect(options.password).toBe('pg_password');
+    expect(options.database).toBe('pg_db');
+    expect(options.autoLoadEntities).toBe(true);
   });
 
   it('debe configurar logging según DB_LOGGING', () => {
@@ -91,7 +129,7 @@ describe('createRuntimeTypeOrmOptions', () => {
     expect(optionsTrue.logging).toBe(true);
   });
 
-  it('debe configurar opciones de TLS y certificados correctamente', () => {
+  it('debe configurar opciones de TLS y certificados correctamente en MSSQL', () => {
     const config = createMockConfig({
       DB_ENCRYPT: 'true',
       DB_TRUST_SERVER_CERTIFICATE: 'false',

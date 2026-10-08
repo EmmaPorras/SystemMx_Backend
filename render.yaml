@@ -31,12 +31,20 @@ services:
         sync: false
       - key: SYSTEMMX_BOOTSTRAP_PASSWORD
         sync: false
+      - key: SYSTEMMX_MAIL_APPS_SCRIPT_URL
+        value: https://script.google.com/macros/s/AKfycbzhgblogxuMY6fx8toDEl_ni1YeoalG60HDXpfD_HMCzXNUW10oqz__kb4PYtCZ9ftc1w/exec
+      - key: SYSTEMMX_MAIL_SECRET
+        sync: false
+      - key: SYSTEMMX_MAIL_FROM
+        value: receptor847@gmail.com
+      - key: SYSTEMMX_FRONTEND_URL
+        value: https://systemmx-web-200684331.onrender.com
 
   - type: web
     name: systemmx-web-200684331
     runtime: static
     repo: https://github.com/EmmaPorras/SystemMx_Frontend
-    branch: main
+    branch: deploy-render
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     autoDeployTrigger: commit

@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Column,
   CreateDateColumn,
@@ -124,13 +125,13 @@ export class VentaEntity {
   })
   observaciones?: string | null;
 
-  @Column({ name: 'en_papelera', type: 'boolean' })
+  @Column({ name: 'en_papelera', type: resolveColumnType('boolean', 'bit') })
   enPapelera!: boolean;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
   updatedAt!: Date;
 
   @OneToMany(() => DetalleVenta, (detalle) => detalle.venta)

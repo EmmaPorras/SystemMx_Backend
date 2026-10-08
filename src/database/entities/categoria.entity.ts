@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Column,
   CreateDateColumn,
@@ -33,20 +34,20 @@ export class Categoria {
 
   @Column({
     name: 'activo',
-    type: 'boolean',
+    type: resolveColumnType('boolean', 'bit'),
     default: true,
   })
   activo!: boolean;
 
   @CreateDateColumn({
     name: 'created_at',
-    type: 'timestamptz',
+    type: resolveColumnType('timestamptz', 'datetime2'),
   })
   createdAt!: Date;
 
   @UpdateDateColumn({
     name: 'updated_at',
-    type: 'timestamptz',
+    type: resolveColumnType('timestamptz', 'datetime2'),
   })
   updatedAt!: Date;
 

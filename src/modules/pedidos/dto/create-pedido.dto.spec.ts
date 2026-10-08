@@ -11,6 +11,7 @@ async function validarDto<T extends object>(cls: new () => T, datos: object) {
 describe('CreatePedidoDto & CreatePedidoDetalleDto', () => {
   const detalleValido = {
     productoNombre: 'Filtro de aceite',
+    categoriaId: 1,
     loteCodigo: 'L1',
     cantidad: 5,
     costoUnitarioOrigen: 2500,

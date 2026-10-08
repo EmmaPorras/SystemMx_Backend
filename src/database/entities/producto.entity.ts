@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Column,
   CreateDateColumn,
@@ -46,7 +47,7 @@ export class Producto {
   @Column({ name: 'stock_minimo', type: 'int' })
   stockMinimo!: number;
 
-  @Column({ name: 'activo', type: 'boolean' })
+  @Column({ name: 'activo', type: resolveColumnType('boolean', 'bit') })
   activo!: boolean;
 
   @Column({ name: 'marca', type: 'varchar', length: 100, nullable: true })
@@ -79,10 +80,10 @@ export class Producto {
   @Column({ name: 'observaciones', type: 'varchar', nullable: true })
   observaciones?: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
   updatedAt!: Date;
 
   @ManyToOne(() => Categoria, { nullable: true })

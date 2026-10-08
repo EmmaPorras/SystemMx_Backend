@@ -7,6 +7,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 
+import { Categoria } from '../../database/entities/categoria.entity';
 import { DetallePedidoCompra } from '../../database/entities/detalle-pedido-compra.entity';
 import { DetalleVenta } from '../../database/entities/detalle-venta.entity';
 import { LoteProducto } from '../../database/entities/lote-producto.entity';
@@ -21,6 +22,7 @@ import { PedidosService } from './pedidos.service';
 
 interface MockQueryBuilder {
   setLock: jest.Mock;
+  leftJoinAndSelect: jest.Mock;
   where: jest.Mock;
   andWhere: jest.Mock;
   orderBy: jest.Mock;
@@ -35,6 +37,7 @@ describe('PedidosService', () => {
   const crearQueryBuilderMock = (): MockQueryBuilder => {
     const qb: MockQueryBuilder = {
       setLock: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
@@ -78,6 +81,23 @@ describe('PedidosService', () => {
     updatedAt: new Date(),
     ...overrides,
   });
+
+  const crearProducto = (overrides: Partial<Producto> = {}): Producto =>
+    ({
+      idProducto: 1,
+      nombre: 'Filtro de aceite',
+      idCategoria: 1,
+      stockMinimo: 5,
+      activo: true,
+      sku: 'FIL-001',
+      costoPromedioPonderado: 2500,
+      precioVentaSugerido: 4000,
+      categoria: { idCategoria: 1, nombre: 'Repuestos', activo: true } as Categoria,
+      lotes: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    } as Producto);
 
   const crearLote = (overrides: Partial<LoteProducto> = {}): LoteProducto =>
     ({
@@ -137,6 +157,9 @@ describe('PedidosService', () => {
     createQueryBuilder: jest.Mock;
   };
   let detalleVentaRepoMock: { count: jest.Mock };
+  let categoriaRepoMock: {
+    findOne: jest.Mock;
+  };
   let detallePedidoRepoMock: {
     create: jest.Mock;
     save: jest.Mock;
@@ -155,7 +178,7 @@ describe('PedidosService', () => {
     };
 
     pedidosRepositoryMock = {
-      find: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
@@ -168,9 +191,9 @@ describe('PedidosService', () => {
     };
 
     productoRepoMock = {
-      findOne: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
+      findOne: jest.fn().mockResolvedValue(crearProducto({ idProducto: 1 })),
+      create: jest.fn((p) => ({ idProducto: 1, ...p })),
+      save: jest.fn((p) => Promise.resolve({ idProducto: 1, ...p })),
       createQueryBuilder: jest.fn(),
     };
 
@@ -182,6 +205,10 @@ describe('PedidosService', () => {
 
     detalleVentaRepoMock = {
       count: jest.fn(),
+    };
+
+    categoriaRepoMock = {
+      findOne: jest.fn().mockResolvedValue({ idCategoria: 1, activo: true }),
     };
 
     detallePedidoRepoMock = {
@@ -198,6 +225,7 @@ describe('PedidosService', () => {
         if (entity === LoteProducto) return loteRepoMock;
         if (entity === DetalleVenta) return detalleVentaRepoMock;
         if (entity === DetallePedidoCompra) return detallePedidoRepoMock;
+        if (entity === Categoria) return categoriaRepoMock;
         return null;
       }),
       create: jest.fn((_entity: unknown, val: object) => val),
@@ -224,10 +252,10 @@ describe('PedidosService', () => {
       }),
       transaction: jest
         .fn()
-        .mockImplementation(
-          (callback: (mgr: EntityManager) => Promise<unknown>) =>
-            callback(managerMock as unknown as EntityManager),
-        ),
+        .mockImplementation((...args: any[]) => {
+          const callback = typeof args[0] === 'function' ? args[0] : args[1];
+          return callback(managerMock as unknown as EntityManager);
+        }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -265,7 +293,9 @@ describe('PedidosService', () => {
         relations: {
           origenCompra: true,
           lotes: {
-            producto: true,
+            producto: {
+              categoria: true,
+            },
             detallePedido: true,
           },
         },
@@ -287,7 +317,9 @@ describe('PedidosService', () => {
         relations: {
           origenCompra: true,
           lotes: {
-            producto: true,
+            producto: {
+              categoria: true,
+            },
             detallePedido: true,
           },
         },
@@ -343,6 +375,9 @@ describe('PedidosService', () => {
           nombreBusqueda: 'filtro de aceite',
           precioVentaSugerido: 4000,
           activo: true,
+          categoriaId: null,
+          categoriaNombre: null,
+          marca: null,
         },
       ]);
     });
@@ -375,9 +410,7 @@ describe('PedidosService', () => {
         idOrigenCompra: 1,
         estado: 'ACTIVO',
       });
-      pedidosRepositoryMock.findOne
-        .mockResolvedValueOnce(null) // validarNumeroPedidoDisponible
-        .mockResolvedValueOnce(crearPedido({ numeroPedido: 101 })); // findOneByNumeroPedido
+      pedidosRepositoryMock.findOne.mockResolvedValue(crearPedido({ numeroPedido: 101 })); // findOneByNumeroPedido
 
       const prodQb: MockQueryBuilder = crearQueryBuilderMock();
       prodQb.getOne.mockResolvedValue({
@@ -408,27 +441,34 @@ describe('PedidosService', () => {
       );
     });
 
-    it('debe lanzar ConflictException si el numeroPedido ya existe', async () => {
+    it('debe asignar el siguiente numeroPedido secuencial al crear', async () => {
       origenCompraRepoMock.findOne.mockResolvedValue({
         idOrigenCompra: 1,
         estado: 'ACTIVO',
       });
+      pedidosRepositoryMock.find.mockResolvedValue([{ numeroPedido: 100 }]);
       pedidosRepositoryMock.findOne.mockResolvedValue(
         crearPedido({ numeroPedido: 101 }),
       );
-      await expect(service.create(createDto)).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+
+      const prodQb: MockQueryBuilder = crearQueryBuilderMock();
+      prodQb.getOne.mockResolvedValue({
+        idProducto: 1,
+        nombre: 'Filtro de aceite',
+      });
+      productoRepoMock.createQueryBuilder.mockReturnValue(prodQb);
+
+      const resultado = await service.create(createDto);
+      expect(resultado.numeroPedido).toBe('101');
     });
+
 
     it('debe reutilizar producto por productoId si se proporciona', async () => {
       origenCompraRepoMock.findOne.mockResolvedValue({
         idOrigenCompra: 1,
         estado: 'ACTIVO',
       });
-      pedidosRepositoryMock.findOne
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(crearPedido());
+      pedidosRepositoryMock.findOne.mockResolvedValue(crearPedido());
 
       productoRepoMock.findOne.mockResolvedValue({
         idProducto: 5,
@@ -451,9 +491,7 @@ describe('PedidosService', () => {
         idOrigenCompra: 1,
         estado: 'ACTIVO',
       });
-      pedidosRepositoryMock.findOne
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(crearPedido());
+      pedidosRepositoryMock.findOne.mockResolvedValue(crearPedido());
 
       const prodQb: MockQueryBuilder = crearQueryBuilderMock();
       prodQb.getOne.mockResolvedValue(null);
@@ -480,9 +518,7 @@ describe('PedidosService', () => {
         idOrigenCompra: 1,
         estado: 'ACTIVO',
       });
-      pedidosRepositoryMock.findOne
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(crearPedido());
+      pedidosRepositoryMock.findOne.mockResolvedValue(crearPedido());
 
       const prodQb: MockQueryBuilder = crearQueryBuilderMock();
       prodQb.getOne.mockResolvedValue(null);

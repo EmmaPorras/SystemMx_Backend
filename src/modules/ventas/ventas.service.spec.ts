@@ -170,24 +170,6 @@ describe('VentasService', () => {
       return Promise.resolve(entity);
     });
 
-    manager = {
-      create: jest.fn((_entityClass: unknown, plain: unknown) => plain),
-      save: managerSaveMock,
-      findOne: jest.fn(),
-      find: jest.fn(),
-      query: jest.fn(),
-      getRepository: jest.fn(),
-      createQueryBuilder: jest.fn(),
-    } as unknown as jest.Mocked<EntityManager>;
-
-    dataSource = {
-      transaction: jest.fn(
-        <T>(callback: (em: EntityManager) => Promise<T>): Promise<T> => {
-          return callback(manager);
-        },
-      ),
-    };
-
     ventasRepoSaveMock = jest.fn();
 
     ventasRepository = {
@@ -200,10 +182,40 @@ describe('VentasService', () => {
         }
         return Promise.resolve(null);
       }),
-      find: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       save: ventasRepoSaveMock,
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<VentaEntity>>;
+
+    manager = {
+      create: jest.fn((_entityClass: unknown, plain: unknown) => plain),
+      save: managerSaveMock,
+      findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
+      query: jest.fn(),
+      getRepository: jest.fn((entityClass: any) => {
+        if (entityClass === VentaEntity) return ventasRepository;
+        if (entityClass === PagoVenta) return pagosRepository;
+        return {
+          find: jest.fn().mockResolvedValue([]),
+          findOne: jest.fn().mockResolvedValue(null),
+          save: managerSaveMock,
+          create: jest.fn((p: any) => p),
+        };
+      }),
+      createQueryBuilder: jest.fn(),
+    } as unknown as jest.Mocked<EntityManager>;
+
+    dataSource = {
+      transaction: jest.fn(
+        (...args: any[]) => {
+          const callback = typeof args[0] === 'function' ? args[0] : args[1];
+          return callback(manager);
+        },
+      ),
+    };
+
+
 
     pagosRepository = {
       find: jest.fn().mockResolvedValue([]),
@@ -257,11 +269,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1001,
@@ -309,11 +321,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1002,
@@ -348,9 +360,9 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+       } as unknown as Repository<LoteProducto>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1003,
@@ -395,11 +407,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getMany.mockResolvedValue([lote1, lote2]);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1004,
@@ -470,9 +482,9 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getMany.mockResolvedValue([lote1, lote2]);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+       } as unknown as Repository<LoteProducto>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1005,
@@ -506,11 +518,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       inventarioService.registrarMovimiento.mockRejectedValue(
         new Error('Fallo inventario'),
@@ -547,9 +559,9 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+       } as unknown as Repository<LoteProducto>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1007,
@@ -583,11 +595,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1008,
@@ -629,11 +641,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1009,
@@ -660,13 +672,12 @@ describe('VentasService', () => {
       );
     });
 
-    it('debe rechazar venta si ya existe el numeroVenta', async () => {
-      ventasRepository.findOne.mockResolvedValueOnce(
-        crearVenta({ numeroVenta: 1001 }),
-      );
+    it('debe rechazar venta si se alcanza el límite máximo de numeración de ventas', async () => {
+      ventasRepository.find.mockResolvedValueOnce([
+        crearVenta({ numeroVenta: 999999 }),
+      ]);
 
       const dto: CreateVentaDto = {
-        numeroVenta: 1001,
         fechaVenta: '2026-09-10',
         medioPago: 'EFECTIVO',
         detalles: [],
@@ -687,7 +698,7 @@ describe('VentasService', () => {
     }) => {
       manager.getRepository.mockImplementation((entityClass: unknown) => {
         if (entityClass === VentaEntity) {
-          return (repos.venta ?? {}) as unknown as Repository<VentaEntity>;
+          return { find: jest.fn().mockResolvedValue([]), findOne: jest.fn().mockResolvedValue(null), save: managerSaveMock, ...(repos.venta ?? {}) } as unknown as Repository<VentaEntity>;
         }
         if (entityClass === DetalleVenta) {
           return (repos.detalle ?? {}) as unknown as Repository<DetalleVenta>;
@@ -1347,11 +1358,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1020,
@@ -1390,11 +1401,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1021,
