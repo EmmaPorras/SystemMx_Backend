@@ -95,7 +95,7 @@ describe('PedidosController', () => {
       idUsuario: 2,
       username: 'operador1',
       nombre: 'Operador Uno',
-      rol: 'OPERADOR' as const,
+      rol: 'COMPRAS' as const,
       activo: true,
       createdAt: new Date(),
       updatedAt: new Date(),

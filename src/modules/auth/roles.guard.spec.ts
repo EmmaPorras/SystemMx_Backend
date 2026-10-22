@@ -105,27 +105,27 @@ describe('RolesGuard', () => {
     expect(guard.canActivate(context)).toBe(true);
   });
 
-  it('debe lanzar ForbiddenException (403) si ADMIN es requerido pero el usuario es OPERADOR', () => {
+  it('debe lanzar ForbiddenException (403) si ADMIN es requerido pero el usuario es VENTAS', () => {
     reflectorMock.getAllAndOverride.mockReturnValue([RolUsuario.ADMIN]);
-    const context = crearContexto(mockUsuario(RolUsuario.OPERADOR));
+    const context = crearContexto(mockUsuario(RolUsuario.VENTAS));
 
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
-  it('debe permitir el acceso si ADMIN/OPERADOR son requeridos y el usuario es OPERADOR', () => {
+  it('debe permitir el acceso si ADMIN/VENTAS son requeridos y el usuario es VENTAS', () => {
     reflectorMock.getAllAndOverride.mockReturnValue([
       RolUsuario.ADMIN,
-      RolUsuario.OPERADOR,
+      RolUsuario.VENTAS,
     ]);
-    const context = crearContexto(mockUsuario(RolUsuario.OPERADOR));
+    const context = crearContexto(mockUsuario(RolUsuario.VENTAS));
 
     expect(guard.canActivate(context)).toBe(true);
   });
 
-  it('debe lanzar ForbiddenException (403) si ADMIN/OPERADOR son requeridos y el usuario es CONSULTA', () => {
+  it('debe lanzar ForbiddenException (403) si ADMIN/VENTAS son requeridos y el usuario es CONSULTA', () => {
     reflectorMock.getAllAndOverride.mockReturnValue([
       RolUsuario.ADMIN,
-      RolUsuario.OPERADOR,
+      RolUsuario.VENTAS,
     ]);
     const context = crearContexto(mockUsuario(RolUsuario.CONSULTA));
 

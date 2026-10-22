@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Column,
   CreateDateColumn,
@@ -27,10 +28,10 @@ export class TarifaIva {
   @PrimaryGeneratedColumn({ name: 'id_tarifa_iva' })
   idTarifaIva!: number;
 
-  @Column({ name: 'codigo', type: 'nvarchar', length: 20 })
+  @Column({ name: 'codigo', type: 'varchar', length: 20 })
   codigo!: string;
 
-  @Column({ name: 'descripcion', type: 'nvarchar', length: 45 })
+  @Column({ name: 'descripcion', type: 'varchar', length: 45 })
   descripcion!: string;
 
   @Column({
@@ -43,14 +44,14 @@ export class TarifaIva {
 
   @Column({
     name: 'activo',
-    type: 'bit',
+    type: resolveColumnType('boolean', 'bit'),
     transformer: estadoTarifaTransformer,
   })
   estado!: string;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
+  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
+  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
   updatedAt!: Date;
 }

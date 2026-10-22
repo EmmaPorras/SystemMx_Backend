@@ -346,13 +346,13 @@ export class InventarioService {
     }
 
     if (dto.desde) {
-      query.andWhere('CONVERT(date, movimiento.fechaMovimiento) >= :desde', {
+      query.andWhere('CAST(movimiento.fechaMovimiento AS date) >= :desde', {
         desde: dto.desde.slice(0, 10),
       });
     }
 
     if (dto.hasta) {
-      query.andWhere('CONVERT(date, movimiento.fechaMovimiento) <= :hasta', {
+      query.andWhere('CAST(movimiento.fechaMovimiento AS date) <= :hasta', {
         hasta: dto.hasta.slice(0, 10),
       });
     }

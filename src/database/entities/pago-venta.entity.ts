@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Check,
   Column,
@@ -16,7 +17,7 @@ import { VentaEntity } from './venta.entity';
 @Entity({ name: 'pago_venta' })
 @Index('IX_pago_venta_id_venta_created', ['idVenta', 'createdAt'])
 @Index('IX_pago_venta_usuario_created', ['idUsuario', 'createdAt'])
-@Check('CK_pago_venta_monto_positivo', '[monto] > 0')
+@Check('CK_pago_venta_monto_positivo', '"monto" > 0')
 export class PagoVenta {
   @PrimaryGeneratedColumn({
     name: 'id_pago_venta',
@@ -38,7 +39,7 @@ export class PagoVenta {
 
   @Column({
     name: 'usuario',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 100,
     nullable: true,
   })
@@ -46,7 +47,7 @@ export class PagoVenta {
 
   @Column({
     name: 'metodo_pago',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 50,
   })
   metodoPago!: string;
@@ -61,7 +62,7 @@ export class PagoVenta {
 
   @Column({
     name: 'referencia',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 150,
     nullable: true,
   })
@@ -69,22 +70,22 @@ export class PagoVenta {
 
   @Column({
     name: 'observaciones',
-    type: 'nvarchar',
+    type: 'varchar',
     nullable: true,
   })
   observaciones?: string | null;
 
   @CreateDateColumn({
     name: 'created_at',
-    type: 'datetime2',
-    default: () => 'GETDATE()',
+    type: resolveColumnType('timestamptz', 'datetime2'),
+    default: () => 'CURRENT_TIMESTAMP',
   })
   createdAt!: Date;
 
   @UpdateDateColumn({
     name: 'updated_at',
-    type: 'datetime2',
-    default: () => 'GETDATE()',
+    type: resolveColumnType('timestamptz', 'datetime2'),
+    default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt!: Date;
 

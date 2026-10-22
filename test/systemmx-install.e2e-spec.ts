@@ -118,14 +118,14 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   });
 
   describe('Escenario 3 — Creación y Login de Usuarios de Prueba', () => {
-    it('ADMIN crea usuario OPERADOR', async () => {
+    it('ADMIN crea usuario VENTAS', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/usuarios')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send(usuarioE2ePayload('e2e_operador', RolUsuario.OPERADOR))
+        .send(usuarioE2ePayload('e2e_ventas', RolUsuario.VENTAS))
         .expect(201);
 
-      expect(res.body.rol).toBe(RolUsuario.OPERADOR);
+      expect(res.body.rol).toBe(RolUsuario.VENTAS);
       operadorId = Number(res.body.idUsuario);
     });
 
@@ -139,10 +139,10 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
       expect(res.body.rol).toBe(RolUsuario.CONSULTA);
     });
 
-    it('inicia sesión con OPERADOR', async () => {
+    it('inicia sesión con VENTAS', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/auth/login')
-        .send({ username: 'e2e_operador', password: 'PasswordE2E123!' })
+        .send({ username: 'e2e_ventas', password: 'PasswordE2E123!' })
         .expect(200);
 
       operadorToken = res.body.accessToken as string;
@@ -174,7 +174,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
         .expect(403);
     });
 
-    it('OPERADOR no puede crear proveedores (403)', async () => {
+    it('VENTAS no puede crear proveedores (403)', async () => {
       await request(app.getHttpServer())
         .post('/api/proveedores')
         .set('Authorization', `Bearer ${operadorToken}`)
@@ -182,7 +182,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
         .expect(403);
     });
 
-    it('CONSULTA y OPERADOR no pueden ver auditoría (403)', async () => {
+    it('CONSULTA y VENTAS no pueden ver auditoría (403)', async () => {
       await request(app.getHttpServer())
         .get('/api/reportes/auditoria/resumen')
         .set('Authorization', `Bearer ${consultaToken}`)
@@ -256,7 +256,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   });
 
   describe('Escenario 6 — Creación de Pedido y Nacimiento de Producto', () => {
-    it('OPERADOR registra Pedido (cantidad = 5)', async () => {
+    it('VENTAS registra Pedido (cantidad = 5)', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/pedidos')
         .set('Authorization', `Bearer ${operadorToken}`)
@@ -305,7 +305,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   });
 
   describe('Escenario 7 — Recepción de Pedido e Ingreso al Inventario', () => {
-    it('OPERADOR recibe el pedido completamente (+5)', async () => {
+    it('VENTAS recibe el pedido completamente (+5)', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/pedidos/${pedidoId}/recepcion`)
         .set('Authorization', `Bearer ${operadorToken}`)
@@ -347,7 +347,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
       expect(entrada).toBeDefined();
       expect(Number(entrada?.cantidad)).toBe(5);
       expect(entrada?.idUsuario).toBe(operadorId);
-      expect(entrada?.usuario).toBe('e2e_operador');
+      expect(entrada?.usuario).toBe('e2e_ventas');
     });
   });
 
@@ -371,7 +371,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
       expect(Number(item?.cantidadDisponible ?? item?.disponibleTotal)).toBe(5);
     });
 
-    it('OPERADOR vende 2 unidades dejando saldo pendiente', async () => {
+    it('VENTAS vende 2 unidades dejando saldo pendiente', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/ventas')
         .set('Authorization', `Bearer ${operadorToken}`)
@@ -447,7 +447,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   });
 
   describe('Escenario 10 — Pago y Conciliación Financiera', () => {
-    it('OPERADOR registra abono para cancelar el saldo restante', async () => {
+    it('VENTAS registra abono para cancelar el saldo restante', async () => {
       await request(app.getHttpServer())
         .post(`/api/ventas/${ventaId}/pagos`)
         .set('Authorization', `Bearer ${operadorToken}`)
@@ -470,7 +470,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
       const ultimoPago = pagos[pagos.length - 1];
       expect(Number(ultimoPago.monto)).toBe(2000);
       expect(ultimoPago.idUsuario).toBe(operadorId);
-      expect(ultimoPago.usuario).toBe('e2e_operador');
+      expect(ultimoPago.usuario).toBe('e2e_ventas');
     });
 
     it('la venta queda CONCILIADA con diferencia 0 en conciliación', async () => {
@@ -569,7 +569,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   });
 
   describe('Escenario 14 — Anulación de Venta', () => {
-    it('OPERADOR anula la venta', async () => {
+    it('VENTAS anula la venta', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/ventas/${ventaId}/anular`)
         .set('Authorization', `Bearer ${operadorToken}`)

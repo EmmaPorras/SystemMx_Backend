@@ -8,6 +8,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 
 import { Usuario } from '../../database/entities/usuario.entity';
+import { TokenAccionUsuario } from '../../database/entities/token-accion-usuario.entity';
+import { ConfigService } from '@nestjs/config';
+import { MailService } from '../mail/mail.service';
 import { PasswordHasherService } from './password-hasher.service';
 import { RolUsuario } from './rol-usuario.enum';
 import { UsuariosService } from './usuarios.service';
@@ -32,6 +35,27 @@ describe('UsuariosService', () => {
   let mockTransactionManager: {
     getRepository: jest.Mock;
     save: jest.Mock;
+  };
+
+  const tokenAccionRepositoryMock = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const configServiceMock = {
+    get: jest.fn((key: string) => {
+      if (key === 'SYSTEMMX_FRONTEND_URL') return 'https://systemmx-web-200684331.onrender.com';
+      if (key === 'SYSTEMMX_INVITACION_EXPIRES_HOURS') return '24';
+      if (key === 'SYSTEMMX_RECUPERACION_EXPIRES_MINUTES') return '30';
+      return null;
+    }),
+  };
+
+  const mailServiceMock = {
+    enviarCorreoAccion: jest.fn().mockResolvedValue({ exito: true, proveedor: 'simulado' }),
   };
 
   const dataSourceMock = {
@@ -60,12 +84,24 @@ describe('UsuariosService', () => {
           useValue: usuariosRepositoryMock,
         },
         {
+          provide: getRepositoryToken(TokenAccionUsuario),
+          useValue: tokenAccionRepositoryMock,
+        },
+        {
           provide: PasswordHasherService,
           useValue: passwordHasherMock,
         },
         {
           provide: DataSource,
           useValue: dataSourceMock,
+        },
+        {
+          provide: ConfigService,
+          useValue: configServiceMock,
+        },
+        {
+          provide: MailService,
+          useValue: mailServiceMock,
         },
       ],
     }).compile();
@@ -83,7 +119,7 @@ describe('UsuariosService', () => {
         username: '  Operador.Taller  ',
         nombre: '  Operador General  ',
         password: 'ClaveSegura12345',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
       };
 
       usuariosRepositoryMock.findOne.mockResolvedValue(null);
@@ -95,7 +131,7 @@ describe('UsuariosService', () => {
         usernameNormalizado: 'operador.taller',
         nombre: 'Operador General',
         passwordHash: '$argon2id$v=19$hash-prueba',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         activo: true,
         createdAt: new Date('2026-09-06T10:00:00Z'),
         updatedAt: new Date('2026-09-06T10:00:00Z'),
@@ -115,7 +151,7 @@ describe('UsuariosService', () => {
         usernameNormalizado: 'operador.taller',
         nombre: 'Operador General',
         passwordHash: '$argon2id$v=19$hash-prueba',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         activo: true,
       });
 
@@ -123,7 +159,7 @@ describe('UsuariosService', () => {
         idUsuario: 2,
         username: 'Operador.Taller',
         nombre: 'Operador General',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         activo: true,
         createdAt: nuevoUsuarioEntity.createdAt,
         updatedAt: nuevoUsuarioEntity.updatedAt,
@@ -206,7 +242,7 @@ describe('UsuariosService', () => {
           usernameNormalizado: 'bernardo',
           nombre: 'Bernardo',
           passwordHash: '$argon2id$hashB',
-          rol: RolUsuario.OPERADOR,
+          rol: RolUsuario.VENTAS,
           activo: true,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -234,7 +270,7 @@ describe('UsuariosService', () => {
       expect(resultado).toHaveLength(2);
       expect(resultado[0]).not.toHaveProperty('passwordHash');
       expect(resultado[0].username).toBe('bernardo');
-      expect(resultado[0].rol).toBe(RolUsuario.OPERADOR);
+      expect(resultado[0].rol).toBe(RolUsuario.VENTAS);
     });
   });
 
@@ -515,7 +551,7 @@ describe('UsuariosService', () => {
         usernameNormalizado: 'operador',
         nombre: 'Operador',
         passwordHash: '$argon2id$hash',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         activo: true,
         versionCredenciales: 3,
         createdAt: new Date(),
@@ -552,7 +588,7 @@ describe('UsuariosService', () => {
         usernameNormalizado: 'operador',
         nombre: 'Operador',
         passwordHash: '$argon2id$hash',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         activo: false,
         versionCredenciales: 4,
         createdAt: new Date(),
@@ -688,7 +724,7 @@ describe('UsuariosService', () => {
       return repoMock;
     };
 
-    it('debe cambiar de OPERADOR a CONSULTA correctamente', async () => {
+    it('debe cambiar de VENTAS a CONSULTA correctamente', async () => {
       const adminActivo: Usuario = {
         idUsuario: 1,
         username: 'admin',
@@ -707,7 +743,7 @@ describe('UsuariosService', () => {
         usernameNormalizado: 'operador',
         nombre: 'Operador',
         passwordHash: '$argon2id$hash',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
         activo: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -756,7 +792,7 @@ describe('UsuariosService', () => {
       expect(resultado.rol).toBe(RolUsuario.ADMIN);
     });
 
-    it('debe lanzar ConflictException si se intenta degradar al último ADMIN activo (ADMIN -> OPERADOR)', async () => {
+    it('debe lanzar ConflictException si se intenta degradar al último ADMIN activo (ADMIN -> VENTAS)', async () => {
       const unicoAdmin: Usuario = {
         idUsuario: 1,
         username: 'admin',
@@ -771,7 +807,7 @@ describe('UsuariosService', () => {
 
       setupRepoTransaction([unicoAdmin], unicoAdmin);
 
-      await expect(service.cambiarRol(1, RolUsuario.OPERADOR)).rejects.toThrow(
+      await expect(service.cambiarRol(1, RolUsuario.VENTAS)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -803,18 +839,18 @@ describe('UsuariosService', () => {
 
       const repoMock = setupRepoTransaction([admin1, admin2], admin1);
 
-      const resultado = await service.cambiarRol(1, RolUsuario.OPERADOR);
+      const resultado = await service.cambiarRol(1, RolUsuario.VENTAS);
 
-      expect(admin1.rol).toBe(RolUsuario.OPERADOR);
+      expect(admin1.rol).toBe(RolUsuario.VENTAS);
       expect(repoMock.save).toHaveBeenCalledWith(admin1);
-      expect(resultado.rol).toBe(RolUsuario.OPERADOR);
+      expect(resultado.rol).toBe(RolUsuario.VENTAS);
     });
 
     it('debe lanzar NotFoundException si el usuario no existe', async () => {
       setupRepoTransaction([], null);
 
       await expect(
-        service.cambiarRol(999, RolUsuario.OPERADOR),
+        service.cambiarRol(999, RolUsuario.VENTAS),
       ).rejects.toThrow(NotFoundException);
     });
 

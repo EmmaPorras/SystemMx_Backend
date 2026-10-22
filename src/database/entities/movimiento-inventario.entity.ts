@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Check,
   Column,
@@ -27,9 +28,9 @@ import { Usuario } from './usuario.entity';
   'referenciaTipo',
   'referenciaId',
 ])
-@Check('CK_movimiento_inventario_cantidad_positiva', '[cantidad] > 0')
-@Check('CK_movimiento_inventario_costo_no_negativo', '[costo_unitario] >= 0')
-@Check('CK_movimiento_inventario_total_no_negativo', '[total_movimiento] >= 0')
+@Check('CK_movimiento_inventario_cantidad_positiva', '"cantidad" > 0')
+@Check('CK_movimiento_inventario_costo_no_negativo', '"costo_unitario" >= 0')
+@Check('CK_movimiento_inventario_total_no_negativo', '"total_movimiento" >= 0')
 export class MovimientoInventario {
   @PrimaryGeneratedColumn({
     name: 'id_movimiento',
@@ -50,14 +51,14 @@ export class MovimientoInventario {
 
   @Column({
     name: 'fecha_movimiento',
-    type: 'datetime2',
-    default: () => 'GETDATE()',
+    type: resolveColumnType('timestamptz', 'datetime2'),
+    default: () => 'CURRENT_TIMESTAMP',
   })
   fechaMovimiento!: Date;
 
   @Column({
     name: 'tipo_movimiento',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 50,
   })
   tipoMovimiento!: string;
@@ -70,7 +71,7 @@ export class MovimientoInventario {
 
   @Column({
     name: 'observaciones',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 500,
     nullable: true,
   })
@@ -78,7 +79,7 @@ export class MovimientoInventario {
 
   @Column({
     name: 'referencia_tipo',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 30,
   })
   referenciaTipo!: string;
@@ -98,7 +99,7 @@ export class MovimientoInventario {
 
   @Column({
     name: 'usuario',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 100,
     nullable: true,
   })
@@ -106,7 +107,7 @@ export class MovimientoInventario {
 
   @Column({
     name: 'motivo',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 255,
   })
   motivo!: string;

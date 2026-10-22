@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Column,
   CreateDateColumn,
@@ -28,7 +29,7 @@ export class LoteProducto {
   @Column({ name: 'id_detalle_pedido', type: 'int', nullable: true })
   idDetallePedido?: number | null;
 
-  @Column({ name: 'codigo_lote', type: 'nvarchar', length: 10 })
+  @Column({ name: 'codigo_lote', type: 'varchar', length: 10 })
   codigoLote!: string;
 
   @Column({ name: 'cantidad_inicial', type: 'int' })
@@ -56,7 +57,7 @@ export class LoteProducto {
   })
   precioVentaRecomendado!: number;
 
-  @Column({ name: 'estado_lote', type: 'nvarchar', length: 30 })
+  @Column({ name: 'estado_lote', type: 'varchar', length: 30 })
   estadoLote!: string;
 
   @Column({ name: 'fecha_entrada', type: 'date', nullable: true })
@@ -71,7 +72,7 @@ export class LoteProducto {
   })
   precioVentaFinal?: number | null;
 
-  @Column({ name: 'tipo_lote', type: 'nvarchar', length: 30 })
+  @Column({ name: 'tipo_lote', type: 'varchar', length: 30 })
   tipoLote!: string;
 
   @Column({
@@ -82,13 +83,13 @@ export class LoteProducto {
   })
   costoPendienteAlVender!: number;
 
-  @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
+  @Column({ name: 'observaciones', type: 'varchar', nullable: true })
   observaciones?: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
+  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
+  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
   updatedAt!: Date;
 
   @ManyToOne(() => PedidoCompraEntity, (pedido) => pedido.lotes)

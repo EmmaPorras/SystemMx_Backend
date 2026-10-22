@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Column,
   CreateDateColumn,
@@ -23,19 +24,19 @@ export class VentaEntity {
 
   @Column({
     name: 'cliente_nombre',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 100,
     nullable: true,
   })
   clienteNombre?: string | null;
 
-  @Column({ name: 'medio_pago', type: 'nvarchar', length: 30 })
+  @Column({ name: 'medio_pago', type: 'varchar', length: 30 })
   medioPago!: string;
 
-  @Column({ name: 'estado_pago', type: 'nvarchar', length: 30 })
+  @Column({ name: 'estado_pago', type: 'varchar', length: 30 })
   estadoPago!: string;
 
-  @Column({ name: 'estado_venta', type: 'nvarchar', length: 30 })
+  @Column({ name: 'estado_venta', type: 'varchar', length: 30 })
   estadoVenta!: string;
 
   @Column({
@@ -118,19 +119,19 @@ export class VentaEntity {
 
   @Column({
     name: 'observaciones',
-    type: 'nvarchar',
+    type: 'varchar',
     length: 150,
     nullable: true,
   })
   observaciones?: string | null;
 
-  @Column({ name: 'en_papelera', type: 'bit' })
+  @Column({ name: 'en_papelera', type: resolveColumnType('boolean', 'bit') })
   enPapelera!: boolean;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
+  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
+  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
   updatedAt!: Date;
 
   @OneToMany(() => DetalleVenta, (detalle) => detalle.venta)

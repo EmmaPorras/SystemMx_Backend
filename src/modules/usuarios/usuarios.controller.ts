@@ -6,13 +6,16 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { Roles } from '../auth/roles.decorator';
 import { CambiarEstadoUsuarioDto } from './dto/cambiar-estado-usuario.dto';
 import { CambiarPasswordUsuarioDto } from './dto/cambiar-password-usuario.dto';
 import { CambiarRolUsuarioDto } from './dto/cambiar-rol-usuario.dto';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
+import { InvitarUsuarioDto } from './dto/invitar-usuario.dto';
 import { RolUsuario } from './rol-usuario.enum';
 import { UsuariosService } from './usuarios.service';
 
@@ -34,6 +37,19 @@ export class UsuariosController {
   @Post()
   crear(@Body() dto: CreateUsuarioDto) {
     return this.usuariosService.crear(dto);
+  }
+
+  @Post('invitar')
+  invitar(@Body() dto: InvitarUsuarioDto, @Req() req: Request) {
+    return this.usuariosService.invitar(dto, req.ip);
+  }
+
+  @Post(':id/reenviar-invitacion')
+  reenviarInvitacion(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: Request,
+  ) {
+    return this.usuariosService.reenviarInvitacion(id, req.ip);
   }
 
   @Patch(':id/estado')

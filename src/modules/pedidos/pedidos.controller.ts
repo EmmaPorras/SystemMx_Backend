@@ -18,6 +18,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolUsuario } from '../usuarios/rol-usuario.enum';
 import type { UsuarioPublico } from '../usuarios/usuarios.types';
 
+@Roles(RolUsuario.ADMIN, RolUsuario.COMPRAS)
 @Controller('pedidos')
 export class PedidosController {
   constructor(private readonly pedidosService: PedidosService) {}
@@ -42,13 +43,13 @@ export class PedidosController {
     return this.pedidosService.findOne(id);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.COMPRAS)
   @Post()
   create(@Body() createPedidoDto: CreatePedidoDto) {
     return this.pedidosService.create(createPedidoDto);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.COMPRAS)
   @Patch(':id/recepcion')
   recibir(
     @Param('id', ParseIntPipe) id: number,
@@ -58,7 +59,7 @@ export class PedidosController {
     return this.pedidosService.recibir(id, recepcionPedidoDto, usuario);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.COMPRAS)
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -67,7 +68,7 @@ export class PedidosController {
     return this.pedidosService.update(id, updatePedidoDto);
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.OPERADOR)
+  @Roles(RolUsuario.ADMIN, RolUsuario.COMPRAS)
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.pedidosService.remove(id);

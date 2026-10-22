@@ -381,11 +381,11 @@ describe('InventarioService', () => {
         { usuarioId: 2 },
       );
       expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
-        'CONVERT(date, movimiento.fechaMovimiento) >= :desde',
+        'CAST(movimiento.fechaMovimiento AS date) >= :desde',
         { desde: '2026-09-01' },
       );
       expect(movimientosQueryBuilderMock.andWhere).toHaveBeenCalledWith(
-        'CONVERT(date, movimiento.fechaMovimiento) <= :hasta',
+        'CAST(movimiento.fechaMovimiento AS date) <= :hasta',
         { hasta: '2026-09-08' },
       );
     });

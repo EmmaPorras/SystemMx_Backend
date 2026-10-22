@@ -29,6 +29,85 @@ interface MockQueryBuilder {
 }
 
 describe('VentasService', () => {
+  describe('create - Tarifas dinámicas de IVA (Etapa 12K)', () => {
+    it('debe calcular y guardar exactamente 5% de impuesto cuando se usa una tarifa activa de 5%', async () => {
+      const loteMock = crearLote({
+        idLote: 20,
+        idProducto: 10,
+        cantidadDisponible: 10,
+        costoUnitarioReal: 1000,
+        precioVentaRecomendado: 2000,
+      });
+
+      const qbMock = crearQueryBuilderMock();
+      qbMock.getOne.mockResolvedValue(loteMock);
+
+      const tarifaMock = {
+        idTarifaIva: 5,
+        codigo: 'IVA5',
+        descripcion: 'Tarifa Reducida 5%',
+        porcentaje: 5,
+        estado: 'ACTIVA',
+      };
+
+      manager.getRepository.mockImplementation((entity: any) => {
+        const repo: any = {
+          find: jest.fn().mockResolvedValue([]),
+          findOne: jest.fn().mockImplementation((options: any) => {
+            if (options?.where?.idTarifaIva === 5) {
+              return Promise.resolve(tarifaMock);
+            }
+            return Promise.resolve(null);
+          }),
+          createQueryBuilder: jest.fn().mockReturnValue(qbMock),
+          create: jest.fn((plain: unknown) => plain),
+          save: managerSaveMock,
+        };
+        return repo;
+      });
+
+      const dto: CreateVentaDto = {
+        fechaVenta: '2026-10-08',
+        clienteNombre: 'Cliente Tarifa 5',
+        medioPago: 'EFECTIVO',
+        detalles: [
+          {
+            productoId: 10,
+            loteId: 20,
+            cantidad: 2,
+            precioUnitario: 10000, // Subtotal = 20,000. 5% IVA = 1,000. Total = 21,000
+            tipoTarifa: 'ESPECIAL',
+            idTarifaIva: 5,
+            modoDescuentoLote: 'MANUAL',
+          },
+        ],
+      };
+
+      await service.create(dto, actor);
+
+      // Verificamos que la venta guardada tenga subtotal 20000, ivaTotal 1000, totalVenta 21000
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        VentaEntity,
+        expect.objectContaining({
+          subtotal: 20000,
+          ivaTotal: 1000,
+          totalVenta: 21000,
+        }),
+      );
+
+      // Verificamos que el detalle guardado tenga porcentajeIva = 5 e iva = 1000
+      expect(managerSaveMock).toHaveBeenCalledWith(
+        DetalleVenta,
+        expect.objectContaining({
+          idTarifaIva: 5,
+          porcentajeIva: 5,
+          iva: 1000,
+          totalLinea: 21000,
+        }),
+      );
+    });
+  });
+
   let service: VentasService;
   let ventasRepository: jest.Mocked<Repository<VentaEntity>>;
   let ventasRepoSaveMock: jest.Mock;
@@ -170,24 +249,6 @@ describe('VentasService', () => {
       return Promise.resolve(entity);
     });
 
-    manager = {
-      create: jest.fn((_entityClass: unknown, plain: unknown) => plain),
-      save: managerSaveMock,
-      findOne: jest.fn(),
-      find: jest.fn(),
-      query: jest.fn(),
-      getRepository: jest.fn(),
-      createQueryBuilder: jest.fn(),
-    } as unknown as jest.Mocked<EntityManager>;
-
-    dataSource = {
-      transaction: jest.fn(
-        <T>(callback: (em: EntityManager) => Promise<T>): Promise<T> => {
-          return callback(manager);
-        },
-      ),
-    };
-
     ventasRepoSaveMock = jest.fn();
 
     ventasRepository = {
@@ -200,10 +261,40 @@ describe('VentasService', () => {
         }
         return Promise.resolve(null);
       }),
-      find: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       save: ventasRepoSaveMock,
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<VentaEntity>>;
+
+    manager = {
+      create: jest.fn((_entityClass: unknown, plain: unknown) => plain),
+      save: managerSaveMock,
+      findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
+      query: jest.fn(),
+      getRepository: jest.fn((entityClass: any) => {
+        if (entityClass === VentaEntity) return ventasRepository;
+        if (entityClass === PagoVenta) return pagosRepository;
+        return {
+          find: jest.fn().mockResolvedValue([]),
+          findOne: jest.fn().mockResolvedValue(null),
+          save: managerSaveMock,
+          create: jest.fn((p: any) => p),
+        };
+      }),
+      createQueryBuilder: jest.fn(),
+    } as unknown as jest.Mocked<EntityManager>;
+
+    dataSource = {
+      transaction: jest.fn(
+        (...args: any[]) => {
+          const callback = typeof args[0] === 'function' ? args[0] : args[1];
+          return callback(manager);
+        },
+      ),
+    };
+
+
 
     pagosRepository = {
       find: jest.fn().mockResolvedValue([]),
@@ -257,11 +348,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1001,
@@ -309,11 +400,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1002,
@@ -348,9 +439,9 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+       } as unknown as Repository<LoteProducto>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1003,
@@ -395,11 +486,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getMany.mockResolvedValue([lote1, lote2]);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1004,
@@ -470,9 +561,9 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getMany.mockResolvedValue([lote1, lote2]);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+       } as unknown as Repository<LoteProducto>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1005,
@@ -506,11 +597,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       inventarioService.registrarMovimiento.mockRejectedValue(
         new Error('Fallo inventario'),
@@ -547,9 +638,9 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
-      } as unknown as Repository<LoteProducto>);
+       } as unknown as Repository<LoteProducto>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1007,
@@ -583,11 +674,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1008,
@@ -629,11 +720,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1009,
@@ -660,13 +751,12 @@ describe('VentasService', () => {
       );
     });
 
-    it('debe rechazar venta si ya existe el numeroVenta', async () => {
-      ventasRepository.findOne.mockResolvedValueOnce(
-        crearVenta({ numeroVenta: 1001 }),
-      );
+    it('debe rechazar venta si se alcanza el límite máximo de numeración de ventas', async () => {
+      ventasRepository.find.mockResolvedValueOnce([
+        crearVenta({ numeroVenta: 999999 }),
+      ]);
 
       const dto: CreateVentaDto = {
-        numeroVenta: 1001,
         fechaVenta: '2026-09-10',
         medioPago: 'EFECTIVO',
         detalles: [],
@@ -687,7 +777,7 @@ describe('VentasService', () => {
     }) => {
       manager.getRepository.mockImplementation((entityClass: unknown) => {
         if (entityClass === VentaEntity) {
-          return (repos.venta ?? {}) as unknown as Repository<VentaEntity>;
+          return { find: jest.fn().mockResolvedValue([]), findOne: jest.fn().mockResolvedValue(null), save: managerSaveMock, ...(repos.venta ?? {}) } as unknown as Repository<VentaEntity>;
         }
         if (entityClass === DetalleVenta) {
           return (repos.detalle ?? {}) as unknown as Repository<DetalleVenta>;
@@ -1347,11 +1437,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1020,
@@ -1390,11 +1480,11 @@ describe('VentasService', () => {
       const qbMock = crearQueryBuilderMock();
       qbMock.getOne.mockResolvedValue(loteMock);
 
-      manager.getRepository.mockReturnValue({
+      manager.getRepository.mockReturnValue({ find: jest.fn().mockResolvedValue([]), 
         createQueryBuilder: jest.fn().mockReturnValue(qbMock),
         create: jest.fn((plain: unknown) => plain),
         save: managerSaveMock,
-      } as unknown as Repository<unknown>);
+       } as unknown as Repository<unknown>);
 
       const dto: CreateVentaDto = {
         numeroVenta: 1021,

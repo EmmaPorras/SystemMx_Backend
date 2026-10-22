@@ -1,3 +1,4 @@
+import { resolveColumnType } from '../column-types';
 import {
   Column,
   CreateDateColumn,
@@ -26,13 +27,13 @@ export class Producto {
   @Column({ name: 'id_tarifa_iva', type: 'int', nullable: true })
   idTarifaIva?: number | null;
 
-  @Column({ name: 'nombre', type: 'nvarchar', length: 150 })
+  @Column({ name: 'nombre', type: 'varchar', length: 150 })
   nombre!: string;
 
-  @Column({ name: 'descripcion', type: 'nvarchar', nullable: true })
+  @Column({ name: 'descripcion', type: 'varchar', nullable: true })
   descripcion?: string | null;
 
-  @Column({ name: 'sku', type: 'nvarchar', length: 100, nullable: true })
+  @Column({ name: 'sku', type: 'varchar', length: 100, nullable: true })
   sku?: string | null;
 
   @Column({
@@ -46,16 +47,16 @@ export class Producto {
   @Column({ name: 'stock_minimo', type: 'int' })
   stockMinimo!: number;
 
-  @Column({ name: 'activo', type: 'bit' })
+  @Column({ name: 'activo', type: resolveColumnType('boolean', 'bit') })
   activo!: boolean;
 
-  @Column({ name: 'marca', type: 'nvarchar', length: 100, nullable: true })
+  @Column({ name: 'marca', type: 'varchar', length: 100, nullable: true })
   marca?: string | null;
 
-  @Column({ name: 'variante', type: 'nvarchar', length: 100, nullable: true })
+  @Column({ name: 'variante', type: 'varchar', length: 100, nullable: true })
   variante?: string | null;
 
-  @Column({ name: 'imagen_url', type: 'nvarchar', length: 500, nullable: true })
+  @Column({ name: 'imagen_url', type: 'varchar', length: 500, nullable: true })
   imagenUrl?: string | null;
 
   @Column({
@@ -76,13 +77,13 @@ export class Producto {
   })
   costoReferencia?: number | null;
 
-  @Column({ name: 'observaciones', type: 'nvarchar', nullable: true })
+  @Column({ name: 'observaciones', type: 'varchar', nullable: true })
   observaciones?: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2' })
+  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2' })
+  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
   updatedAt!: Date;
 
   @ManyToOne(() => Categoria, { nullable: true })

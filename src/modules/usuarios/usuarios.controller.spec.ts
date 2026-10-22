@@ -87,18 +87,18 @@ describe('UsuariosController', () => {
         username: 'operador1',
         nombre: 'Operador Uno',
         password: 'PasswordSegura123!',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
       };
 
       usuariosServiceMock.crear.mockResolvedValue({
         ...mockUsuarioPublico,
         username: 'operador1',
-        rol: RolUsuario.OPERADOR,
+        rol: RolUsuario.VENTAS,
       });
 
       const resultado = await controller.crear(dto);
 
-      expect(resultado.rol).toBe(RolUsuario.OPERADOR);
+      expect(resultado.rol).toBe(RolUsuario.VENTAS);
       expect(usuariosServiceMock.crear).toHaveBeenCalledWith(dto);
     });
   });
