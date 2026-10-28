@@ -1,4 +1,4 @@
-﻿import { validate } from 'class-validator';
+import { validate } from 'class-validator';
 import { CreateUsuarioDto } from './create-usuario.dto';
 import { RolUsuario } from '../rol-usuario.enum';
 
@@ -7,7 +7,7 @@ describe('CreateUsuarioDto', () => {
     const dto = new CreateUsuarioDto();
     dto.username = 'admin.taller';
     dto.nombre = 'Administrador General';
-    dto.password = 'ClaveSegura123';
+    dto.password = 'ClaveSeguraSystemMx15';
     dto.rol = RolUsuario.ADMIN;
     return dto;
   };
@@ -48,22 +48,6 @@ describe('CreateUsuarioDto', () => {
       expect(errors[0].property).toBe('username');
     });
 
-    it('debe rechazar username con espacios', async () => {
-      const dto = crearDtoValido();
-      dto.username = 'admin taller';
-      const errors = await validate(dto);
-      expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].property).toBe('username');
-    });
-
-    it('debe rechazar username con caracteres no permitidos ("@")', async () => {
-      const dto = crearDtoValido();
-      dto.username = 'admin@taller';
-      const errors = await validate(dto);
-      expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0].property).toBe('username');
-    });
-
     it('debe rechazar username mayor a 50 caracteres', async () => {
       const dto = crearDtoValido();
       dto.username = 'a'.repeat(51);
@@ -71,12 +55,28 @@ describe('CreateUsuarioDto', () => {
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].property).toBe('username');
     });
+
+    it('debe rechazar caracteres especiales no permitidos en username ("user@name")', async () => {
+      const dto = crearDtoValido();
+      dto.username = 'user@name';
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].property).toBe('username');
+    });
+
+    it('debe rechazar espacios en username ("user name")', async () => {
+      const dto = crearDtoValido();
+      dto.username = 'user name';
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].property).toBe('username');
+    });
   });
 
   describe('validaciones de nombre', () => {
-    it('debe aceptar nombre con 2 caracteres exactos', async () => {
+    it('debe aceptar nombre válido de 2 caracteres', async () => {
       const dto = crearDtoValido();
-      dto.nombre = 'Lu';
+      dto.nombre = 'Al';
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
     });
@@ -91,31 +91,55 @@ describe('CreateUsuarioDto', () => {
 
     it('debe rechazar nombre mayor a 100 caracteres', async () => {
       const dto = crearDtoValido();
-      dto.nombre = 'N'.repeat(101);
+      dto.nombre = 'A'.repeat(101);
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].property).toBe('nombre');
     });
   });
 
-  describe('validaciones de password', () => {
-    it('debe aceptar contraseña de 8 caracteres exactos', async () => {
+  describe('validaciones de password (Fase 3 - Política de 15 a 128 caracteres)', () => {
+    it('debe rechazar contraseña de 14 caracteres', async () => {
       const dto = crearDtoValido();
-      dto.password = '12345678';
+      dto.password = 'ClaveInsegur14'; // 14 caracteres
+      expect(dto.password.length).toBe(14);
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].property).toBe('password');
+    });
+
+    it('debe aceptar contraseña de 15 caracteres exactos', async () => {
+      const dto = crearDtoValido();
+      dto.password = 'ClaveSegura15Ex';
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
     });
 
-    it('debe aceptar contraseña de 12 caracteres', async () => {
+    it('debe aceptar frase larga con espacios de más de 15 caracteres', async () => {
       const dto = crearDtoValido();
-      dto.password = '123456789012';
+      dto.password = 'mi frase secreta larga y confiable';
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
     });
 
-    it('debe rechazar contraseña menor a 8 caracteres (7 caracteres)', async () => {
+    it('debe aceptar contraseña con Unicode y caracteres especiales', async () => {
       const dto = crearDtoValido();
-      dto.password = '1234567';
+      dto.password = 'ContraseñaSeguraConÑ_yTildes!';
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('debe rechazar repetición continua de un único carácter', async () => {
+      const dto = crearDtoValido();
+      dto.password = 'a'.repeat(16);
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].property).toBe('password');
+    });
+
+    it('debe rechazar contraseña común trivial de diccionario', async () => {
+      const dto = crearDtoValido();
+      dto.password = 'password12345678';
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].property).toBe('password');
@@ -123,14 +147,16 @@ describe('CreateUsuarioDto', () => {
 
     it('debe aceptar contraseña de 128 caracteres exactos', async () => {
       const dto = crearDtoValido();
-      dto.password = 'P'.repeat(128);
+      dto.password = 'ClaveSeguraSystemMx'.repeat(6) + '12345678901234'; // 19*6 + 14 = 128
+      expect(dto.password.length).toBe(128);
       const errors = await validate(dto);
       expect(errors.length).toBe(0);
     });
 
     it('debe rechazar contraseña mayor a 128 caracteres (129 caracteres)', async () => {
       const dto = crearDtoValido();
-      dto.password = 'P'.repeat(129);
+      dto.password = 'ClaveSeguraSystemMx'.repeat(6) + '123456789012345'; // 129
+      expect(dto.password.length).toBe(129);
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].property).toBe('password');

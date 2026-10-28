@@ -211,5 +211,37 @@ describe('SYSTEMMX - Matriz de Autorización por Módulo y Rol (Etapa 12)', () =
       const ctx = mockExecutionContext({ rol: RolUsuario.CONSULTA });
       expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
     });
+
+    it('DEMO no puede consultar auditoría (403)', () => {
+      setupRequiredRoles(rolesPermitidos);
+      const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
+      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('Aislamiento de Privilegios de Rol DEMO (Fase 4)', () => {
+    it('DEMO no puede acceder a ventas ni pagos (403)', () => {
+      setupRequiredRoles([RolUsuario.ADMIN, RolUsuario.VENTAS]);
+      const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
+      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    });
+
+    it('DEMO no puede crear pedidos ni recibir mercancía (403)', () => {
+      setupRequiredRoles([RolUsuario.ADMIN, RolUsuario.COMPRAS]);
+      const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
+      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    });
+
+    it('DEMO no puede consultar reportes financieros globales (403)', () => {
+      setupRequiredRoles([RolUsuario.ADMIN, RolUsuario.CONSULTA]);
+      const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
+      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    });
+
+    it('DEMO tiene acceso autorizado al módulo de evaluación demostrativa', () => {
+      setupRequiredRoles([RolUsuario.ADMIN, RolUsuario.DEMO]);
+      const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
+      expect(guard.canActivate(ctx)).toBe(true);
+    });
   });
 });

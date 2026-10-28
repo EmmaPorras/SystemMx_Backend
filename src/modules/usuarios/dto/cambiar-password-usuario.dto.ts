@@ -1,8 +1,9 @@
-﻿import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
+import { IsStrongPasswordPolicy } from '../validators/password-policy.validator';
 
 export class CambiarPasswordUsuarioDto {
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @IsString({ message: 'La contraseña debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'La contraseña no puede estar vacía.' })
+  @IsStrongPasswordPolicy()
   password!: string;
 }

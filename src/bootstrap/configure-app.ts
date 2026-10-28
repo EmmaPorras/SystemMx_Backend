@@ -6,6 +6,15 @@ export function configureApp(
   app: INestApplication,
   configService: ConfigService,
 ): void {
+  // Configuración segura de proxy para Render (x-forwarded-for y x-forwarded-proto)
+  const httpAdapter = app.getHttpAdapter();
+  if (httpAdapter && typeof httpAdapter.getInstance === 'function') {
+    const instance = httpAdapter.getInstance();
+    if (instance && typeof instance.set === 'function') {
+      instance.set('trust proxy', 1);
+    }
+  }
+
   app.use(helmet());
 
   app.setGlobalPrefix('api');

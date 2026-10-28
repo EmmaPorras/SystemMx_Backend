@@ -17,6 +17,7 @@ import { LoginDto } from './dto/login.dto';
 import { SolicitarRecuperacionDto } from './dto/solicitar-recuperacion.dto';
 import { ActivarCuentaDto } from './dto/activar-cuenta.dto';
 import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
+import { RegistroDto } from './dto/registro.dto';
 import { Public } from './public.decorator';
 import { TipoTokenAccion } from '../usuarios/tipo-token-accion.enum';
 
@@ -90,6 +91,19 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   restablecerPassword(@Body() dto: RestablecerPasswordDto) {
     return this.authService.restablecerPassword(dto);
+  }
+
+  @Public()
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 60_000,
+    },
+  })
+  @Post('registro')
+  @HttpCode(HttpStatus.CREATED)
+  registro(@Body() dto: RegistroDto, @Req() req: Request) {
+    return this.authService.registrarPublico(dto, req.ip);
   }
 
   @Get('me')
