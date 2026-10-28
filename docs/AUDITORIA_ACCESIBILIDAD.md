@@ -131,7 +131,10 @@ La prueba automatizada integral en `src/test/accessibility.test.tsx` arrojó el 
 ## 6. PRUEBAS MANUALES Y MEDICIÓN DE CONTRASTE WCAG 2.2 AAA
 
 ### 6.1. Mediciones Empíricas de Contraste (Umbral AAA 7.0:1)
-- **Botón Primario (`PrimaryButton`)**: Texto blanco `#ffffff` sobre fondo `#09090b` (`bg-zinc-950`). Relación de contraste calculada: **19.8:1** (supera con creces 7:1).
+- **Botón Primario (`PrimaryButton`)**: Texto blanco `#ffffff` sobre fondo `#09090b` (`bg-zinc-950`). Relación de contraste calculada: **19.8:1** (supera con creces el límite de 7:1).
+- **Variante Azul en Enlaces y Botones de Acción**:
+  - *Corrección técnica*: El valor `#1d4ed8` (`blue-700`) con texto blanco `#ffffff` ofrece una relación de contraste de **6.70:1**, la cual satisface el nivel AA (>= 4.5:1) y el nivel AAA para texto grande, pero **no alcanza el umbral de 7.0:1 para texto normal en WCAG 2.2 AAA**.
+  - *Ajuste normativo AAA*: Para cumplir estrictamente con el Criterio 1.4.6 (Contraste Mejorado AAA para texto normal), se unifica el uso a `#1e40af` (`blue-800`), logrando una relación de contraste calculada de **8.72:1**, o `#1e3a8a` (`blue-900`) con **10.36:1**, ambos superando con holgura el umbral de 7.0:1.
 - **Mensajes de Error (`role="alert"`)**: Texto `#991b1b` (`text-red-800`) sobre fondo `#ffffff`. Relación de contraste calculada: **7.27:1** (cumple umbral AAA de 7.0:1).
 - **Mensajes de Advertencia**: Texto `#78350f` (`text-amber-900`) sobre `#ffffff`. Relación de contraste: **9.1:1** (cumple AAA).
 - **Mensajes de Éxito**: Texto `#064e3b` (`text-emerald-900`) sobre `#ffffff`. Relación de contraste: **11.4:1** (cumple AAA).
