@@ -3,4 +3,5 @@ export enum RolUsuario {
   VENTAS = 'VENTAS',
   COMPRAS = 'COMPRAS',
   CONSULTA = 'CONSULTA',
+  DEMO = 'DEMO',
 }

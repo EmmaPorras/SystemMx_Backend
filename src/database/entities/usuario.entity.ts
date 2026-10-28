@@ -32,7 +32,7 @@ import { resolveColumnType, resolveSqlExpr } from '../column-types';
     'LEN(LTRIM(RTRIM([username_normalizado]))) >= 3',
   ),
 )
-@Check('CK_usuario_rol_valido', '"rol" IN (\'ADMIN\', \'VENTAS\', \'COMPRAS\', \'CONSULTA\')')
+@Check('CK_usuario_rol_valido', '"rol" IN (\'ADMIN\', \'VENTAS\', \'COMPRAS\', \'CONSULTA\', \'DEMO\')')
 @Check('CK_usuario_version_credenciales', '"version_credenciales" >= 1')
 @Check(
   'CK_usuario_estado_activacion',

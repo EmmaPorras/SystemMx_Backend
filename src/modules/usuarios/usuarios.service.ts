@@ -1,7 +1,8 @@
-﻿import {
+import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +14,8 @@ import { Usuario } from '../../database/entities/usuario.entity';
 import { TokenAccionUsuario } from '../../database/entities/token-accion-usuario.entity';
 import { resolveSqlExpr } from '../../database/column-types';
 import { MailService } from '../mail/mail.service';
+import { RegistroDto } from '../auth/dto/registro.dto';
+import { validatePasswordPolicy } from './validators/password-policy.validator';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { InvitarUsuarioDto } from './dto/invitar-usuario.dto';
 import { EstadoActivacionUsuario } from './estado-activacion.enum';
@@ -35,6 +38,8 @@ export class UsuariosService {
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
   ) {}
+
+  private readonly logger = new Logger(UsuariosService.name);
 
   private normalizarUsername(value: string): string {
     return value.trim().toLowerCase();
@@ -258,6 +263,97 @@ export class UsuariosService {
     };
   }
 
+  async registrarPublico(dto: RegistroDto, ipSolicitud?: string) {
+    const username = dto.username.trim();
+    const usernameNormalizado = this.normalizarUsername(dto.username);
+    const email = dto.email.trim();
+    const emailNormalizado = this.normalizarEmail(dto.email);
+    const nombre = dto.nombre.trim();
+
+    if (nombre.length < 2) {
+      throw new BadRequestException(
+        'El nombre debe contener al menos 2 caracteres.',
+      );
+    }
+
+    // Verificar unicidad de username
+    const usuarioExistente = await this.usuariosRepository.findOne({
+      where: { usernameNormalizado },
+    });
+    if (usuarioExistente) {
+      throw new ConflictException('El nombre de usuario ya está registrado.');
+    }
+
+    // Verificar unicidad de email
+    const emailExistente = await this.usuariosRepository.findOne({
+      where: { emailNormalizado },
+    });
+    if (emailExistente) {
+      throw new ConflictException('El correo electrónico ya está registrado.');
+    }
+
+    // Hashear la contraseña con Argon2id
+    const passwordHash = await this.passwordHasher.hash(dto.password);
+
+    // SEGURIDAD CRÍTICA: rol siempre DEMO con mínimos privilegios aislados
+    const nuevoUsuario = this.usuariosRepository.create({
+      username,
+      usernameNormalizado,
+      email,
+      emailNormalizado,
+      nombre,
+      passwordHash,
+      rol: RolUsuario.DEMO,
+      activo: true,
+      estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+      versionCredenciales: 1,
+    });
+
+    const guardado = await this.usuariosRepository.save(nuevoUsuario);
+
+    // Generar token seguro de verificación
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = this.hashToken(rawToken);
+
+    const horasExpiracion = Number(
+      this.configService.get<string>('SYSTEMMX_INVITACION_EXPIRES_HOURS') || 24,
+    );
+    const expiraEn = new Date(Date.now() + horasExpiracion * 60 * 60 * 1000);
+
+    const tokenAccion = this.tokenAccionRepository.create({
+      idUsuario: guardado.idUsuario,
+      tipo: TipoTokenAccion.INVITACION,
+      tokenHash,
+      expiraEn,
+      usado: false,
+      ipSolicitud: ipSolicitud || null,
+    });
+    await this.tokenAccionRepository.save(tokenAccion);
+
+    const actionUrl = this.buildActionUrl('/activar-cuenta', rawToken);
+
+    try {
+      await this.mailService.enviarCorreoAccion({
+        to: email,
+        recipientName: nombre,
+        type: 'INVITACION',
+        actionUrl,
+        expirationMinutes: horasExpiracion * 60,
+        lang: dto.lang || 'es',
+      });
+    } catch (mailError: any) {
+      this.logger.error(
+        `Error al enviar correo de verificación de registro: ${mailError.message}`,
+      );
+    }
+
+    return {
+      message:
+        'Registro exitoso. Se ha enviado un enlace de activación a tu correo electrónico.',
+      usuario: this.mapearUsuario(guardado),
+    };
+  }
+
   async reenviarInvitacion(id: number, ipSolicitud?: string) {
     const usuarioId = this.validarId(id);
 
@@ -428,13 +524,10 @@ export class UsuariosService {
   ): Promise<UsuarioPublico> {
     const usuarioId = this.validarId(id);
 
-    if (
-      typeof nuevaPassword !== 'string' ||
-      nuevaPassword.length < 12 ||
-      nuevaPassword.length > 128
-    ) {
+    const policyResult = validatePasswordPolicy(nuevaPassword);
+    if (!policyResult.isValid) {
       throw new BadRequestException(
-        'La contraseña debe tener entre 12 y 128 caracteres.',
+        policyResult.message || 'La contraseña no cumple con la política de seguridad.',
       );
     }
 
@@ -696,13 +789,10 @@ export class UsuariosService {
       throw new BadRequestException('Token de acción requerido.');
     }
 
-    if (
-      typeof nuevaPassword !== 'string' ||
-      nuevaPassword.length < 12 ||
-      nuevaPassword.length > 128
-    ) {
+    const policyResult = validatePasswordPolicy(nuevaPassword);
+    if (!policyResult.isValid) {
       throw new BadRequestException(
-        'La contraseña debe tener entre 12 y 128 caracteres.',
+        policyResult.message || 'La contraseña no cumple con la política de seguridad.',
       );
     }
 
