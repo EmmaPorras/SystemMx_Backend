@@ -191,3 +191,4 @@ Este documento define la **Matriz Integral de Validaciones** para el sistema Sys
    ```
    Cualquier propiedad enviada por el cliente que no esté explícitamente declarada y decorada en el DTO correspondiente es inmediatamente rechazada con un error HTTP 400 Bad Request.
 4. **Contratos Inmutables**: Los movimientos de inventario (`movimiento_inventario`) y los pagos de venta (`pago_venta`) son ledgers transaccionales de sólo inserción (`append-only`). No existen endpoints `PUT`, `PATCH` o `DELETE` que permitan mutar datos históricos financieros o de stock.
+

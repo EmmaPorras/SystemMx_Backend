@@ -61,3 +61,4 @@ export class AddDemoRole1788762600000 implements MigrationInterface {
     }
   }
 }
+

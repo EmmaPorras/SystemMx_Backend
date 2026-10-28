@@ -54,3 +54,4 @@ export class RegistroDto {
   })
   lang?: 'es' | 'en' | 'pt';
 }
+

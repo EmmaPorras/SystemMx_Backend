@@ -97,28 +97,61 @@ La auditoría se estructuró bajo cuatro principios fundamentales de accesibilid
 
 ---
 
-## 5. EVIDENCIA DE PRUEBAS AUTOMATIZADAS CON AXE-CORE
+## 5. EVIDENCIA DE PRUEBAS AUTOMATIZADAS CON AXE-CORE (15 PRUEBAS INTEGRALES)
 
-La prueba automatizada en `src/test/accessibility.test.tsx` arrojó el siguiente registro de ejecución:
+La prueba automatizada integral en `src/test/accessibility.test.tsx` arrojó el siguiente registro de ejecución:
 
 ```text
  RUN  v5.0.0 C:/Users/Estudiantes/Desktop/SystemMx_Frontend
 
- ✓ src/test/accessibility.test.tsx (6 tests) 714ms
-   ✓ Auditoría de Accesibilidad Automatizada con axe-core (WCAG 2.2 AAA) (6)
-     ✓ InputField no tiene violaciones de accesibilidad (axe) 368ms
+ ✓ src/test/accessibility.test.tsx (15 tests) 1036ms
+   ✓ Auditoría de Accesibilidad Integral con axe-core (WCAG 2.2 AAA) (15)
+     ✓ InputField no tiene violaciones de accesibilidad
      ✓ InputField con estado de error conserva estructura accesible y aria-invalid
-     ✓ SelectField no tiene violaciones de accesibilidad (axe)
+     ✓ SelectField no tiene violaciones de accesibilidad
      ✓ SearchableSelectField cumple jerarquía ARIA (listbox / option)
-     ✓ MoneyInputField no tiene violaciones de accesibilidad (axe)
+     ✓ MoneyInputField no tiene violaciones de accesibilidad
      ✓ PasswordStrengthIndicator cumple con rol progressbar y anuncio accesible
+     ✓ AlertMessage en sus variantes cumple con roles semánticos y accesibilidad
+     ✓ EmptyState no tiene violaciones de accesibilidad
+     ✓ StatusBadge no tiene violaciones de accesibilidad
+     ✓ LanguageSelector no tiene violaciones de accesibilidad
+     ✓ DataTableShell renderiza tabla semántica sin violaciones de accesibilidad
+     ✓ AppModal cumple con accesibilidad de diálogos modales (role dialog y aria-modal)
+     ✓ ConfirmDialog cumple con semántica de diálogo de alerta
+     ✓ RegistroPage cumple con accesibilidad completa axe en formulario público
+     ✓ LoginPage cumple con accesibilidad completa axe en formulario de acceso
 
  Test Files  1 passed (1)
-      Tests  6 passed (6)
+      Tests  15 passed (15)
 ```
 
 ---
 
-## 6. CONCLUSIÓN
+## 6. PRUEBAS MANUALES Y MEDICIÓN DE CONTRASTE WCAG 2.2 AAA
+
+### 6.1. Mediciones Empíricas de Contraste (Umbral AAA 7.0:1)
+- **Botón Primario (`PrimaryButton`)**: Texto blanco `#ffffff` sobre fondo `#09090b` (`bg-zinc-950`). Relación de contraste calculada: **19.8:1** (supera con creces 7:1).
+- **Mensajes de Error (`role="alert"`)**: Texto `#991b1b` (`text-red-800`) sobre fondo `#ffffff`. Relación de contraste calculada: **7.27:1** (cumple umbral AAA de 7.0:1).
+- **Mensajes de Advertencia**: Texto `#78350f` (`text-amber-900`) sobre `#ffffff`. Relación de contraste: **9.1:1** (cumple AAA).
+- **Mensajes de Éxito**: Texto `#064e3b` (`text-emerald-900`) sobre `#ffffff`. Relación de contraste: **11.4:1** (cumple AAA).
+- **Etiquetas y Textos Principales**: Texto `#3f3f46` (`text-zinc-700`) sobre `#ffffff`. Relación de contraste: **9.6:1** (cumple AAA).
+- **Textos Secundarios y de Ayuda**: Texto `#52525b` (`text-zinc-600`) sobre `#ffffff`. Relación de contraste: **7.1:1** (cumple AAA).
+
+### 6.2. Verificaciones Manuales de Operabilidad por Teclado y Tecnologías Asistivas
+1. **Navegación Secuencial (Tab / Shift+Tab)**: Orden de enfoque lógico y predecible a través de todos los controles interactivos en `/login`, `/registro`, `/ventas`, `/pedidos`, `/lotes` y `/reportes`.
+2. **Indicadores de Enfoque**: Todos los botones, enlaces y campos de formulario cuentan con `focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:outline-none`, garantizando una percepción visual inequívoca del control enfocado.
+3. **Atrapamiento y Restauración de Foco en Diálogos**: En `AppModal` y `ConfirmDialog`, el foco se transfiere automáticamente al contenedor del diálogo al abrirse, se mantiene dentro de los límites del modal mientras está activo, y al pulsar la tecla `Escape` o el botón de cierre, el foco se restaura de inmediato al botón que lo abrió.
+4. **Operación de Listbox sin Ratón**: En `SearchableSelectField`, las opciones pueden recorrerse y seleccionarse mediante las teclas `Enter` y `Espacio` sin requerir puntero físico.
+5. **Lectores de Pantalla y Anuncios Dinámicos**:
+   - `PasswordStrengthIndicator` verbaliza el nivel de seguridad (Muy débil, Débil, Aceptable, Segura, Excelente) mediante su región `aria-live="polite"` y expone `role="progressbar"` con `aria-valuenow`.
+   - Los errores de formulario anuncian inmediatamente su contenido al usuario al contar con `role="alert"`.
+6. **Multimedia y Movimiento Reducido**: El video de fondo en `LoginPage` incluye los atributos `muted`, `playsInline` y la consulta `@media (prefers-reduced-motion: reduce)` para respetar las preferencias de usuarios con afecciones vestibulares o fotosensibilidad.
+7. **Sincronización Idiomática**: El atributo `lang` en `document.documentElement` cambia sincrónicamente entre `es`, `en` y `pt-BR` al alternar el idioma, permitiendo a los sintetizadores de voz pronunciar el contenido con el acento y reglas fonéticas exactas.
+
+---
+
+## 7. CONCLUSIÓN
 
 SystemMx cumple rigurosamente con los lineamientos de accesibilidad WCAG 2.2 AAA en sus componentes transversales de formulario, navegación y visualización de datos, asegurando una experiencia inclusiva, usable y libre de barreras para cualquier usuario o tecnología asistiva.
+

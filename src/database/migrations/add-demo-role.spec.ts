@@ -86,3 +86,4 @@ describe('AddDemoRole1788762600000 Migration (Fase 4 - Rol DEMO con Privilegios 
     expect(queriesMssql.some((q) => q.includes('CK_usuario_rol_valido') && !q.includes('DEMO'))).toBe(true);
   });
 });
+
