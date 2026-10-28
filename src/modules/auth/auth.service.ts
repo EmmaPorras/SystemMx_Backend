@@ -10,6 +10,7 @@ import { LoginDto } from './dto/login.dto';
 import { ActivarCuentaDto } from './dto/activar-cuenta.dto';
 import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 import { SolicitarRecuperacionDto } from './dto/solicitar-recuperacion.dto';
+import { RegistroDto } from './dto/registro.dto';
 import { TipoTokenAccion } from '../usuarios/tipo-token-accion.enum';
 
 @Injectable()
@@ -107,5 +108,9 @@ export class AuthService {
 
   async restablecerPassword(dto: RestablecerPasswordDto) {
     return this.usuariosService.restablecerPasswordConToken(dto.token, dto.password);
+  }
+
+  async registrarPublico(dto: RegistroDto, ipSolicitud?: string) {
+    return this.usuariosService.registrarPublico(dto, ipSolicitud);
   }
 }
