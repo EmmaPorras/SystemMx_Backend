@@ -31,11 +31,11 @@
 - [x] **AUD-07**: Extracción resiliente de token y formulario de reenvío en `ActivarCuentaPage.tsx` con compatibilidad para `HashRouter`.
 - [x] **A11Y-05**: Auditoría de accesibilidad con explicación de limitaciones de jsdom y mediciones de contraste real WCAG 2.2 AAA (botones a 8.72:1, textos a >7:1).
 - [x] **TST-03**: Pase al 100% de suites de prueba: 55 suites Backend (623 pruebas pasadas), 46 suites Frontend (249 pruebas pasadas).
+- [x] **INT-01**: Integración y sincronización de cambios sobre las ramas integracion-deploy-neon, deploy-neon y main (Backend) e integracion-deploy-render, deploy-render y main (Frontend).
+- [x] **INT-02**: Despacho de reporte final y verificación de ejecución activa en producción en Render.
 
 ### 1.2. In Progress (Integración de Despliegue)
-- [ ] **INT-01**: Integración y commit de cambios sobre las ramas activas `integracion-deploy-neon` (Backend) e `integracion-deploy-render` (Frontend).
-- [ ] **INT-02**: Despacho de reporte final y verificación de trigger continuo en Render.
-
+- *Ninguna tarea en curso. Todas las prioridades críticas y altas han sido completadas, probadas y desplegadas.*
 ### 1.3. Blocked (Bloqueos Externos)
 - *Ningún bloqueo técnico o externo detectado.* La infraestructura de base de datos Neon y los servicios de Render responden con HTTPS válido.
 
