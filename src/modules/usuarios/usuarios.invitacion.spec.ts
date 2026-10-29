@@ -441,4 +441,132 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       expect(res.mensaje).toContain('Contraseña restablecida exitosamente');
     });
   });
+  describe('registrarPublico() y reenviarActivacionPublico()', () => {
+    it('registrarPublico: retorna emailEnviado: true cuando mailService responde exitosamente', async () => {
+      mockUsuarioRepo.findOne.mockResolvedValue(null);
+      const usuarioGuardado = {
+        idUsuario: 99,
+        username: 'nuevo.demo',
+        email: 'demo@systemmx.com',
+        nombre: 'Nuevo Demo',
+        rol: RolUsuario.DEMO,
+        activo: true,
+        estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+      };
+      mockUsuarioRepo.create.mockReturnValue(usuarioGuardado);
+      mockUsuarioRepo.save.mockResolvedValue(usuarioGuardado);
+      mockTokenRepo.create.mockReturnValue({});
+      mockTokenRepo.save.mockResolvedValue({});
+      mockMailService.enviarCorreoAccion.mockResolvedValueOnce({ exito: true });
+
+      const res = await service.registrarPublico({
+        nombre: 'Nuevo Demo',
+        username: 'nuevo.demo',
+        email: 'demo@systemmx.com',
+        password: 'MiContraseñaSegura15!',
+      });
+
+      expect(res.emailEnviado).toBe(true);
+      expect(res.message).toContain('Se ha enviado un enlace de activación');
+      expect(res.usuario.rol).toBe(RolUsuario.DEMO);
+    });
+
+    it('registrarPublico: retorna emailEnviado: false y no confirma falsamente el envío si mailService falla', async () => {
+      mockUsuarioRepo.findOne.mockResolvedValue(null);
+      const usuarioGuardado = {
+        idUsuario: 100,
+        username: 'demo.falla',
+        email: 'falla@systemmx.com',
+        nombre: 'Demo Falla',
+        rol: RolUsuario.DEMO,
+        activo: true,
+        estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+      };
+      mockUsuarioRepo.create.mockReturnValue(usuarioGuardado);
+      mockUsuarioRepo.save.mockResolvedValue(usuarioGuardado);
+      mockTokenRepo.create.mockReturnValue({});
+      mockTokenRepo.save.mockResolvedValue({});
+      mockMailService.enviarCorreoAccion.mockRejectedValueOnce(new Error('Servidor SMTP no disponible'));
+
+      const res = await service.registrarPublico({
+        nombre: 'Demo Falla',
+        username: 'demo.falla',
+        email: 'falla@systemmx.com',
+        password: 'MiContraseñaSegura15!',
+      });
+
+      expect(res.emailEnviado).toBe(false);
+      expect(res.message).not.toContain('Se ha enviado un enlace de activación a tu correo electrónico.');
+      expect(res.message).toContain('no pudimos enviar el correo de activación');
+    });
+
+    it('reenviarActivacionPublico: retorna mensaje genérico si el usuario no existe (anti-enumeración)', async () => {
+      mockUsuarioRepo.findOne.mockResolvedValue(null);
+
+      const res = await service.reenviarActivacionPublico('fantasma@systemmx.com');
+
+      expect(res.message).toContain('Si la cuenta existe');
+      expect(mockTokenRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('reenviarActivacionPublico: retorna mensaje genérico si el usuario ya está ACTIVO (anti-enumeración)', async () => {
+      mockUsuarioRepo.findOne.mockResolvedValue({
+        idUsuario: 1,
+        email: 'activo@systemmx.com',
+        activo: true,
+        estadoActivacion: EstadoActivacionUsuario.ACTIVO,
+      });
+
+      const res = await service.reenviarActivacionPublico('activo@systemmx.com');
+
+      expect(res.message).toContain('Si la cuenta existe');
+      expect(mockTokenRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('reenviarActivacionPublico: invalida token previo, genera uno nuevo y envía correo si está PENDIENTE_ACTIVACION', async () => {
+      mockUsuarioRepo.findOne.mockResolvedValue({
+        idUsuario: 55,
+        email: 'pendiente@systemmx.com',
+        nombre: 'Pendiente',
+        activo: true,
+        estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+      });
+      mockTokenRepo.findOne.mockResolvedValue(null); // sin tokens previos recientes
+      mockTokenRepo.update.mockResolvedValue({ affected: 1 });
+      mockTokenRepo.create.mockReturnValue({});
+      mockTokenRepo.save.mockResolvedValue({});
+      mockMailService.enviarCorreoAccion.mockResolvedValue({ exito: true });
+
+      const res = await service.reenviarActivacionPublico('pendiente@systemmx.com');
+
+      expect(mockTokenRepo.update).toHaveBeenCalled();
+      expect(mockTokenRepo.save).toHaveBeenCalled();
+      expect(mockMailService.enviarCorreoAccion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'pendiente@systemmx.com',
+          type: 'INVITACION',
+        }),
+      );
+      expect(res.message).toContain('Si la cuenta existe');
+    });
+
+    it('reenviarActivacionPublico: rate-limiting no genera nuevo token si se solicitó hace menos de 60s', async () => {
+      mockUsuarioRepo.findOne.mockResolvedValue({
+        idUsuario: 55,
+        email: 'pendiente@systemmx.com',
+        nombre: 'Pendiente',
+        activo: true,
+        estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+      });
+      mockTokenRepo.findOne.mockResolvedValue({
+        createdAt: new Date(), // ahora mismo
+      });
+
+      const res = await service.reenviarActivacionPublico('pendiente@systemmx.com');
+
+      expect(mockTokenRepo.update).not.toHaveBeenCalled();
+      expect(mockTokenRepo.save).not.toHaveBeenCalled();
+      expect(res.message).toContain('Si la cuenta existe');
+    });
+  });
 });

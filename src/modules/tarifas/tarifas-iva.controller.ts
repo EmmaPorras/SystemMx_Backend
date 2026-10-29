@@ -14,6 +14,7 @@ import { TarifasIvaService } from './tarifas-iva.service';
 import { Roles } from '../auth/roles.decorator';
 import { RolUsuario } from '../usuarios/rol-usuario.enum';
 
+@Roles(RolUsuario.ADMIN, RolUsuario.VENTAS, RolUsuario.COMPRAS, RolUsuario.CONSULTA)
 @Controller('tarifas-iva')
 export class TarifasIvaController {
   constructor(private readonly tarifasIvaService: TarifasIvaService) {}

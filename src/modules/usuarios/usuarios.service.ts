@@ -332,6 +332,7 @@ export class UsuariosService {
 
     const actionUrl = this.buildActionUrl('/activar-cuenta', rawToken);
 
+    let emailEnviado = false;
     try {
       await this.mailService.enviarCorreoAccion({
         to: email,
@@ -341,15 +342,19 @@ export class UsuariosService {
         expirationMinutes: horasExpiracion * 60,
         lang: dto.lang || 'es',
       });
+      emailEnviado = true;
     } catch (mailError: any) {
       this.logger.error(
         `Error al enviar correo de verificación de registro: ${mailError.message}`,
       );
+      emailEnviado = false;
     }
 
     return {
-      message:
-        'Registro exitoso. Se ha enviado un enlace de activación a tu correo electrónico.',
+      message: emailEnviado
+        ? 'Registro exitoso. Se ha enviado un enlace de activación a tu correo electrónico.'
+        : 'Tu cuenta fue creada exitosamente, pero no pudimos enviar el correo de activación en este momento debido a un problema temporal con el servicio de correo. Por favor solicita el reenvío del enlace de activación cuando lo desees.',
+      emailEnviado,
       usuario: this.mapearUsuario(guardado),
     };
   }
@@ -438,6 +443,104 @@ export class UsuariosService {
     return {
       mensaje: 'Invitación reenviada exitosamente.',
     };
+  }
+
+  async reenviarActivacionPublico(
+    email: string,
+    ipSolicitud?: string,
+    lang?: 'es' | 'en' | 'pt',
+  ): Promise<{ message: string }> {
+    const respuestaGenerica = {
+      message:
+        'Si la cuenta existe y está pendiente de activación, recibirás un nuevo enlace en tu correo electrónico.',
+    };
+
+    if (!email || typeof email !== 'string') {
+      return respuestaGenerica;
+    }
+
+    const emailNormalizado = this.normalizarEmail(email);
+
+    const usuario = await this.usuariosRepository.findOne({
+      where: { emailNormalizado },
+    });
+
+    // Prevención de enumeración de cuentas: responder idéntico si no existe, o si está inactivo
+    // o si ya se encuentra activado
+    if (
+      !usuario ||
+      !usuario.activo ||
+      usuario.estadoActivacion !== EstadoActivacionUsuario.PENDIENTE_ACTIVACION
+    ) {
+      return respuestaGenerica;
+    }
+
+    // Rate limiting por cuenta: verificar si el último token se generó hace menos de 60 segundos
+    const ultimoToken = await this.tokenAccionRepository.findOne({
+      where: {
+        idUsuario: usuario.idUsuario,
+        tipo: TipoTokenAccion.INVITACION,
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (
+      ultimoToken &&
+      Date.now() - new Date(ultimoToken.createdAt).getTime() < 60_000
+    ) {
+      // Ignorar silenciosamente para evitar flood y enumeración por temporización
+      return respuestaGenerica;
+    }
+
+    // Invalidar tokens previos de invitación/activación
+    await this.tokenAccionRepository.update(
+      {
+        idUsuario: usuario.idUsuario,
+        tipo: TipoTokenAccion.INVITACION,
+        usado: false,
+      },
+      {
+        usado: true,
+        usadoEn: new Date(),
+      },
+    );
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = this.hashToken(rawToken);
+
+    const horasExpiracion = Number(
+      this.configService.get<string>('SYSTEMMX_INVITACION_EXPIRES_HOURS') || 24,
+    );
+    const expiraEn = new Date(Date.now() + horasExpiracion * 60 * 60 * 1000);
+
+    const tokenAccion = this.tokenAccionRepository.create({
+      idUsuario: usuario.idUsuario,
+      tipo: TipoTokenAccion.INVITACION,
+      tokenHash,
+      expiraEn,
+      usado: false,
+      ipSolicitud: ipSolicitud || null,
+    });
+    await this.tokenAccionRepository.save(tokenAccion);
+
+    const actionUrl = this.buildActionUrl('/activar-cuenta', rawToken);
+
+    try {
+      await this.mailService.enviarCorreoAccion({
+        to: usuario.email!,
+        recipientName: usuario.nombre,
+        type: 'INVITACION',
+        actionUrl,
+        expirationMinutes: horasExpiracion * 60,
+        lang: lang || 'es',
+      });
+    } catch (mailError: any) {
+      this.logger.error(
+        `Error al reenviar correo de activación: ${mailError.message}`,
+      );
+    }
+
+    return respuestaGenerica;
   }
 
   async findAll(): Promise<UsuarioPublico[]> {

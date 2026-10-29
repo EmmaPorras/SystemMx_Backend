@@ -97,9 +97,16 @@ La auditoría se estructuró bajo cuatro principios fundamentales de accesibilid
 
 ---
 
-## 5. EVIDENCIA DE PRUEBAS AUTOMATIZADAS CON AXE-CORE (15 PRUEBAS INTEGRALES)
+## 5. EVIDENCIA DE PRUEBAS AUTOMATIZADAS CON AXE-CORE Y LIMITACIONES DE JSDOM
 
-La prueba automatizada integral en `src/test/accessibility.test.tsx` arrojó el siguiente registro de ejecución:
+### 5.1. Alcance y Limitación Técnica de jsdom
+> [!NOTE]
+> **Limitación de jsdom en la regla `color-contrast`**: Las pruebas automatizadas con `axe-core` en Vitest/Jest se ejecutan sobre un entorno simulado **jsdom**. Debido a que jsdom no implementa un motor de renderizado gráfico ni computa hojas de estilo CSS en cascada (`window.getComputedStyle`), `axe-core` desactiva internamente la regla de contraste de color (`color-contrast: { enabled: false }`) para evitar falsos positivos.
+>
+> Por este motivo, **las pruebas automatizadas por sí solas no certifican el cumplimiento de contraste WCAG 2.2 AAA**. Para garantizar el estándar AAA, se requirió una auditoría empírica complementaria con estilos CSS aplicados en navegador real (Chrome / Edge / Firefox) y cálculo matemático de luminancia relativa.
+
+### 5.2. Resultados de la Suite Automatizada (15 Pruebas Integrales)
+La prueba automatizada integral en `src/test/accessibility.test.tsx` arrojó el siguiente registro de ejecución (15/15 aprobadas):
 
 ```text
  RUN  v5.0.0 C:/Users/Estudiantes/Desktop/SystemMx_Frontend
@@ -152,9 +159,27 @@ La prueba automatizada integral en `src/test/accessibility.test.tsx` arrojó el 
 6. **Multimedia y Movimiento Reducido**: El video de fondo en `LoginPage` incluye los atributos `muted`, `playsInline` y la consulta `@media (prefers-reduced-motion: reduce)` para respetar las preferencias de usuarios con afecciones vestibulares o fotosensibilidad.
 7. **Sincronización Idiomática**: El atributo `lang` en `document.documentElement` cambia sincrónicamente entre `es`, `en` y `pt-BR` al alternar el idioma, permitiendo a los sintetizadores de voz pronunciar el contenido con el acento y reglas fonéticas exactas.
 
+### 6.3. Verificación de Integración con UserWay
+El widget de accesibilidad de **UserWay** está integrado en `index.html` con la cuenta `fM98dI0Efj` y configurado con:
+- `data-position="3"`: Posicionado en la esquina inferior derecha sin superponerse a campos de entrada ni botones críticos de formularios.
+- `data-mobile="true"`: Plenamente funcional y responsivo en dispositivos móviles y pantallas táctiles.
+- **Operabilidad por Teclado**: Accesible mediante navegación secuencial con `Tab` y activable con `Enter` o `Espacio`. Al pulsar `Escape`, el menú se cierra devolviendo el control al documento principal.
+- **Bloqueo de Desplazamiento (`Scroll Lock`)**: Integrado en `AppLayout.tsx`, detecta la apertura del panel UserWay y añade la clase `userway-panel-open` al `<body>` (`overflow: hidden`) para prevenir el desplazamiento accidental del fondo mientras se interactúa con el menú.
+- **Sincronización de Idioma**: Conectado con `i18next` mediante `syncUserWayLanguage()` (`src/i18n/index.ts`). Al alternar el idioma de la plataforma entre Español (`es`), Inglés (`en`) y Portugués (`pt`), el widget adapta automáticamente su interfaz a `es`, `en-US` o `pt-BR`.
+
 ---
 
-## 7. CONCLUSIÓN
+## 7. LIMITACIONES DE COBERTURA Y CONCLUSIONES
 
-SystemMx cumple rigurosamente con los lineamientos de accesibilidad WCAG 2.2 AAA en sus componentes transversales de formulario, navegación y visualización de datos, asegurando una experiencia inclusiva, usable y libre de barreras para cualquier usuario o tecnología asistiva.
+### 7.1. Limitaciones Técnicas Declaradas
+1. **Pruebas Automatizadas vs Entorno de Producción**:
+   - Las pruebas automatizadas en `jsdom` cubren estructura HTML semántica, nombres accesibles, atributos ARIA, etiquetado de formularios y trampas de foco.
+   - El contraste de color no puede evaluarse automáticamente en jsdom y fue verificado mediante mediciones manuales de luminancia en CSS y herramientas de inspección en navegador.
+2. **Gráficos Complejos y Exportaciones**:
+   - Los reportes con descargas en Excel/PDF y diagramas visuales cuentan con tablas de datos accesibles subyacentes como alternativa textual principal, pero la inspección de documentos binarios requiere visores externos compatibles con accesibilidad.
+3. **Dependencia de Red de Terceros**:
+   - El widget de UserWay se sirve desde el CDN oficial (`cdn.userway.org`). En caso de bloqueo de red o navegación offline, SystemMx mantiene su propia base accesible nativa (contraste AAA en Tailwind, navegación por teclado, focus rings e i18n).
+
+### 7.2. Conclusión Final
+SystemMx ofrece una base de accesibilidad sólida, verificable y usable bajo criterios WCAG 2.2 AAA en todos sus flujos centrales de autenticación, catálogos comerciales, formularios transaccionales y reportería, reforzada por herramientas asistivas externas y diseño inclusivo.
 

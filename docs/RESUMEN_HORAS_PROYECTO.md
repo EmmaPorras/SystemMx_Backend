@@ -24,6 +24,13 @@
 - [x] **TST-01**: Ejecución y pase al 100% de suites de pruebas Backend (Jest, 52 suites, 581 pruebas).
 - [x] **TST-02**: Ejecución y pase al 100% de suites de pruebas Frontend (Vitest, 45 suites, 230+ pruebas).
 - [x] **BLD-01**: Compilación de producción limpia en TypeScript para Backend (`dist/`) y Frontend (`dist/`).
+- [x] **AUD-03**: Aislamiento estricto y blindaje del rol DEMO (HTTP 403 en controladores comerciales: inventario, pedidos, proveedores, tarifas-iva, productos, categorías, reportes y usuarios).
+- [x] **AUD-04**: Corrección crítica en `registrarPublico`: manejo de error para no confirmar falsamente el envío cuando el servicio de correo no está disponible (`emailEnviado: false`).
+- [x] **AUD-05**: Endpoint seguro de reenvío de activación `POST /api/auth/reenviar-activacion` con rate limiting (60s) y respuesta neutra anti-enumeración de cuentas.
+- [x] **AUD-06**: Incorporación del rol DEMO en la interfaz de administración de usuarios de Frontend (`UsuariosPage.tsx`, selector de rol en tabla, filtro por rol y `CrearUsuarioModal.tsx`).
+- [x] **AUD-07**: Extracción resiliente de token y formulario de reenvío en `ActivarCuentaPage.tsx` con compatibilidad para `HashRouter`.
+- [x] **A11Y-05**: Auditoría de accesibilidad con explicación de limitaciones de jsdom y mediciones de contraste real WCAG 2.2 AAA (botones a 8.72:1, textos a >7:1).
+- [x] **TST-03**: Pase al 100% de suites de prueba: 55 suites Backend (623 pruebas pasadas), 46 suites Frontend (249 pruebas pasadas).
 
 ### 1.2. In Progress (Integración de Despliegue)
 - [ ] **INT-01**: Integración y commit de cambios sobre las ramas activas `integracion-deploy-neon` (Backend) e `integracion-deploy-render` (Frontend).

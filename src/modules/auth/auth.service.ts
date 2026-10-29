@@ -11,6 +11,7 @@ import { ActivarCuentaDto } from './dto/activar-cuenta.dto';
 import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 import { SolicitarRecuperacionDto } from './dto/solicitar-recuperacion.dto';
 import { RegistroDto } from './dto/registro.dto';
+import { ReenviarActivacionDto } from './dto/reenviar-activacion.dto';
 import { TipoTokenAccion } from '../usuarios/tipo-token-accion.enum';
 
 @Injectable()
@@ -112,5 +113,13 @@ export class AuthService {
 
   async registrarPublico(dto: RegistroDto, ipSolicitud?: string) {
     return this.usuariosService.registrarPublico(dto, ipSolicitud);
+  }
+
+  async reenviarActivacion(dto: ReenviarActivacionDto, ipSolicitud?: string) {
+    return this.usuariosService.reenviarActivacionPublico(
+      dto.email,
+      ipSolicitud,
+      dto.lang,
+    );
   }
 }

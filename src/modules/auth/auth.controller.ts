@@ -18,6 +18,7 @@ import { SolicitarRecuperacionDto } from './dto/solicitar-recuperacion.dto';
 import { ActivarCuentaDto } from './dto/activar-cuenta.dto';
 import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 import { RegistroDto } from './dto/registro.dto';
+import { ReenviarActivacionDto } from './dto/reenviar-activacion.dto';
 import { Public } from './public.decorator';
 import { TipoTokenAccion } from '../usuarios/tipo-token-accion.enum';
 
@@ -104,6 +105,22 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   registro(@Body() dto: RegistroDto, @Req() req: Request) {
     return this.authService.registrarPublico(dto, req.ip);
+  }
+
+  @Public()
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 60_000,
+    },
+  })
+  @Post('reenviar-activacion')
+  @HttpCode(HttpStatus.OK)
+  reenviarActivacion(
+    @Body() dto: ReenviarActivacionDto,
+    @Req() req: Request,
+  ) {
+    return this.authService.reenviarActivacion(dto, req.ip);
   }
 
   @Get('me')

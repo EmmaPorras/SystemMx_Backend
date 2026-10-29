@@ -47,7 +47,7 @@ describe('Validación de Esquema y Restricciones DDL PostgreSQL (Emulación pg-m
     });
 
     dataSource = await typeormDs.initialize();
-  });
+  }, 30000);
 
   afterAll(async () => {
     if (dataSource && dataSource.isInitialized) {

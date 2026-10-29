@@ -14,6 +14,7 @@ import { ProveedoresService } from './proveedores.service';
 import { Roles } from '../auth/roles.decorator';
 import { RolUsuario } from '../usuarios/rol-usuario.enum';
 
+@Roles(RolUsuario.ADMIN, RolUsuario.COMPRAS, RolUsuario.CONSULTA)
 @Controller('proveedores')
 export class ProveedoresController {
   constructor(private readonly proveedoresService: ProveedoresService) {}
