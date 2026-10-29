@@ -17,7 +17,9 @@ export function configureApp(
 
   app.use(helmet());
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: ['/', 'health', 'api', 'api/health'],
+  });
 
   const corsOrigins = configService
     .getOrThrow<string>('CORS_ORIGINS')

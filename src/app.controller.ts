@@ -11,4 +11,34 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  @Public()
+  @Get('health')
+  getHealth() {
+    return {
+      status: 'ok',
+      service: 'systemmx-backend',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Public()
+  @Get('api')
+  getApi() {
+    return {
+      status: 'ok',
+      service: 'systemmx-backend',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Public()
+  @Get('api/health')
+  getApiHealth() {
+    return {
+      status: 'ok',
+      service: 'systemmx-backend',
+      timestamp: new Date().toISOString(),
+    };
+  }
 }

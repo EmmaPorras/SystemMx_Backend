@@ -16,6 +16,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
 import { MailModule } from './modules/mail/mail.module';
 import { DemoModule } from './modules/demo/demo.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -42,5 +44,7 @@ import { DemoModule } from './modules/demo/demo.module';
     MailModule,
     DemoModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
