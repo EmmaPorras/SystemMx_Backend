@@ -49,9 +49,12 @@ export function tarifaE2ePayload(overrides = {}) {
   };
 }
 
-export function pedidoE2ePayload(proveedorId: number, overrides = {}) {
+export function pedidoE2ePayload(
+  proveedorId: number,
+  categoriaId = 1,
+  overrides = {},
+) {
   return {
-    numeroPedido: 101,
     fecha: todayIso(),
     origen: 'NACIONAL',
     proveedorId,
@@ -61,6 +64,7 @@ export function pedidoE2ePayload(proveedorId: number, overrides = {}) {
     observaciones: 'Pedido inicial E2E',
     detalles: [
       {
+        categoriaId,
         productoNombre: 'Producto E2E',
         loteCodigo: 'L1',
         cantidad: 5,
