@@ -1,13 +1,19 @@
-name: Neon build check
+name: Backend CI & Build Check
 
 on:
   push:
     branches:
+      - main
+      - deploy-neon
+      - prep-entrega-final
+  pull_request:
+    branches:
+      - main
       - deploy-neon
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -17,9 +23,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build backend
         run: npm run build
+
+      - name: Run unit & integration tests
+        run: npm test -- --runInBand
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 1433
+          DB_USERNAME: test_user
+          DB_PASSWORD: test_password
+          DB_DATABASE: test_database
+          JWT_SECRET: dummy_secret_key_for_ci_testing_at_least_32_chars
+          CORS_ORIGINS: http://localhost:5173

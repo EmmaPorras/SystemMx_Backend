@@ -153,6 +153,22 @@ export function createMigrationDataSourceOptions(
   };
 }
 
-const dataSource = new DataSource(createMigrationDataSourceOptions());
+const isTestEnv =
+  process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
+
+const envForDefaultSource: NodeJS.ProcessEnv = isTestEnv
+  ? {
+      DB_HOST: 'localhost',
+      DB_PORT: '1433',
+      DB_USERNAME: process.env.DB_USERNAME || 'test_user',
+      DB_PASSWORD: process.env.DB_PASSWORD || 'test_password',
+      DB_DATABASE: process.env.DB_DATABASE || 'test_db',
+      ...process.env,
+    }
+  : process.env;
+
+const dataSource = new DataSource(
+  createMigrationDataSourceOptions(envForDefaultSource),
+);
 
 export default dataSource;
