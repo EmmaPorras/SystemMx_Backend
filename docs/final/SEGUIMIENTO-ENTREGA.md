@@ -2,7 +2,7 @@
 **Proyecto:** System MX — Plataforma Web de Gestión Comercial  
 **Fecha de inicio:** 3 de noviembre de 2026  
 **Fecha de cierre de estabilización:** 4 de noviembre de 2026  
-**Rama de trabajo oficial:** `prep-entrega-final` (en Frontend y Backend)  
+**Rama de trabajo oficial:** `prep-entrega-final` (publicada en GitHub en ambos repositorios)  
 **Total de Pruebas Automatizadas Verificadas:** 929 Pruebas (100% Exitosas)  
 
 ---
@@ -72,7 +72,7 @@
   - Backend E2E Tests: `.\scripts\run-systemmx-e2e.ps1` -> 54/54 pruebas pasadas sobre BD aislada `inventario_motos_systemmx_e2e` (100%).
 - **COMMITS:**
   - Frontend: `740df64` (*fix(frontend): timeout vitest, configuración eslint y corrección de advertencias de tipado*) y `f0c413e` (*ci: agregar workflow de GitHub Actions para lint, build y vitest*).
-  - Backend: `bdd9620` (*fix(e2e,ci): estabilizar migraciones dual-dialect MSSQL/PostgreSQL, E2E fixtures y workflow CI*).
+  - Backend: `bdd9620` (*fix(e2e,ci): estabilizar migraciones dual-dialect MSSQL/PostgreSQL, E2E fixtures y workflow CI*), `659bfb4` (*fix(ci): agregar fallback seguro en data-source para Jest y variables de entorno de prueba en CI*).
 - **SIGUIENTE FASE:** FASE 3 — PRUEBAS FUNCIONALES E INTEGRACIÓN.
 
 
@@ -164,7 +164,8 @@
   - [x] Dual-dialect validado en SQL Server y PostgreSQL (Neon).
   - [x] Despliegues en Render verificados y respondiendo HTTP 200 OK en vivo.
   - [x] Sin credenciales expuestas en repositorios (`.env` protegido y desindexado).
-  - [x] GitHub Actions workflows configurados para Frontend y Backend.
+  - [x] Ramas remotas `prep-entrega-final` publicadas en GitHub.
+  - [x] GitHub Actions ejecutados exitosamente en ambas ramas (`100% SUCCESS`).
   - [x] 7 entregables oficiales generados en `docs/final/`.
   - [x] READMEs actualizados en ambas raíces.
-  - [x] Commits descriptivos en rama `prep-entrega-final` en ambos repositorios.
+  - [x] Pull Requests preparados para revisión e integración.
