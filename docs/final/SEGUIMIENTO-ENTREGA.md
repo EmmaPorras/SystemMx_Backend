@@ -22,7 +22,7 @@
   - Creación de bitácora acumulativa `docs/final/SEGUIMIENTO-ENTREGA.md`.
 - **PRUEBAS EJECUTADAS:**
   - Verificación de salud Render: Backend `/api/health` -> HTTP 200 OK (`{"status":"ok"}`); Frontend -> HTTP 200 OK.
-  - Frontend build: `npm run build` -> Exit code 0 (41.53s).
+  - Frontend build: `npm run build` -> Exit code 0.
   - Frontend vitest: `npm test` -> 42 passed, 4 timeout de worker; individuales pasan 100% (249/249).
   - Backend build: `npm run build` -> Exit code 0.
   - Backend jest: `npm test -- --runInBand` -> 55 passed (55/55 suites, 626 passed, 1 skipped).
@@ -49,3 +49,26 @@
 - **PENDIENTES:** Ninguno.
 - **COMMIT:** `58e5168` en Frontend (*fix(security): desindexar .env del control de versiones y proteger archivos de entorno en .gitignore*).
 - **SIGUIENTE FASE:** FASE 2 — COMPILACIÓN Y PRUEBAS AUTOMATIZADAS.
+
+
+### FASE 2 — COMPILACIÓN Y PRUEBAS AUTOMATIZADAS
+- **ESTADO:** Completada.
+- **PROBLEMAS ENCONTRADOS Y CORREGIDOS:**
+  1. Frontend Vitest Timeout: se configuró `testTimeout: 20000` en `vitest.config.ts`, permitiendo que las 46 suites se ejecuten concurrentemente sin timeouts en Windows.
+  2. Frontend ESLint: se instalaron dependencias de desarrollo (`@eslint/js`, `globals`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `typescript-eslint`), se agregó script `"lint": "eslint ."` a `package.json`, y se resolvieron advertencias/errores de tipado.
+  3. Backend Migración 1 (`InitialSchema`): se adaptó a arquitectura dual-dialect (`isPostgres ? postgresql : mssql`), permitiendo ejecución nativa en Microsoft SQL Server local para pruebas y PostgreSQL en Neon.
+  4. Backend Fixtures y E2E: en `test/fixtures/systemmx-e2e.fixture.ts` se incorporó `categoriaId` en el detalle del pedido y se retiró el atributo no permitido `numeroPedido`; en `test/systemmx-install.e2e-spec.ts` se actualizó la aserción de tablas a 13 tablas de negocio (12 comerciales + tokens de usuario).
+  5. Automatización CI en GitHub Actions:
+     - Frontend: creado `.github/workflows/frontend-ci.yml` ejecutando lint, compilación y pruebas Vitest para ramas `main`, `deploy-render` y `prep-entrega-final`.
+     - Backend: optimizado `.github/workflows/neon-build-check.yml` ejecutando compilación NestJS y suite de pruebas unitarias/integración para ramas `main`, `deploy-neon` y `prep-entrega-final`.
+- **RESULTADOS DE PRUEBAS AUTOMATIZADAS:**
+  - Frontend Build: `npm run build` -> EXIT 0 (TypeScript y empaquetado Vite exitosos).
+  - Frontend Lint: `npx eslint .` -> EXIT 0 (0 errores, 0 advertencias).
+  - Frontend Tests: `npm test -- --run` -> 46 suites pasadas, 249/249 pruebas pasadas (100%).
+  - Backend Build: `npm run build` -> EXIT 0 (compilación NestJS exitosa).
+  - Backend Unit/Integration Tests: `npm test -- --runInBand` -> 55 suites pasadas, 626 pasadas, 1 skipped, 0 fallidas (100%).
+  - Backend E2E Tests: `.\scripts\run-systemmx-e2e.ps1` -> 54/54 pruebas pasadas sobre BD aislada `inventario_motos_systemmx_e2e` (100%).
+- **COMMITS:**
+  - Frontend: `740df64` (*fix(frontend): timeout vitest, configuración eslint y corrección de advertencias de tipado*) y `f0c413e` (*ci: agregar workflow de GitHub Actions para lint, build y vitest*).
+  - Backend: `bdd9620` (*fix(e2e,ci): estabilizar migraciones dual-dialect MSSQL/PostgreSQL, E2E fixtures y workflow CI*).
+- **SIGUIENTE FASE:** FASE 3 — PRUEBAS FUNCIONALES E INTEGRACIÓN.
