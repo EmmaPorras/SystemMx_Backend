@@ -30,6 +30,8 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   let dataSource: DataSource;
 
   let adminToken: string;
+  let comprasToken: string;
+  let comprasId: number;
   let operadorToken: string;
   let consultaToken: string;
   let operadorId: number;
@@ -76,14 +78,14 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
       expect(Number(rows[0].cantidad)).toBeGreaterThanOrEqual(1);
     });
 
-    it('comprueba la existencia exacta de las 12 tablas comerciales de negocio', async () => {
+    it('comprueba la existencia de las tablas de negocio (12 comerciales + tokens)', async () => {
       const rows = await dataSource.query(`
         SELECT COUNT(*) as cantidad
         FROM INFORMATION_SCHEMA.TABLES
         WHERE TABLE_TYPE = 'BASE TABLE'
           AND TABLE_NAME <> 'migrations'
       `);
-      expect(Number(rows[0].cantidad)).toBe(12);
+      expect(Number(rows[0].cantidad)).toBe(13);
     });
   });
 
@@ -118,6 +120,26 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   });
 
   describe('Escenario 3 — Creación y Login de Usuarios de Prueba', () => {
+    it('ADMIN crea usuario COMPRAS', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/usuarios')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(usuarioE2ePayload('e2e_compras', RolUsuario.COMPRAS))
+        .expect(201);
+
+      expect(res.body.rol).toBe(RolUsuario.COMPRAS);
+      comprasId = Number(res.body.idUsuario);
+    });
+
+    it('inicia sesión con COMPRAS', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ username: 'e2e_compras', password: 'PasswordE2E123!' })
+        .expect(200);
+
+      comprasToken = res.body.accessToken as string;
+    });
+
     it('ADMIN crea usuario VENTAS', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/usuarios')
@@ -256,11 +278,11 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   });
 
   describe('Escenario 6 — Creación de Pedido y Nacimiento de Producto', () => {
-    it('VENTAS registra Pedido (cantidad = 5)', async () => {
+    it('COMPRAS registra Pedido (cantidad = 5)', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/pedidos')
-        .set('Authorization', `Bearer ${operadorToken}`)
-        .send(pedidoE2ePayload(proveedorId))
+        .set('Authorization', `Bearer ${comprasToken}`)
+        .send(pedidoE2ePayload(proveedorId, categoriaId))
         .expect(201);
 
       pedidoId = Number(res.body.id ?? res.body.idPedido);
@@ -305,10 +327,10 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
   });
 
   describe('Escenario 7 — Recepción de Pedido e Ingreso al Inventario', () => {
-    it('VENTAS recibe el pedido completamente (+5)', async () => {
+    it('COMPRAS recibe el pedido completamente (+5)', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/pedidos/${pedidoId}/recepcion`)
-        .set('Authorization', `Bearer ${operadorToken}`)
+        .set('Authorization', `Bearer ${comprasToken}`)
         .send(recepcionE2ePayload(loteId, 5))
         .expect(200);
 
@@ -346,8 +368,8 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
       );
       expect(entrada).toBeDefined();
       expect(Number(entrada?.cantidad)).toBe(5);
-      expect(entrada?.idUsuario).toBe(operadorId);
-      expect(entrada?.usuario).toBe('e2e_ventas');
+      expect(entrada?.idUsuario).toBe(comprasId);
+      expect(entrada?.usuario).toBe('e2e_compras');
     });
   });
 
@@ -476,7 +498,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
     it('la venta queda CONCILIADA con diferencia 0 en conciliación', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/reportes/pagos/conciliacion')
-        .set('Authorization', `Bearer ${operadorToken}`)
+        .set('Authorization', `Bearer ${consultaToken}`)
         .expect(200);
 
       const items = res.body.detalle as Array<{
@@ -495,7 +517,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
     it('reconciliación de reportes de inventario (stock = 3)', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/reportes/inventario/resumen')
-        .set('Authorization', `Bearer ${operadorToken}`)
+        .set('Authorization', `Bearer ${consultaToken}`)
         .expect(200);
 
       expect(Number(res.body.unidadesDisponibles)).toBe(3);
@@ -504,7 +526,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
     it('reconciliación de pagos en resumen y métodos', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/reportes/pagos/resumen')
-        .set('Authorization', `Bearer ${operadorToken}`)
+        .set('Authorization', `Bearer ${consultaToken}`)
         .expect(200);
 
       expect(Number(res.body.montoRegistrado)).toBe(4000);
@@ -516,7 +538,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
       const fechaCorte = tomorrowIso();
       const res = await request(app.getHttpServer())
         .get(`/api/reportes/inventario/historico?fechaCorte=${fechaCorte}`)
-        .set('Authorization', `Bearer ${operadorToken}`)
+        .set('Authorization', `Bearer ${consultaToken}`)
         .expect(200);
 
       const lotes = res.body.lotes as Array<{
@@ -620,7 +642,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
     it('la venta anulada sale de las ventas comerciales válidas', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/reportes/ventas/resumen')
-        .set('Authorization', `Bearer ${operadorToken}`)
+        .set('Authorization', `Bearer ${consultaToken}`)
         .expect(200);
 
       expect(Number(res.body.cantidadVentas)).toBe(0);
@@ -630,7 +652,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
     it('la venta aparece en el reporte de ventas anuladas', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/reportes/ventas/anuladas')
-        .set('Authorization', `Bearer ${operadorToken}`)
+        .set('Authorization', `Bearer ${consultaToken}`)
         .expect(200);
 
       expect(Number(res.body.cantidad)).toBe(1);
@@ -652,7 +674,7 @@ describe('SystemMx Backend v1 — Smoke / E2E Installation Test', () => {
       const fechaCorte = tomorrowIso();
       const res = await request(app.getHttpServer())
         .get(`/api/reportes/inventario/historico?fechaCorte=${fechaCorte}`)
-        .set('Authorization', `Bearer ${operadorToken}`)
+        .set('Authorization', `Bearer ${consultaToken}`)
         .expect(200);
 
       const lotes = res.body.lotes as Array<{
