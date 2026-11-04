@@ -33,3 +33,12 @@ jobs:
 
       - name: Run unit & integration tests
         run: npm test -- --runInBand
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 1433
+          DB_USERNAME: test_user
+          DB_PASSWORD: test_password
+          DB_DATABASE: test_database
+          JWT_SECRET: dummy_secret_key_for_ci_testing_at_least_32_chars
+          CORS_ORIGINS: http://localhost:5173
