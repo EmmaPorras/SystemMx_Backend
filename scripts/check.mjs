@@ -72,20 +72,22 @@ function semgrepStep() {
   const configs = SEMGREP_CONFIGS.filter((c) => !c.endsWith('/') || existsSync(resolve(root, c))).flatMap((c) => ['--config', c]);
   const args = [
     'scan', ...configs, '--metrics=off', '--error', '--severity=ERROR',
-    '--exclude=node_modules', '--exclude=dist', '--exclude=reports', '--exclude=coverage',
     '--json', `--output=${report}`, '--quiet', 'src', 'test', 'scripts',
   ];
   let r;
   if (has('semgrep')) {
     r = run('semgrep', args);
   } else if (dockerUp()) {
-    r = run('docker', ['run', '--rm', '-v', `${root}:/src`, '-w', '/src', SEMGREP_IMAGE, 'semgrep', ...args]);
+    // Se copia el codigo DENTRO del contenedor: escanear el bind-mount de Windows tarda ~9 min; asi ~10 s.
+    const dockerArgs = args.slice(1).map((x) => x.replace('--output=reports/semgrep.json', '--output=/out/semgrep.json'));
+    const script = 'mkdir /w && cp -r /mnt/src /mnt/test /mnt/scripts /w/ && { [ ! -d /mnt/.semgrep ] || cp -r /mnt/.semgrep /w/; } && cd /w && semgrep scan "$@"';
+    r = run('docker', ['run', '--rm', '-v', `${root}:/mnt:ro`, '-v', `${reportsDir}:/out`, SEMGREP_IMAGE, 'sh', '-c', script, 'sh', ...dockerArgs]);
   } else {
     return { status: 'incompleto', output: 'Semgrep no pudo ejecutarse: instala semgrep o inicia Docker Desktop.' };
   }
   const out = (r.stdout ?? '') + (r.stderr ?? '');
   // semgrep --error: 0 = limpio, 1 = hallazgos; otro código (2, ...) = error de ejecución.
-  if (r.error || (r.status !== 0 && r.status !== 1)) return { status: 'incompleto', output: out + String(r.error ?? '') };
+  if (r.error || (r.status !== 0 && r.status !== 1)) return { status: 'incompleto', output: out + String(r.error ?? '') + ' [codigo de salida: ' + r.status + ']' };
   return { status: r.status === 0 ? 'ok' : 'fail', output: out + summarizeSemgrep(resolve(root, report)) };
 }
 
