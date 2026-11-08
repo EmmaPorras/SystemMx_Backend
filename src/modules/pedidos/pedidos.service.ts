@@ -140,15 +140,17 @@ export class PedidosService {
   }
 
   private async obtenerSiguienteNumeroConManager(manager: EntityManager) {
-    const [ultimoPedido] = await manager.getRepository(PedidoCompraEntity).find({
-      select: {
-        numeroPedido: true,
-      },
-      order: {
-        numeroPedido: 'DESC',
-      },
-      take: 1,
-    });
+    const [ultimoPedido] = await manager
+      .getRepository(PedidoCompraEntity)
+      .find({
+        select: {
+          numeroPedido: true,
+        },
+        order: {
+          numeroPedido: 'DESC',
+        },
+        take: 1,
+      });
 
     return Number(ultimoPedido?.numeroPedido ?? 0) + 1;
   }

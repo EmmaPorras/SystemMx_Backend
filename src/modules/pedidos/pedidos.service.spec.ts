@@ -92,12 +92,16 @@ describe('PedidosService', () => {
       sku: 'FIL-001',
       costoPromedioPonderado: 2500,
       precioVentaSugerido: 4000,
-      categoria: { idCategoria: 1, nombre: 'Repuestos', activo: true } as Categoria,
+      categoria: {
+        idCategoria: 1,
+        nombre: 'Repuestos',
+        activo: true,
+      } as Categoria,
       lotes: [],
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
-    } as Producto);
+    }) as Producto;
 
   const crearLote = (overrides: Partial<LoteProducto> = {}): LoteProducto =>
     ({
@@ -250,12 +254,10 @@ describe('PedidosService', () => {
         if (entity === DetalleVenta) return detalleVentaRepoMock;
         return null;
       }),
-      transaction: jest
-        .fn()
-        .mockImplementation((...args: any[]) => {
-          const callback = typeof args[0] === 'function' ? args[0] : args[1];
-          return callback(managerMock as unknown as EntityManager);
-        }),
+      transaction: jest.fn().mockImplementation((...args: any[]) => {
+        const callback = typeof args[0] === 'function' ? args[0] : args[1];
+        return callback(managerMock as unknown as EntityManager);
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -410,7 +412,9 @@ describe('PedidosService', () => {
         idOrigenCompra: 1,
         estado: 'ACTIVO',
       });
-      pedidosRepositoryMock.findOne.mockResolvedValue(crearPedido({ numeroPedido: 101 })); // findOneByNumeroPedido
+      pedidosRepositoryMock.findOne.mockResolvedValue(
+        crearPedido({ numeroPedido: 101 }),
+      ); // findOneByNumeroPedido
 
       const prodQb: MockQueryBuilder = crearQueryBuilderMock();
       prodQb.getOne.mockResolvedValue({
@@ -461,7 +465,6 @@ describe('PedidosService', () => {
       const resultado = await service.create(createDto);
       expect(resultado.numeroPedido).toBe('101');
     });
-
 
     it('debe reutilizar producto por productoId si se proporciona', async () => {
       origenCompraRepoMock.findOne.mockResolvedValue({
