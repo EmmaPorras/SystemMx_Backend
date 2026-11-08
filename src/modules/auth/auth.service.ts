@@ -32,7 +32,9 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    if (usuario.estadoActivacion === EstadoActivacionUsuario.PENDIENTE_ACTIVACION) {
+    if (
+      usuario.estadoActivacion === EstadoActivacionUsuario.PENDIENTE_ACTIVACION
+    ) {
       throw new UnauthorizedException(
         'La cuenta está pendiente de activación. Por favor revisa tu correo electrónico para activarla.',
       );
@@ -92,7 +94,10 @@ export class AuthService {
   }
 
   async validarTokenAccion(token: string, tipo?: TipoTokenAccion) {
-    const tokenEntity = await this.usuariosService.validarTokenAccion(token, tipo);
+    const tokenEntity = await this.usuariosService.validarTokenAccion(
+      token,
+      tipo,
+    );
 
     return {
       valid: true,
@@ -108,7 +113,10 @@ export class AuthService {
   }
 
   async restablecerPassword(dto: RestablecerPasswordDto) {
-    return this.usuariosService.restablecerPasswordConToken(dto.token, dto.password);
+    return this.usuariosService.restablecerPasswordConToken(
+      dto.token,
+      dto.password,
+    );
   }
 
   async registrarPublico(dto: RegistroDto, ipSolicitud?: string) {

@@ -179,8 +179,7 @@ export class MailService {
         proveedor: 'google_apps_script',
       };
     } catch (err: unknown) {
-      const errorFinal =
-        err instanceof Error ? err : new Error(String(err));
+      const errorFinal = err instanceof Error ? err : new Error(String(err));
       this.logger.error(
         `Fallo al enviar correo de tipo ${params.type} a ${params.to}: ${errorFinal.message}`,
       );

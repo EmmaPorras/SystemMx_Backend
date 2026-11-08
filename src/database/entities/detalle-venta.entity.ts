@@ -126,10 +126,16 @@ export class DetalleVenta {
   @Column({ name: 'detalle', type: 'varchar', length: 150, nullable: true })
   detalle?: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: resolveColumnType('timestamptz', 'datetime2'),
+  })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: resolveColumnType('timestamptz', 'datetime2'),
+  })
   updatedAt!: Date;
 
   @ManyToOne(() => VentaEntity, (venta) => venta.detalles)
