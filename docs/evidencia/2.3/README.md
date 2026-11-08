@@ -1,0 +1,15 @@
+# Evidencia ítem 2.3 — Semgrep CE y Gitleaks en desarrollo
+- Responsable: Integrante 2 · Revisor: Integrante 3 · Fecha: 2026-11-08
+- Qué cubre: `npm run check` ejecuta Gitleaks v8.30.1 (árbol de trabajo, `--redact`) y Semgrep CE 1.184.0 (`p/typescript`, `p/nodejs`, `p/owasp-top-ten` + `.semgrep/`, `--metrics=off`, bloquea `ERROR`) sobre `src`, `test`, `scripts`. Falla si una herramienta no puede ejecutarse.
+- Qué NO cubre: Semgrep no hace análisis de flujo de datos completo (las reglas del registro NO detectaron `eval(req.query...)`; se añadió la regla propia `systemmx-eval-dinamico`). Gitleaks solo ve patrones/entropía. El historial se escanea aparte con `gitleaks git`.
+- Archivos: `scripts/check.mjs`, `.gitleaks.toml`, `.semgrep/inyeccion.yml`, `.semgrep/systemmx.yml`, README (sección Calidad y seguridad local).
+- Reproducir: `npm run check -- --only=gitleaks,semgrep` (requiere Docker Desktop o binarios).
+- Demostración: se creó `src/tmp-defecto-demo.ts` (eval sobre parámetro + token ficticio aleatorio con formato `ghp_`), sin commit.
+  - Con defecto: `salida-con-defecto.txt` → gitleaks FAIL (1 hallazgo), semgrep FAIL (`systemmx-eval-dinamico` línea 5), exit=1.
+  - Archivo borrado: `salida-sin-defecto.txt` → ambos OK, exit=0.
+- Hallazgos reales / falsos positivos (para registrar como H-n en Issues, ítem 7.5):
+  - 16 coincidencias `generic-api-key` en `*.spec.ts` (contraseñas ficticias de prueba) → falso positivo, allowlist limitada a esa regla y a specs.
+  - `.env` local: no versionado (`git log --all -- .env` vacío); excluido del escaneo del árbol.
+  - Historial: 1 coincidencia en `README.md:5` del commit `ecfa4feb` (probable enlace de insignia CircleCI) → falso positivo probable, pendiente de confirmar.
+- Limitación: Semgrep en Docker sobre Windows tarda ~9 min; en CI debería ser mucho menor.
+- Revisión humana: pendiente (PR aprobado por Integrante 3).
