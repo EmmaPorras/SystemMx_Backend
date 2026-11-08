@@ -97,3 +97,21 @@ La documentación exhaustiva se encuentra centralizada en la carpeta [`docs/fina
 ## 👥 Equipo de Desarrollo
 
 Proyecto desarrollado para la evaluación final de Ingeniería de Software — Noviembre 2026.
+
+---
+
+## 🔒 Calidad y seguridad local
+
+```bash
+npm run lint:ci   # ESLint sin --fix (npm run lint SÍ modifica archivos)
+npm run check     # lint:ci + build + test + Gitleaks + Semgrep -> reportes en reports/
+npm run check -- --only=gitleaks,semgrep
+```
+
+- **Requisito:** binarios `gitleaks`/`semgrep` o Docker Desktop iniciado. Si una herramienta no puede ejecutarse, `check` falla (incompleto = no aprobado).
+- **Versiones fijadas:** Gitleaks `v8.30.1`, Semgrep `1.184.0` (ver `scripts/check.mjs`).
+- **Semgrep** (`--metrics=off`): `p/typescript`, `p/nodejs`, `p/owasp-top-ten` + reglas propias en `.semgrep/`. Bloquea severidad `ERROR`; `WARNING` se registra como hallazgo. Alcance: `src/`, `test/`, `scripts/`.
+- **Gitleaks:** reglas por defecto + allowlist mínima en `.gitleaks.toml`. Escanea el árbol de trabajo; el historial se escanea con `gitleaks git`.
+- **Falso positivo:** abrir un Issue con la etiqueta `falso-positivo` antes de añadirlo a una allowlist.
+- **Agente (Claude Code):** el hook `Stop` (`.claude/hooks/stop-check.mjs`) ejecuta `npm run check`, devuelve los fallos al agente y se detiene tras 3 intentos con `reports/BLOQUEO.md`.
+- **Reglas de negocio con pruebas:** auth en `src/modules/auth/*.spec.ts`, roles en `roles-authorization.spec.ts`, ventas en `src/modules/ventas/*.spec.ts`.

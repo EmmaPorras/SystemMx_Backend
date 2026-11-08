@@ -1,0 +1,18 @@
+# Gitleaks: reglas por defecto + allowlist MÍNIMA y justificada.
+# Cada entrada nueva debe tener un Issue (falso-positivo) y ser revisada por CODEOWNERS.
+title = "SystemMx gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Archivos de ejemplo/plantilla sin secretos reales"
+paths = [
+  # .env.example solo contiene nombres de variable y valores ficticios (documentado en README).
+  '''(^|/)\.env\.example$''',
+  # Dependencias y salida de build/reportes no son código del proyecto.
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)reports/''',
+  '''package-lock\.json$''',
+]
