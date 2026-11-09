@@ -1,8 +1,8 @@
 # Ítem 1.1 — Flujos críticos de SystemMx
 
-**Responsable:** Integrante 1 (Gerald)  
-**Estado:** borrador de análisis, pendiente de aprobación humana  
-**Código consultado:** rama `development` de `EmmaPorras/SystemMx_Backend` (9 de noviembre de 2026).  
+**Responsable:** Integrante 1 (Gerald)\
+**Estado:** borrador de análisis, pendiente de aprobación humana\
+**Código consultado:** rama `development` de `EmmaPorras/SystemMx_Backend` (9 de noviembre de 2026).\
 **Alcance:** autenticación y sesiones (F1), ventas y pagos (F2), administración de usuarios y roles (F3).
 
 > **Importante:** las referencias a código describen comportamientos observados. Ningún criterio de este borrador se presenta todavía como regla de negocio aprobada. Validar con el equipo antes de usarlo como fuente de verdad para pruebas de autorización.
@@ -11,8 +11,8 @@
 
 **Justificación:** controla quién ingresa al sistema y protege el acceso a información y operaciones según su sesión.
 
-**Actor principal:** usuario registrado; para casos de abuso, persona sin sesión o con credenciales incorrectas.  
-**Objetivo:** iniciar sesión y acceder a operaciones protegidas mediante un token JWT válido.  
+**Actor principal:** usuario registrado; para casos de abuso, persona sin sesión o con credenciales incorrectas.\
+**Objetivo:** iniciar sesión y acceder a operaciones protegidas mediante un token JWT válido.\
 **Resultado esperado:** se entrega acceso solo a una cuenta activa, con credenciales correctas y sesión vigente.
 
 ### 1. Reglas aprobadas
@@ -40,8 +40,8 @@ _Pendiente de aprobación por el responsable de requisitos y el equipo. No conve
 
 **Justificación:** maneja dinero, existencias y registros de movimientos. Un fallo podría alterar saldos o inventario.
 
-**Actor principal:** usuario con rol `ADMIN` o `VENTAS`.  
-**Objetivo:** registrar una venta con stock disponible, cobrar sin exceder el saldo y poder anular con trazabilidad.  
+**Actor principal:** usuario con rol `ADMIN` o `VENTAS`.\
+**Objetivo:** registrar una venta con stock disponible, cobrar sin exceder el saldo y poder anular con trazabilidad.\
 **Resultado esperado:** venta y movimientos quedan coherentes, y toda operación no permitida se rechaza.
 
 ### 1. Reglas aprobadas
@@ -70,8 +70,8 @@ _Pendiente de aprobación por el responsable de requisitos y el equipo._
 
 **Justificación:** modificar roles, contraseñas o estados puede otorgar acceso indebido o dejar al sistema sin administrador.
 
-**Actor principal:** usuario con rol `ADMIN`.  
-**Objetivo:** administrar cuentas sin permitir escalación de privilegios ni pérdida del último administrador activo.  
+**Actor principal:** usuario con rol `ADMIN`.\
+**Objetivo:** administrar cuentas sin permitir escalación de privilegios ni pérdida del último administrador activo.\
 **Resultado esperado:** solo personal autorizado altera usuarios y las restricciones críticas se respetan.
 
 ### 1. Reglas aprobadas

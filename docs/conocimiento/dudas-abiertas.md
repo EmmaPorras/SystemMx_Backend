@@ -1,7 +1,7 @@
 # Dudas abiertas — SystemMx SSDLC
 
-**Responsable de seguimiento:** Integrante 1 (Gerald).  
-**Estado:** preguntas no aprobadas ni resueltas.  
+**Responsable de seguimiento:** Integrante 1 (Gerald).\
+**Estado:** preguntas no aprobadas ni resueltas.\
 **Regla:** no suponer políticas de negocio ni permisos basándose únicamente en cómo se comporta el código.
 
 | ID | Flujo | Pregunta pendiente | Responsable de resolver | Estado |
