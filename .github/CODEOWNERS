@@ -1,0 +1,17 @@
+/.github/workflows/ @ROSHIII96 @EmmaPorras
+/.github/CODEOWNERS @EmmaPorras @ROSHIII96
+
+/test/ @ROSHIII96 @Veldor09
+**/*.spec.ts @ROSHIII96 @Veldor09
+
+/scripts/ @Veldor09 @Gerald120904
+/.claude/ @Veldor09 @Gerald120904
+/AGENTS.md @Veldor09 @Gerald120904
+/CLAUDE.md @Veldor09 @Gerald120904
+/.semgrep/ @Veldor09 @Gerald120904
+/.gitleaks.toml @Veldor09 @Gerald120904
+
+/docs/conocimiento/ @Gerald120904 @Veldor09
+
+/Dockerfile @EmmaPorras @ROSHIII96
+/.dockerignore @EmmaPorras @ROSHIII96
