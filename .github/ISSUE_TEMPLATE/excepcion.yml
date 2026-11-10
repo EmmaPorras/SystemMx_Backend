@@ -1,0 +1,94 @@
+name: Solicitar excepción temporal
+description: Solicitar aceptación temporal y acotada de un hallazgo; requiere dos aprobaciones humanas distintas y vencimiento.
+title: "[excepcion] "
+labels:
+   - excepcion
+   - pendiente-investigacion
+body:
+   - type: markdown
+     attributes:
+       value: |
+         Una excepción no está aprobada al crear el Issue. No considerar el riesgo aceptado hasta registrar dos aprobaciones humanas distintas y una fecha de vencimiento futura. E-<n> usa el número de este Issue cuando lleve la etiqueta `excepcion`.
+   - type: input
+     id: hallazgo
+     attributes:
+       label: Hallazgo relacionado (H-n)
+       description: Issue H-n cuya aceptación temporal se solicita.
+     validations:
+       required: true
+   - type: textarea
+     id: alcance
+     attributes:
+       label: Alcance exacto
+       description: Sistemas, versiones, datos, rutas y ambientes incluidos y excluidos.
+       render: textarea
+     validations:
+       required: true
+   - type: textarea
+     id: justificacion
+     attributes:
+       label: Justificación de la excepción
+       description: Motivo por el que no se corrige antes; riesgo residual y alternativas consideradas.
+       render: textarea
+     validations:
+       required: true
+   - type: input
+     id: responsable
+     attributes:
+       label: Responsable designado
+       description: Nombre/usuario GitHub de quien responde por el riesgo y seguimiento.
+     validations:
+       required: true
+   - type: textarea
+     id: aprobacion_responsable
+     attributes:
+       label: Aprobación humana del responsable designado
+       description: Indica Pendiente o Aprobado; si está aprobado, incluye identidad y enlace a comentario/revisión GitHub.
+       placeholder: "Pendiente — no aceptar todavía / Aprobado por @usuario — URL"
+       render: textarea
+     validations:
+       required: true
+   - type: textarea
+     id: aprobacion_segundo_integrante
+     attributes:
+       label: Aprobación humana de segundo integrante distinto
+       description: Debe ser otra persona; indica Pendiente o Aprobado e incluye identidad y enlace a comentario/revisión GitHub.
+       placeholder: "Pendiente — no aceptar todavía / Aprobado por @usuario — URL"
+       render: textarea
+     validations:
+       required: true
+   - type: textarea
+     id: controles_compensatorios
+     attributes:
+       label: Controles compensatorios y plan de seguimiento
+       description: Medidas temporales, monitoreo, persona y frecuencia de revisión.
+       render: textarea
+     validations:
+       required: true
+   - type: input
+     id: vence_el
+     attributes:
+       label: Fecha de vencimiento (YYYY-MM-DD)
+       description: Fecha futura propuesta; sin vencimiento no puede aceptarse la excepción.
+       placeholder: "YYYY-MM-DD"
+     validations:
+       required: true
+   - type: input
+     id: evidencia
+     attributes:
+       label: Evidencia y enlaces
+       description: Enlace a H-n, versión afectada, justificación y comentarios de aprobación cuando existan.
+       placeholder: "URLs de Issues, commit y evidencia redactada"
+     validations:
+       required: true
+   - type: dropdown
+     id: estado
+     attributes:
+       label: Estado de seguimiento
+       description: El Issue permanece pendiente hasta completar las dos aprobaciones; luego documenta el tratamiento.
+       options:
+         - pendiente-investigacion
+         - en-tratamiento
+         - cerrado
+     validations:
+       required: true
