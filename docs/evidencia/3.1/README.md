@@ -8,6 +8,7 @@
   - `.github/workflows/ci.yml` (definición del pipeline de integración continua)
   - `package.json` (adición del script `lint:ci` sin flag `--fix`)
   - `eslint.config.mjs` (ajuste de severidades de advertencia para compatibilidad con NestJS)
+  - `docs/evidencia/3.1/README.md` (documento de evidencia oficial)
 - **Cómo reproducirlo (comandos exactos):**
   1. Abrir un Pull Request desde la rama `feat/3.1-ci-pipeline` hacia `development`.
   2. Verificar en la pestaña de *Actions* de GitHub que se inicie automáticamente el workflow `CI`.
@@ -16,10 +17,12 @@
 - **Resultado esperado vs observado:**
   - **Esperado:** El workflow se ejecuta en un contenedor Ubuntu aislado, aplica los estándares de calidad definidos y genera el artefacto de imagen candidata sin exponer credenciales ni permitir saltarse fallos.
   - **Observado:** 
-    - En la primera ejecución (Run #42771486248), el job `quality` falló en el paso `Lint check (sin autofix)` bloqueando la integración debido a discrepancias de formato y reglas en el código base, demostrando que los controles bloquean eficazmente el PR.
-    - Se corrigieron las reglas de severidad en `eslint.config.mjs` y formato de Prettier, pasando todas las 55 suites de pruebas (627 tests aprobados) y dejando el pipeline en verde.
-- **Commit evaluado:** `c11e94f545ca1f2d7047f9b3122b7a6d7adc253e` (inicial) y commit de resolución de formato.
-- **Pull Request:** https://github.com/EmmaPorras/SystemMx_Backend/pull/31
-- **Run de Actions inicial (bloqueo por fallo):** https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42771486248
+    - **Demostración de bloqueo:** En la primera ejecución ([Run #42771486248](https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42771486248)), el job `quality` falló en el paso `Lint check (sin autofix)` bloqueando la integración debido a discrepancias de formato y reglas en el código base, demostrando que los controles bloquean eficazmente el PR ante fallos.
+    - **Demostración de aprobación:** Se corrigieron las reglas de severidad en `eslint.config.mjs` y formato de Prettier, pasando todas las 55 suites de pruebas (627 tests aprobados). En la segunda ejecución ([Run #42773861460](https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42773861460)), los 4 jobs (`quality`, `security`, `authz`, `build-image`) finalizaron en **VERDE (Success)** y se generó el artefacto de imagen candidata `backend-image-408433ddaa35ece6f866eb5f9052cbeb80d3c189`.
+- **Commit evaluado:** `408433ddaa35ece6f866eb5f9052cbeb80d3c189`
+- **Pull Request:** [PR #31 en GitHub](https://github.com/EmmaPorras/SystemMx_Backend/pull/31)
+- **Run de Actions exitoso (verde):** https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42773861460
+- **Run de Actions previo (bloqueo por fallo):** https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42771486248
+- **Artefacto generado:** `backend-image-408433ddaa35ece6f866eb5f9052cbeb80d3c189` (retención 1 día)
 - **Revisión humana:** Pendiente de aprobación por Integrante 4 (Emma) en PR #31.
 - **Hallazgos o excepciones relacionados:** Ninguno.
