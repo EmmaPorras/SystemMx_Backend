@@ -1,6 +1,6 @@
 # Registro único de hallazgos y excepciones
 
-**Ítem:** 7.5. **Responsable principal:** Integrante 1 (responsable de requisitos, según GUIA_PROYECTO_SSDLC.md §7). **Revisor:** Integrante 2, persona distinta del autor. **Estado:** mecanismo documental propuesto; H-26, H-27 y H-28 ya se crearon y están abiertos. Etiquetas remotas y revisión humana siguen pendientes según `docs/evidencia/7.5/README.md`.
+**Ítem:** 7.5. **Responsable principal:** Integrante 1 (responsable de requisitos, según GUIA_PROYECTO_SSDLC.md §7). **Revisor:** Integrante 2, persona distinta del autor. **Estado:** mecanismo documental propuesto; H-26, H-27 y H-28 ya se crearon y están abiertos. Las diez etiquetas SSDLC ya fueron creadas y asignadas a H-26/H-27/H-28 (ver `docs/evidencia/7.5/README.md`); la revisión humana sigue pendiente.
 
 ## Fuente de verdad e identificadores
 
@@ -64,7 +64,7 @@ Las etiquetas exactas definidas en §7.3 son:
 - Estado: `confirmado`, `falso-positivo`, `pendiente-investigacion`, `en-tratamiento`, `cerrado`.
 - Severidad: `sev:alta`, `sev:media`, `sev:baja`.
 
-Los comandos `gh label create` con nombres, colores y descripciones reproducibles están en `docs/evidencia/7.5/README.md`. Deben ejecutarse por alguien con permiso de administrar etiquetas; el contenido documental no crea etiquetas remotas por sí solo.
+Las diez etiquetas ya fueron creadas en GitHub por el integrante 1 mediante `gh` autenticado. Los comandos `gh label create` quedan conservados para reproducibilidad en `docs/evidencia/7.5/README.md`; no deben repetirse en este repositorio.
 
 ## Registros candidatos verificados
 
@@ -76,4 +76,4 @@ La guía §2.3 documenta tres observaciones que se contrastaron con el árbol fu
 - [H-27 — lint con --fix](https://github.com/EmmaPorras/SystemMx_Backend/issues/27): confirmado para la configuración; severidad baja propuesta.
 - [H-28 — migraciones en start:prod](https://github.com/EmmaPorras/SystemMx_Backend/issues/28): pendiente-investigacion; severidad media provisional.
 
-Los tres Issues están abiertos y aún sin labels porque las etiquetas SSDLC no existen y la sesión local de gh no está autenticada. `confirmado` describe el hecho registrado, no explotación ni vulnerabilidad comprobada. Revisar cuerpos para evidencia, versiones y tratamientos.
+Los tres Issues siguen abiertos. **Etiquetas verificadas en GitHub:** H-26 y H-27 tienen `hallazgo`, `confirmado`, `sev:baja`; H-28 tiene `hallazgo`, `pendiente-investigacion`, `sev:media`. El integrante 1 se autenticó como `Gerald120904` y creó las diez etiquetas SSDLC. Las severidades/estados aún requieren revisión humana. `confirmado` describe el hecho registrado, no explotación ni vulnerabilidad comprobada. Revisar cuerpos para evidencia, versiones y tratamientos.
