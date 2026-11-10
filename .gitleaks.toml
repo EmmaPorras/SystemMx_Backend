@@ -1,0 +1,36 @@
+# Gitleaks: reglas por defecto + allowlist MINIMA y justificada.
+# Cada entrada nueva debe tener un Issue (falso-positivo) y ser revisada por CODEOWNERS.
+title = "SystemMx gitleaks config"
+
+[extend]
+useDefault = true
+
+# 1) Contrasenas ficticias de pruebas unitarias (p. ej. 'ClaveSegura123'): falso positivo de generic-api-key.
+#    Se limita a ESA regla y a archivos .spec.ts; cualquier otra regla (AWS, tokens, claves privadas) sigue activa en specs.
+[[allowlists]]
+description = "Contrasenas ficticias en pruebas unitarias (falso positivo generic-api-key)"
+targetRules = ["generic-api-key"]
+paths = ['''\.spec\.ts$''']
+
+# 2) Archivos que no son codigo del proyecto o que solo contienen plantillas.
+[[allowlists]]
+description = "Plantilla, dependencias y salidas generadas"
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)reports/''',
+  '''package-lock\.json$''',
+]
+
+# 3) .env local: esta en .gitignore y NUNCA fue versionado (git log --all -- .env vacio).
+#    El escaneo del arbol de trabajo lo ignora; el historial se verifica con `gitleaks git`.
+[[allowlists]]
+description = "Archivo .env local no versionado"
+paths = ['''(^|/)\.env$''']
+
+# 4) Token ficticio de plantilla NestJS en README.md inicial (commit ecfa4feb)
+[[allowlists]]
+description = "Falso positivo: Token ficticio de CircleCI en README.md inicial de plantilla NestJS"
+commits = ["ecfa4febb80346b561ea707f704ddab2d24bca1c"]
+

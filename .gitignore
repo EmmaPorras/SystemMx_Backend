@@ -46,6 +46,7 @@ lerna-debug.log*
 .temp
 .tmp
 scratch/
+reports/
 
 # Runtime data
 pids

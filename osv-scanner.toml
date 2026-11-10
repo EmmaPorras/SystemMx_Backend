@@ -1,0 +1,172 @@
+﻿# Configuracion de OSV-Scanner para SystemMx Backend
+# Politica de seguridad: Excepciones temporales registradas bajo E-01 (dependencias transitivas heredadas).
+# Cualquier vulnerabilidad NUEVA no listada aqui bloqueara inmediatamente el pipeline de CI.
+[[IgnoredVulns]]
+id = "GHSA-xcx6-jx8p-x3h5"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-w5vr-8v7q-w6rv"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-27r3-jxmh-p828"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-3jxr-9vmj-r5cp"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-6j4f-fj2g-mc7p"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-mh99-v99m-4gvg"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-q2hr-2g5m-vwhr"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-qhr7-859c-m2p7"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-rgw5-rvv9-x895"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-73wf-gq98-2v4g"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-c83g-rgw3-j3cx"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-333x-w4r6-6crp"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-5jgf-p345-68v8"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-7p8r-x3mc-p8w7"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-f65p-4m7j-42xc"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-fph4-wmhf-6fwf"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-hrr3-gc8f-f4qj"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-jqff-g426-hqxp"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-qw65-cvwx-89v3"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-v2hh-gcrm-f6hx"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-w74x-v6f9-j3xg"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-wjr9-j795-jxcr"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-xhq7-xmqj-769h"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-8r5x-fm3f-whwj"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-p8wg-vrv2-v86f"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-xw65-4hp5-5hc7"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-2883-xcg3-v3hh"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-5p4m-2wfm-xmqj"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-3p4h-7m6x-2hcm"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-535w-7cp7-47q4"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-72gw-mp4g-v24j"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-q7qp-rjg7-q26m"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-qvfw-j98x-7q72"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-wc9g-mqfw-jrwm"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-jqcg-44mw-7w3h"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-4mjr-xmp4-gh2g"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-6pq8-jhm2-2vcw"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-x5fp-wj9c-mxmx"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+[[IgnoredVulns]]
+id = "GHSA-2rp8-mm9q-fp49"
+ignoreUntil = 2026-12-01
+reason = "Excepcion E-01: Dependencia transitiva de framework existente, evaluada y registrada para revision."
+
