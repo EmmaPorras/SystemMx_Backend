@@ -68,7 +68,7 @@ describe('Validación de Esquema y Restricciones DDL PostgreSQL (Emulación pg-m
     );
     expect(admin).toHaveLength(1);
     expect(admin[0].email).toBeNull();
-        expect(admin[0].estado_activacion).toBe('ACTIVO');
+    expect(admin[0].estado_activacion).toBe('ACTIVO');
     expect(admin[0].nombre).toBe('Admin Existente');
   });
 
@@ -107,7 +107,10 @@ describe('Validación de Esquema y Restricciones DDL PostgreSQL (Emulación pg-m
     const userId = userRes[0].id_usuario;
 
     const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
 
     db.public.none(`
       INSERT INTO "token_accion_usuario" ("id_usuario", "tipo", "token_hash", "expira_en", "usado")
@@ -129,7 +132,10 @@ describe('Validación de Esquema y Restricciones DDL PostgreSQL (Emulación pg-m
     const userId = userRes[0].id_usuario;
 
     const rawToken = 'atomic_race_token_test_1234567890';
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
 
     db.public.none(`
       INSERT INTO "token_accion_usuario" ("id_usuario", "tipo", "token_hash", "expira_en", "usado")
@@ -147,7 +153,11 @@ describe('Validación de Esquema y Restricciones DDL PostgreSQL (Emulación pg-m
       );
 
       if (!updateRes || updateRes.length === 0) {
-        return { success: false, workerId, error: 'Token ya utilizado o expirado' };
+        return {
+          success: false,
+          workerId,
+          error: 'Token ya utilizado o expirado',
+        };
       }
 
       // Actualizar usuario

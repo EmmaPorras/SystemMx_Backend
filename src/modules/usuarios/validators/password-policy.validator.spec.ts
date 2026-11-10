@@ -59,7 +59,7 @@ describe('PasswordPolicyValidator (Fase 3 - Seguridad Avanzada de Contraseñas)'
   });
 
   describe('Rechazo de contraseñas triviales, predecibles o comprometidas', () => {
-    it('debe rechazar repetición continua de un solo carácter (15 a\'s)', () => {
+    it("debe rechazar repetición continua de un solo carácter (15 a's)", () => {
       const repeatedA = 'a'.repeat(15);
       const result = validatePasswordPolicy(repeatedA);
       expect(result.isValid).toBe(false);
@@ -93,4 +93,3 @@ describe('PasswordPolicyValidator (Fase 3 - Seguridad Avanzada de Contraseñas)'
     });
   });
 });
-

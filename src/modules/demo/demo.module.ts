@@ -5,4 +5,3 @@ import { DemoController } from './demo.controller';
   controllers: [DemoController],
 })
 export class DemoModule {}
-
