@@ -21,8 +21,8 @@ Leí `C:\Users\Estudiantes\Downloads\GUIA_PROYECTO_SSDLC.md`: §§3.6 y 7.3 para
 
 - Pull requests consultados: [#24](https://github.com/EmmaPorras/SystemMx_Backend/pull/24), abierto como draft hacia `development`; [#25](https://github.com/EmmaPorras/SystemMx_Backend/pull/25), abierto como draft hacia `docs/1.1-flujos-gerald`. No se aprobó ni fusionó ninguno.
 - Antes de crear: la API pública devolvió 25 registros, todos con `pull_request`, y 0 Issues reales; las búsquedas por H-1/H-2/H-3 y “registro de hallazgos” tampoco devolvieron resultados.
-- Después de verificar que no había Issues duplicados, la integración GitHub creó **[H-26](https://github.com/EmmaPorras/SystemMx_Backend/issues/26), [H-27](https://github.com/EmmaPorras/SystemMx_Backend/issues/27) y [H-28](https://github.com/EmmaPorras/SystemMx_Backend/issues/28)**. Los tres están abiertos, con cuerpo completo, labels todavía vacíos (las etiquetas SSDLC no existían); los estados/severidades están registrados en el cuerpo.
-- Se consultaron etiquetas públicas: las etiquetas personalizadas de 7.5 aún no existen. El acceso local de `gh` informa que no hay sesión autenticada (`gh auth status`). Por ello, los comandos de abajo quedan preparados para una persona autenticada con permiso; no se afirma que se hayan creado etiquetas remotamente.
+- Después de verificar que no había Issues duplicados, la integración GitHub creó **[H-26](https://github.com/EmmaPorras/SystemMx_Backend/issues/26), [H-27](https://github.com/EmmaPorras/SystemMx_Backend/issues/27) y [H-28](https://github.com/EmmaPorras/SystemMx_Backend/issues/28)**. Los tres están abiertos, con cuerpo completo. **Actualización del 9 de noviembre de 2026:** las etiquetas SSDLC ya se crearon y aplicaron a cada Issue mediante GitHub CLI, como se detalla abajo; estados y severidades todavía requieren validación humana.
+- **Histórico previo:** al elaborar el borrador, las etiquetas SSDLC no existían y GitHub CLI no tenía sesión autenticada. **Actualización posterior:** el integrante 1 autenticó `gh` como `Gerald120904`, creó las diez etiquetas y las aplicó a H-26/H-27/H-28; el estado final se comprobó tanto con `gh issue list` como con GitHub.
 - **Issues de hallazgo:** creados mediante la integración GitHub tras comprobar que no había duplicados: H-26, H-27 y H-28 (enlaces y evidencia debajo). No se crearon excepciones porque no hay solicitud documentada con aprobaciones dobles.
 
 ## Hallazgos documentados e Issues creados
@@ -66,9 +66,9 @@ Los tres hechos candidatos están enumerados en §2.3 de la guía y se contrasta
 **Tratamiento:** verificar sin revelar valores la identidad/permisos efectivos, concurrencia/orden y salida de arranque; evaluar separar job de migración con credencial DDL de la cuenta runtime. La guía §13 ya lo documenta como limitación, pero no consta aquí doble aprobación de una excepción.
 **Amenaza relacionada:** sin relación STRIDE directa confirmada; el posible impacto operativo no debe mapearse automáticamente a T-07. **Excepción relacionada:** ninguna aprobada/registrada. **PR correctivo:** no existe.
 
-## Etiquetas y comandos para crearlas
+## Etiquetas SSDLC — implementación verificada
 
-Se contrastó la lista actual de etiquetas: los nombres siguientes no están creados en el repositorio. Estos comandos no se ejecutaron por falta de sesión de `gh` en este entorno. Ejecutar una sola vez, con cuenta autorizada:
+**Completado el 9 de noviembre de 2026:** el integrante 1, autenticado mediante `gh auth login` como `Gerald120904`, creó correctamente las diez etiquetas requeridas. Los comandos siguientes quedan **como referencia reproducible**, no para ejecutarse de nuevo sobre etiquetas ya existentes:
 
 ```sh
 gh auth login
@@ -90,19 +90,29 @@ Los formularios aplican automáticamente la etiqueta de tipo (cuando esté cread
 gh issue edit <n> --repo EmmaPorras/SystemMx_Backend --add-label "hallazgo" --add-label "confirmado" --add-label "sev:baja"
 ```
 
+### Asignación final de etiquetas (verificada en GitHub)
+
+| Issue | Tipo | Estado | Severidad propuesta |
+|---|---|---|---|
+| [H-26](https://github.com/EmmaPorras/SystemMx_Backend/issues/26) | `hallazgo` | `confirmado` | `sev:baja` |
+| [H-27](https://github.com/EmmaPorras/SystemMx_Backend/issues/27) | `hallazgo` | `confirmado` | `sev:baja` |
+| [H-28](https://github.com/EmmaPorras/SystemMx_Backend/issues/28) | `hallazgo` | `pendiente-investigacion` | `sev:media` |
+
+Comprobación del usuario: `gh issue list --repo EmmaPorras/SystemMx_Backend --state open --limit 20` mostró 3 de 3 Issues abiertos con esas etiquetas. Se corroboró mediante el conector de GitHub. **Estas clasificaciones no equivalen a aprobación humana ni confirman explotación.**
+
 ## Validaciones ejecutadas
 
 - Guía leída en la ruta local indicada; secciones 3.6 y 7.3 consultadas.
 - Rama/worktree derivado de `origin/development` en `be471f003e3aacfc95b0c0b8f5aa418d28864370`; PR #24/#25 consultados como abiertos en draft; no aprobados ni fusionados.
 - GitHub: antes de crear, 0 Issues reales y ningún duplicado en las búsquedas; después, H-26/H-27/H-28 están abiertos con metadatos completos.
 - Fuentes de H-26/H-27/H-28 verificadas en commit `be471f...`; no se ejecutó `npm run lint`, no se modificó matriz ni configuración de migraciones.
-- `gh auth status`: no hay sesión CLI. La integración creó Issues; las etiquetas propuestas no existen en el repositorio y los Issues muestran labels vacíos.
+- **Estado inicial (histórico):** `gh auth status` no tenía sesión y los Issues carecían de etiquetas. **Estado posterior (9/11/2026):** `gh auth login` completado como `Gerald120904`; diez etiquetas creadas; asignaciones comprobadas mediante `gh issue list` y lectura de GitHub.
 - YAML: ambos formularios parsean con `js-yaml`; 11 campos del formulario hallazgo y 10 de excepción; los campos requeridos están presentes e IDs son únicos.
 - No se ejecutaron pruebas del backend, análisis de dependencias, migraciones ni peticiones HTTP.
 
 ## Pendientes
 
-- Crear las etiquetas requeridas con `gh label create` y aplicar a H-26/H-27/H-28 una etiqueta de estado y la severidad registrada en cada cuerpo.
+- **Completado:** las diez etiquetas SSDLC fueron creadas y aplicadas a H-26/H-27/H-28. Conservar evidencias y reevaluar los valores con el revisor; no repetir `gh label create`.
 - Mantener los enlaces reales H-26/H-27/H-28 y añadir enlaces al PR correctivo cuando exista.
 - Revisor Integrante 2 y responsable humano deben confirmar severidades, responsables, tratamientos y estados.
 - No aceptar excepción hasta contar con dos aprobaciones humanas diferentes, evidencia enlazada y vencimiento futuro.
