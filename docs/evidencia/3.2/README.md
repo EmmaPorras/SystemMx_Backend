@@ -2,11 +2,12 @@
 
 - **Responsable:** Integrante 3 (Joseth) · **Revisor:** Integrante 4 (Emma) · **Fecha:** 2026-11-10
 - **Qué cubre / qué NO cubre (límites):**
-  - **Qué cubre:** Implementación del job `security` en el workflow `.github/workflows/ci.yml`. Incluye la integración de tres herramientas de seguridad con versiones fijas y ejecución automatizada: 
-    1. **Gitleaks v8.30.1:** Detección de secretos tanto en el árbol de trabajo (`gitleaks dir`) como en el historial completo de commits (`gitleaks git` con `fetch-depth: 0`) utilizando `.gitleaks.toml`.
-    2. **Semgrep CE v1.184.0:** Análisis estático de código (SAST) evaluando los rulepacks recomendados (`p/typescript`, `p/nodejs`, `p/owasp-top-ten`) y reglas locales del proyecto (`.semgrep/`), configurado con `--error` y `--severity=ERROR` para fallar con código != 0 ante vulnerabilidades bloqueantes.
-    3. **OSV-Scanner v1.9.2:** Análisis de composición de software (SCA) sobre `package-lock.json`, gestionando vulnerabilidades transitivas heredadas bajo la excepción documentada `E-01` en `osv-scanner.toml`.
-    4. **Preservación de reportes:** Sube los reportes generados (`reports/`) como artefactos descargables (`security-reports-<SHA>`) con `upload-artifact` fijado por SHA.
+  - **Qué cubre:** Implementación del job `security` en el workflow `.github/workflows/ci.yml`. Incluye la integración de tres herramientas de seguridad con versiones fijas, verificación de integridad SHA-256 para binarios descargados y ejecución automatizada: 
+    1. **Gitleaks v8.30.1 (SHA-256 verificado):** Detección de secretos tanto en el árbol de trabajo (`gitleaks dir`) como en el historial completo de commits (`gitleaks git` con `fetch-depth: 0`) utilizando `.gitleaks.toml` y salida redactada (`--redact`). **Política de bloqueo:** cualquier secreto detectado fuera de la allowlist retorna código de salida `1` y bloquea el PR.
+    2. **Semgrep CE v1.184.0:** Análisis estático de código (SAST) evaluando los rulepacks recomendados (`p/typescript`, `p/nodejs`, `p/owasp-top-ten`) y reglas locales del proyecto (`.semgrep/`) con `--metrics=off`, `--error` y `--severity=ERROR` sobre `src`, `test` y `scripts`. **Política de bloqueo:** hallazgos de severidad `ERROR` retornan código de salida `!= 0` y bloquean el PR; hallazgos `WARNING` se registran en el reporte SARIF sin bloquear.
+    3. **OSV-Scanner v1.9.2 (SHA-256 verificado):** Análisis de composición de software (SCA) sobre `package-lock.json` en una única ejecución que genera `reports/osv-report.json`. **Política de bloqueo:** bloquea (`exit != 0`) ante cualquier vulnerabilidad detectada en `package-lock.json` que no cuente con una excepción vigente documentada en `osv-scanner.toml`.
+    4. **Fallo por no ejecución ("incompleto = no aprobado"):** Si falla la descarga, la verificación `sha256sum -c` o la ejecución de cualquiera de las tres herramientas, el job termina con código `!= 0` y bloquea la integración.
+    5. **Preservación de reportes:** Sube los reportes generados (`reports/`) como artefactos descargables (`security-reports-<SHA>`) con `upload-artifact` fijado por SHA (`if: always()`).
   - **Qué NO cubre:** Análisis dinámico de seguridad (DAST), escaneo de contenedores en runtime ni pruebas de autorización Supertest (cubiertas en el Ítem 4.5).
 - **Archivos modificados/creados:**
   - `.github/workflows/ci.yml` (implementación del job `security`)
@@ -34,5 +35,5 @@
   - `security-reports-c2b5b668eff3ad8c63439bc326ad06436ac9ae9d` (34.4 KB)
   - `backend-image-c2b5b668eff3ad8c63439bc326ad06436ac9ae9d` (124 MB)
 - **Revisión humana:** Pendiente de aprobación por Integrante 4 (Emma) en PR #34.
-- **Hallazgos o excepciones relacionados:** Excepción E-01 (dependencias transitivas en `osv-scanner.toml`).
+- **Hallazgos o excepciones relacionados:** [H-38](https://github.com/EmmaPorras/SystemMx_Backend/issues/38) (hallazgo de dependencias transitivas en `package-lock.json`) y [E-39](https://github.com/EmmaPorras/SystemMx_Backend/issues/39) (solicitud de excepción temporal en `osv-scanner.toml`).
 

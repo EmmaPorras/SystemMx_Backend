@@ -68,6 +68,7 @@ jobs:
       - name: Install Gitleaks v8.30.1
         run: |
           curl -sSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
           sudo mv /tmp/gitleaks /usr/local/bin/
           gitleaks version
@@ -107,6 +108,7 @@ jobs:
       - name: Install OSV-Scanner v1.9.2
         run: |
           curl -sSL -o /tmp/osv-scanner https://github.com/google/osv-scanner/releases/download/v1.9.2/osv-scanner_linux_amd64
+          echo "d6af4b67fa5de658598bd2d445efb99e90d1734b3146962418719c4350ecb74b  /tmp/osv-scanner" | sha256sum -c -
           chmod +x /tmp/osv-scanner
           sudo mv /tmp/osv-scanner /usr/local/bin/
           osv-scanner --version
@@ -114,12 +116,18 @@ jobs:
       - name: Run OSV-Scanner (Dependencies SCA)
         run: |
           echo "==> Analizando package-lock.json con OSV-Scanner..."
+          set +e
           osv-scanner scan \
             --config osv-scanner.toml \
             --lockfile package-lock.json \
             --format json \
             --output reports/osv-report.json
-          osv-scanner scan --config osv-scanner.toml --lockfile package-lock.json
+          osv_exit=$?
+          set -e
+          if [ -f reports/osv-report.json ]; then
+            node -e 'const r=require("./reports/osv-report.json"); const vs=(r.results||[]).flatMap(x=>x.packages||[]).flatMap(p=>(p.vulnerabilities||[]).map(v=>`${p.package.name}@${p.package.version}: ${v.id}`)); console.log(`Vulnerabilidades no exceptuadas: ${vs.length}`); vs.forEach(x=>console.log(" -", x));'
+          fi
+          exit "$osv_exit"
 
       # 4. SUBIDA DE REPORTES DE SEGURIDAD
       - name: Upload Security Reports
