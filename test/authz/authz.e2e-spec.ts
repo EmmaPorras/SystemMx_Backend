@@ -58,11 +58,16 @@ describe('Ítem 4.5 — Pruebas de Autorización y Control de Acceso (SystemMx)'
           const expected = def.permisos[actor];
 
           it(`${actor} debe recibir HTTP ${expected.statusEsperado} (${expected.permitido ? 'Permitido' : 'Denegado'})`, async () => {
-            const url = def.construirRuta({
-              usuarioId: ctx.usuarios['authz.target'].idUsuario,
-              ventaId: ctx.ventaId,
-              pedidoId: ctx.pedidoId,
-            });
+            const url = def.construirRuta(
+              {
+                usuarioId: ctx.usuarios['authz.target'].idUsuario,
+                ventaId: ctx.ventaId,
+                ventaIdAdmin: ctx.ventaIdAdmin,
+                ventaIdVentas: ctx.ventaIdVentas,
+                pedidoId: ctx.pedidoId,
+              },
+              actor,
+            );
 
             const req = (request(ctx.app.getHttpServer()) as any)[
               def.metodo.toLowerCase()
@@ -159,12 +164,12 @@ describe('Ítem 4.5 — Pruebas de Autorización y Control de Acceso (SystemMx)'
     // ------------------------------------------------------------------------
     describe('F1-AC4 / F3-AC5: Invalidación de Token tras Cambio de Contraseña', () => {
       it('invalida inmediatamente el JWT emitido previamente tras un cambio de contraseña', async () => {
-        const targetId = ctx.usuarios['authz.target'].idUsuario;
+        const targetId = ctx.usuarios['authz.rotacion'].idUsuario;
 
         // 1. Emitir token válido con versión de credenciales actual (ver = 1)
         const tokenOriginal = await ctx.jwtService.signAsync({
           sub: targetId,
-          username: 'authz.target',
+          username: 'authz.rotacion',
           ver: 1,
         });
 

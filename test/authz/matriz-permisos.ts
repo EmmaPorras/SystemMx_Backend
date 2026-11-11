@@ -27,11 +27,16 @@ export interface PermisoEndpointDef {
   flujo: 'F1' | 'F2' | 'F3' | 'COMPLEMENTARIO';
   descripcion: string;
   metodo: HttpMethod;
-  construirRuta: (ctx: {
-    usuarioId: number;
-    ventaId: number;
-    pedidoId: number;
-  }) => string;
+  construirRuta: (
+    ctx: {
+      usuarioId: number;
+      ventaId: number;
+      ventaIdAdmin?: number;
+      ventaIdVentas?: number;
+      pedidoId: number;
+    },
+    actor?: AuthzActor,
+  ) => string;
   construirBody?: (ctx: {
     usuarioId: number;
     ventaId: number;
@@ -117,7 +122,7 @@ export const MATRIZ_PERMISOS: PermisoEndpointDef[] = [
     metodo: 'POST',
     construirRuta: (ctx) => `/api/ventas/${ctx.ventaId}/pagos`,
     construirBody: () => ({
-      importe: 5000,
+      monto: 5000,
       metodoPago: 'EFECTIVO',
     }),
     esMutacion: true,
@@ -136,7 +141,13 @@ export const MATRIZ_PERMISOS: PermisoEndpointDef[] = [
     flujo: 'F2',
     descripcion: 'Anular venta con reversión (PATCH /api/ventas/:id/anular)',
     metodo: 'PATCH',
-    construirRuta: (ctx) => `/api/ventas/${ctx.ventaId}/anular`,
+    construirRuta: (ctx, actor) => {
+      const vId =
+        actor === RolUsuario.VENTAS
+          ? (ctx.ventaIdVentas ?? ctx.ventaId)
+          : (ctx.ventaIdAdmin ?? ctx.ventaId);
+      return `/api/ventas/${vId}/anular`;
+    },
     construirBody: () => ({ motivo: 'Anulación de prueba de seguridad' }),
     esMutacion: true,
     permisos: {

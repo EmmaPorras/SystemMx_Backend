@@ -33,6 +33,8 @@ export interface AuthzTestContext {
     { idUsuario: number; username: string; rol: RolUsuario }
   >;
   ventaId: number;
+  ventaIdAdmin: number;
+  ventaIdVentas: number;
   pedidoId: number;
   productoId: number;
   loteId: number;
@@ -71,6 +73,8 @@ export async function createAuthzTestContext(): Promise<AuthzTestContext> {
     tokens: seedResult.tokens,
     usuarios: seedResult.usuarios,
     ventaId: seedResult.ventaId,
+    ventaIdAdmin: seedResult.ventaIdAdmin,
+    ventaIdVentas: seedResult.ventaIdVentas,
     pedidoId: seedResult.pedidoId,
     productoId: seedResult.productoId,
     loteId: seedResult.loteId,
@@ -135,6 +139,8 @@ async function seedAuthzTestData(
     { idUsuario: number; username: string; rol: RolUsuario }
   >;
   ventaId: number;
+  ventaIdAdmin: number;
+  ventaIdVentas: number;
   pedidoId: number;
   productoId: number;
   loteId: number;
@@ -179,6 +185,11 @@ async function seedAuthzTestData(
       {
         username: 'authz.target',
         nombre: 'Target Usuario Authz',
+        rol: RolUsuario.CONSULTA,
+      },
+      {
+        username: 'authz.rotacion',
+        nombre: 'Rotacion Password Authz',
         rol: RolUsuario.CONSULTA,
       },
     ];
@@ -302,29 +313,54 @@ async function seedAuthzTestData(
     );
     const idLote = loteRes[0].id_lote;
 
-    // Crear una venta inicial para pruebas de pago y anulación
-    const numVenta = Math.floor(Math.random() * 900000) + 100000;
-    const ventaRes = await qr.query(
-      `INSERT INTO "venta" (
-         "numero_venta", "fecha_venta", "cliente_nombre", "medio_pago",
-         "estado_pago", "estado_venta", "subtotal", "descuento_total",
-         "iva_total", "total_venta", "monto_pagado", "saldo_pendiente",
-         "costo_total", "ganancia_bruta", "margen_bruto", "en_papelera"
-       ) VALUES (
-         $1, CURRENT_DATE, 'Cliente Venta Authz', 'EFECTIVO',
-         'PENDIENTE', 'COMPLETADA', 25000.00, 0.00,
-         3250.00, 28250.00, 0.00, 28250.00,
-         15000.00, 10000.00, 40.00, false
-       )
-       RETURNING "id_venta"`,
-      [numVenta],
-    );
-    const idVenta = ventaRes[0].id_venta;
+    // Crear ventas con detalle para pruebas de pago y anulación independiente
+    async function crearVentaConDetalle(): Promise<number> {
+      const numVenta = Math.floor(Math.random() * 900000) + 100000;
+      const ventaRes = await qr.query(
+        `INSERT INTO "venta" (
+           "numero_venta", "fecha_venta", "cliente_nombre", "medio_pago",
+           "estado_pago", "estado_venta", "subtotal", "descuento_total",
+           "iva_total", "total_venta", "monto_pagado", "saldo_pendiente",
+           "costo_total", "ganancia_bruta", "margen_bruto", "en_papelera"
+         ) VALUES (
+           $1, CURRENT_DATE, 'Cliente Venta Authz', 'EFECTIVO',
+           'PENDIENTE', 'COMPLETADA', 25000.00, 0.00,
+           3250.00, 28250.00, 0.00, 28250.00,
+           15000.00, 10000.00, 40.00, false
+         )
+         RETURNING "id_venta"`,
+        [numVenta],
+      );
+      const vId = ventaRes[0].id_venta;
+
+      await qr.query(
+        `INSERT INTO "detalle_venta" (
+           "id_venta", "id_producto", "id_lote", "cantidad", "precio_unitario",
+           "subtotal", "descuento", "base_imponible", "tipo_tarifa", "id_tarifa_iva",
+           "porcentaje_iva", "iva", "total_linea", "costo_unitario_real", "costo_total",
+           "ganancia_bruta", "modo_descuento_lote"
+         ) VALUES (
+           $1, $2, $3, 1, 25000.00,
+           25000.00, 0.00, 25000.00, 'GENERAL', $4,
+           13.00, 3250.00, 28250.00, 15000.00, 15000.00,
+           10000.00, 'MONTO_FIJO'
+         )`,
+        [vId, idProd, idLote, idTarifa],
+      );
+
+      return vId;
+    }
+
+    const idVenta = await crearVentaConDetalle();
+    const idVentaAdmin = await crearVentaConDetalle();
+    const idVentaVentas = await crearVentaConDetalle();
 
     return {
       tokens,
       usuarios: usuariosMap,
       ventaId: idVenta,
+      ventaIdAdmin: idVentaAdmin,
+      ventaIdVentas: idVentaVentas,
       pedidoId: idPed,
       productoId: idProd,
       loteId: idLote,
