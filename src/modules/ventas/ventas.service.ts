@@ -634,9 +634,7 @@ export class VentasService {
 
     const descuentoTotal =
       porcentajeDescuentoRecibido !== null
-        ? this.redondear(
-            subtotalOriginal * (porcentajeDescuentoRecibido / 100),
-          )
+        ? this.redondear(subtotalOriginal * (porcentajeDescuentoRecibido / 100))
         : this.redondear(detalleDto.descuento ?? 0);
 
     if (descuentoTotal > subtotalOriginal) {

@@ -33,10 +33,7 @@ export class RegistroDto {
 
   @IsString({ message: 'El correo electrónico debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'El correo electrónico es requerido.' })
-  @IsEmail(
-    {},
-    { message: 'Debe proporcionar un correo electrónico válido.' },
-  )
+  @IsEmail({}, { message: 'Debe proporcionar un correo electrónico válido.' })
   @MaxLength(255, {
     message: 'El correo electrónico no puede exceder 255 caracteres.',
   })
@@ -54,4 +51,3 @@ export class RegistroDto {
   })
   lang?: 'es' | 'en' | 'pt';
 }
-

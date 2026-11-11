@@ -86,7 +86,7 @@ export class UsuariosService {
   ): string {
     const base = this.getFrontendUrl();
     const hasHash = base.includes('#');
-    const separator = hasHash ? (base.endsWith('/') ? '' : '/') : '/#/'; 
+    const separator = hasHash ? (base.endsWith('/') ? '' : '/') : '/#/';
     return `${base}${separator}${route.replace(/^\/+/, '')}?token=${token}`;
   }
 
@@ -370,7 +370,9 @@ export class UsuariosService {
       throw new NotFoundException('Usuario no encontrado.');
     }
 
-    if (usuario.estadoActivacion !== EstadoActivacionUsuario.PENDIENTE_ACTIVACION) {
+    if (
+      usuario.estadoActivacion !== EstadoActivacionUsuario.PENDIENTE_ACTIVACION
+    ) {
       throw new BadRequestException('El usuario ya se encuentra activo.');
     }
 
@@ -569,7 +571,9 @@ export class UsuariosService {
     return this.mapearUsuario(usuario);
   }
 
-  async buscarParaAutenticacion(identificador: string): Promise<Usuario | null> {
+  async buscarParaAutenticacion(
+    identificador: string,
+  ): Promise<Usuario | null> {
     const normalizado = identificador.trim().toLowerCase();
 
     if (normalizado.length === 0) {
@@ -630,7 +634,8 @@ export class UsuariosService {
     const policyResult = validatePasswordPolicy(nuevaPassword);
     if (!policyResult.isValid) {
       throw new BadRequestException(
-        policyResult.message || 'La contraseña no cumple con la política de seguridad.',
+        policyResult.message ||
+          'La contraseña no cumple con la política de seguridad.',
       );
     }
 
@@ -765,7 +770,11 @@ export class UsuariosService {
   // --- TOKEN Y RECUPERACIÓN / ACTIVACIÓN ---
 
   async validarTokenAccion(rawToken: string, tipo?: TipoTokenAccion) {
-    if (!rawToken || typeof rawToken !== 'string' || rawToken.trim().length === 0) {
+    if (
+      !rawToken ||
+      typeof rawToken !== 'string' ||
+      rawToken.trim().length === 0
+    ) {
       throw new BadRequestException('Token de acción requerido.');
     }
 
@@ -849,7 +858,8 @@ export class UsuariosService {
     const tokenHash = this.hashToken(rawToken);
 
     const minutosExpiracion = Number(
-      this.configService.get<string>('SYSTEMMX_RECUPERACION_EXPIRES_MINUTES') || 30,
+      this.configService.get<string>('SYSTEMMX_RECUPERACION_EXPIRES_MINUTES') ||
+        30,
     );
     const expiraEn = new Date(Date.now() + minutosExpiracion * 60 * 1000);
 
@@ -895,7 +905,8 @@ export class UsuariosService {
     const policyResult = validatePasswordPolicy(nuevaPassword);
     if (!policyResult.isValid) {
       throw new BadRequestException(
-        policyResult.message || 'La contraseña no cumple con la política de seguridad.',
+        policyResult.message ||
+          'La contraseña no cumple con la política de seguridad.',
       );
     }
 

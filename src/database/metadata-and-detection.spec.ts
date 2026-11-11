@@ -7,7 +7,7 @@ import {
   resolveSqlExpr,
 } from './column-types';
 
-describe('Detección Consistente de Motor de BD y Metadatos TypeORM', () => {
+describe('Detecciï¿½n Consistente de Motor de BD y Metadatos TypeORM', () => {
   const originalEnv = process.env;
 
   afterEach(() => {
@@ -26,7 +26,7 @@ describe('Detección Consistente de Motor de BD y Metadatos TypeORM', () => {
       expect(detectDatabaseType({ DB_TYPE: 'sqlserver' })).toBe('mssql');
     });
 
-    it('detecta postgres cuando DATABASE_URL o DATABASE_URL_UNPOOLED está configurada', () => {
+    it('detecta postgres cuando DATABASE_URL o DATABASE_URL_UNPOOLED estï¿½ configurada', () => {
       expect(
         detectDatabaseType({
           DATABASE_URL:
@@ -67,18 +67,26 @@ describe('Detección Consistente de Motor de BD y Metadatos TypeORM', () => {
         delete process.env.DATABASE_URL;
 
         const { Usuario } = require('./entities/usuario.entity');
-        const { TokenAccionUsuario } = require('./entities/token-accion-usuario.entity');
+        const {
+          TokenAccionUsuario,
+        } = require('./entities/token-accion-usuario.entity');
         const { Categoria } = require('./entities/categoria.entity');
         const { Producto } = require('./entities/producto.entity');
         const { LoteProducto } = require('./entities/lote-producto.entity');
         const { OrigenCompra } = require('./entities/origen-compra.entity');
-        const { PedidoCompraEntity } = require('./entities/pedido-compra.entity');
-        const { DetallePedidoCompra } = require('./entities/detalle-pedido-compra.entity');
+        const {
+          PedidoCompraEntity,
+        } = require('./entities/pedido-compra.entity');
+        const {
+          DetallePedidoCompra,
+        } = require('./entities/detalle-pedido-compra.entity');
         const { VentaEntity } = require('./entities/venta.entity');
         const { DetalleVenta } = require('./entities/detalle-venta.entity');
         const { PagoVenta } = require('./entities/pago-venta.entity');
         const { TarifaIva } = require('./entities/tarifa-iva.entity');
-        const { MovimientoInventario } = require('./entities/movimiento-inventario.entity');
+        const {
+          MovimientoInventario,
+        } = require('./entities/movimiento-inventario.entity');
 
         const allEntities = [
           Usuario,
@@ -131,18 +139,26 @@ describe('Detección Consistente de Motor de BD y Metadatos TypeORM', () => {
         process.env.DB_DATABASE = 'inventario_motos_dev';
 
         const { Usuario } = require('./entities/usuario.entity');
-        const { TokenAccionUsuario } = require('./entities/token-accion-usuario.entity');
+        const {
+          TokenAccionUsuario,
+        } = require('./entities/token-accion-usuario.entity');
         const { Categoria } = require('./entities/categoria.entity');
         const { Producto } = require('./entities/producto.entity');
         const { LoteProducto } = require('./entities/lote-producto.entity');
         const { OrigenCompra } = require('./entities/origen-compra.entity');
-        const { PedidoCompraEntity } = require('./entities/pedido-compra.entity');
-        const { DetallePedidoCompra } = require('./entities/detalle-pedido-compra.entity');
+        const {
+          PedidoCompraEntity,
+        } = require('./entities/pedido-compra.entity');
+        const {
+          DetallePedidoCompra,
+        } = require('./entities/detalle-pedido-compra.entity');
         const { VentaEntity } = require('./entities/venta.entity');
         const { DetalleVenta } = require('./entities/detalle-venta.entity');
         const { PagoVenta } = require('./entities/pago-venta.entity');
         const { TarifaIva } = require('./entities/tarifa-iva.entity');
-        const { MovimientoInventario } = require('./entities/movimiento-inventario.entity');
+        const {
+          MovimientoInventario,
+        } = require('./entities/movimiento-inventario.entity');
 
         const allEntities = [
           Usuario,

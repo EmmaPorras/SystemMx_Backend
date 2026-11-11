@@ -128,10 +128,16 @@ export class VentaEntity {
   @Column({ name: 'en_papelera', type: resolveColumnType('boolean', 'bit') })
   enPapelera!: boolean;
 
-  @CreateDateColumn({ name: 'created_at', type: resolveColumnType('timestamptz', 'datetime2') })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: resolveColumnType('timestamptz', 'datetime2'),
+  })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: resolveColumnType('timestamptz', 'datetime2') })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: resolveColumnType('timestamptz', 'datetime2'),
+  })
   updatedAt!: Date;
 
   @OneToMany(() => DetalleVenta, (detalle) => detalle.venta)

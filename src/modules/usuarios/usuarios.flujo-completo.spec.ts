@@ -34,7 +34,9 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
       ...dto,
     })),
     save: jest.fn(async (user) => {
-      const existingIdx = dbUsuarios.findIndex((u) => u.idUsuario === user.idUsuario);
+      const existingIdx = dbUsuarios.findIndex(
+        (u) => u.idUsuario === user.idUsuario,
+      );
       if (existingIdx !== -1) {
         dbUsuarios[existingIdx] = { ...dbUsuarios[existingIdx], ...user };
         return dbUsuarios[existingIdx];
@@ -43,14 +45,28 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
       return user;
     }),
     findOne: jest.fn(async ({ where }) => {
-      if (where.idUsuario) return dbUsuarios.find((u) => u.idUsuario === where.idUsuario) || null;
-      if (where.usernameNormalizado) return dbUsuarios.find((u) => u.usernameNormalizado === where.usernameNormalizado) || null;
-      if (where.emailNormalizado) return dbUsuarios.find((u) => u.emailNormalizado === where.emailNormalizado) || null;
+      if (where.idUsuario)
+        return dbUsuarios.find((u) => u.idUsuario === where.idUsuario) || null;
+      if (where.usernameNormalizado)
+        return (
+          dbUsuarios.find(
+            (u) => u.usernameNormalizado === where.usernameNormalizado,
+          ) || null
+        );
+      if (where.emailNormalizado)
+        return (
+          dbUsuarios.find(
+            (u) => u.emailNormalizado === where.emailNormalizado,
+          ) || null
+        );
       return null;
     }),
     find: jest.fn(async () => [...dbUsuarios]),
     update: jest.fn(async (idOrCriteria, partial) => {
-      const id = typeof idOrCriteria === 'object' ? idOrCriteria.idUsuario : idOrCriteria;
+      const id =
+        typeof idOrCriteria === 'object'
+          ? idOrCriteria.idUsuario
+          : idOrCriteria;
       const u = dbUsuarios.find((x) => x.idUsuario === id);
       if (u) {
         Object.assign(u, partial);
@@ -69,13 +85,25 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
         andWhere: jest.fn().mockReturnThis(),
         getOne: jest.fn(async () => {
           if (whereFilter.emailNormalizado) {
-            return dbUsuarios.find((u) => u.emailNormalizado === whereFilter.emailNormalizado) || null;
+            return (
+              dbUsuarios.find(
+                (u) => u.emailNormalizado === whereFilter.emailNormalizado,
+              ) || null
+            );
           }
           if (whereFilter.usernameNormalizado) {
-            return dbUsuarios.find((u) => u.usernameNormalizado === whereFilter.usernameNormalizado) || null;
+            return (
+              dbUsuarios.find(
+                (u) =>
+                  u.usernameNormalizado === whereFilter.usernameNormalizado,
+              ) || null
+            );
           }
           if (whereFilter.idUsuario) {
-            return dbUsuarios.find((u) => u.idUsuario === whereFilter.idUsuario) || null;
+            return (
+              dbUsuarios.find((u) => u.idUsuario === whereFilter.idUsuario) ||
+              null
+            );
           }
           return null;
         }),
@@ -91,7 +119,9 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
       ...dto,
     })),
     save: jest.fn(async (token) => {
-      const existingIdx = dbTokens.findIndex((t) => t.idToken === token.idToken);
+      const existingIdx = dbTokens.findIndex(
+        (t) => t.idToken === token.idToken,
+      );
       if (existingIdx !== -1) {
         dbTokens[existingIdx] = { ...dbTokens[existingIdx], ...token };
         return dbTokens[existingIdx];
@@ -102,13 +132,19 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
     findOne: jest.fn(async ({ where, relations }: any) => {
       const t = dbTokens.find((item) => {
         let match = true;
-        if (where.tokenHash && item.tokenHash !== where.tokenHash) match = false;
+        if (where.tokenHash && item.tokenHash !== where.tokenHash)
+          match = false;
         if (where.tipo && item.tipo !== where.tipo) match = false;
-        if (where.idUsuario && item.idUsuario !== where.idUsuario) match = false;
+        if (where.idUsuario && item.idUsuario !== where.idUsuario)
+          match = false;
         return match;
       });
       if (!t) return null;
-      const hasUserRel = relations && (Array.isArray(relations) ? relations.includes('usuario') : !!relations.usuario);
+      const hasUserRel =
+        relations &&
+        (Array.isArray(relations)
+          ? relations.includes('usuario')
+          : !!relations.usuario);
       if (hasUserRel) {
         return {
           ...t,
@@ -156,7 +192,9 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
         }),
         execute: jest.fn(async () => {
           const t = dbTokens.find(
-            (item) => item.idToken === updateWhere.idToken && item.usado === updateWhere.usado,
+            (item) =>
+              item.idToken === updateWhere.idToken &&
+              item.usado === updateWhere.usado,
           );
           if (t) {
             Object.assign(t, updateSet);
@@ -178,7 +216,8 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-      if (key === 'SYSTEMMX_FRONTEND_URL') return 'https://systemmx-web-200684331.onrender.com';
+      if (key === 'SYSTEMMX_FRONTEND_URL')
+        return 'https://systemmx-web-200684331.onrender.com';
       if (key === 'JWT_EXPIRES_SECONDS') return '3600';
       if (key === 'SYSTEMMX_INVITACION_EXPIRES_HOURS') return '24';
       if (key === 'SYSTEMMX_RECUPERACION_EXPIRES_MINUTES') return '30';
@@ -210,8 +249,14 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
         UsuariosService,
         AuthService,
         PasswordHasherService,
-        { provide: getRepositoryToken(Usuario), useValue: mockUsuariosRepository },
-        { provide: getRepositoryToken(TokenAccionUsuario), useValue: mockTokenRepository },
+        {
+          provide: getRepositoryToken(Usuario),
+          useValue: mockUsuariosRepository,
+        },
+        {
+          provide: getRepositoryToken(TokenAccionUsuario),
+          useValue: mockTokenRepository,
+        },
         { provide: DataSource, useValue: mockDataSource },
         { provide: MailService, useValue: mockMailService },
         { provide: ConfigService, useValue: mockConfigService },
@@ -240,11 +285,15 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
     expect(res).toBeDefined();
     expect(res.usuario.username).toBe('colaborador.nuevo');
     expect(res.usuario.email).toBe('carlos@systemmx.com');
-    expect(res.usuario.estadoActivacion).toBe(EstadoActivacionUsuario.PENDIENTE_ACTIVACION);
+    expect(res.usuario.estadoActivacion).toBe(
+      EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+    );
 
     const userInDb = dbUsuarios.find((u) => u.username === 'colaborador.nuevo');
     expect(userInDb).toBeDefined();
-    expect(userInDb?.estadoActivacion).toBe(EstadoActivacionUsuario.PENDIENTE_ACTIVACION);
+    expect(userInDb?.estadoActivacion).toBe(
+      EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+    );
     expect(userInDb?.passwordHash).toBeDefined();
   });
 
@@ -253,7 +302,9 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
     const sent = sentEmails[0];
     expect(sent.to).toBe('carlos@systemmx.com');
     expect(sent.type).toBe('INVITACION');
-    expect(sent.actionUrl).toContain('https://systemmx-web-200684331.onrender.com/#/activar-cuenta?token=');
+    expect(sent.actionUrl).toContain(
+      'https://systemmx-web-200684331.onrender.com/#/activar-cuenta?token=',
+    );
 
     const urlMatch = sent.actionUrl.match(/token=([a-f0-9]+)/);
     expect(urlMatch).not.toBeNull();
@@ -275,7 +326,10 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
     const rawToken = sent.actionUrl.match(/token=([a-f0-9]+)/)[1];
 
     // Validacion previa al formulario
-    const validacion = await authService.validarTokenAccion(rawToken, TipoTokenAccion.INVITACION);
+    const validacion = await authService.validarTokenAccion(
+      rawToken,
+      TipoTokenAccion.INVITACION,
+    );
     expect(validacion.valid).toBe(true);
     expect(validacion.nombre).toBe('Carlos Santana');
 
@@ -289,7 +343,12 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
 
     const userInDb = dbUsuarios.find((u) => u.username === 'colaborador.nuevo');
     expect(userInDb?.estadoActivacion).toBe(EstadoActivacionUsuario.ACTIVO);
-    expect(await passwordHasher.verify(userInDb!.passwordHash, 'MiPasswordSuperSegura2026!')).toBe(true);
+    expect(
+      await passwordHasher.verify(
+        userInDb!.passwordHash,
+        'MiPasswordSuperSegura2026!',
+      ),
+    ).toBe(true);
   });
 
   it('5. Login con contrasena recien activada (por username y por email)', async () => {
@@ -322,12 +381,15 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
 
     const emailRecuperacion = sentEmails[sentEmails.length - 1];
     expect(emailRecuperacion.type).toBe('RECUPERACION_PASSWORD');
-    expect(emailRecuperacion.actionUrl).toContain('/#/restablecer-contrasena?token=');
+    expect(emailRecuperacion.actionUrl).toContain(
+      '/#/restablecer-contrasena?token=',
+    );
   });
 
   it('7. Restablecimiento exitoso con nueva contrasena', async () => {
     const emailRecuperacion = sentEmails[sentEmails.length - 1];
-    const rawRecoveryToken = emailRecuperacion.actionUrl.match(/token=([a-f0-9]+)/)[1];
+    const rawRecoveryToken =
+      emailRecuperacion.actionUrl.match(/token=([a-f0-9]+)/)[1];
 
     const res = await authService.restablecerPassword({
       token: rawRecoveryToken,
@@ -354,11 +416,15 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
 
   it('8. Proteccion antirreuso: invalidacion estricta de tokens reutilizados', async () => {
     const emailRecuperacion = sentEmails[sentEmails.length - 1];
-    const rawRecoveryToken = emailRecuperacion.actionUrl.match(/token=([a-f0-9]+)/)[1];
+    const rawRecoveryToken =
+      emailRecuperacion.actionUrl.match(/token=([a-f0-9]+)/)[1];
 
     // Intentar reutilizar el token de recuperacion
     await expect(
-      authService.validarTokenAccion(rawRecoveryToken, TipoTokenAccion.RECUPERACION_PASSWORD),
+      authService.validarTokenAccion(
+        rawRecoveryToken,
+        TipoTokenAccion.RECUPERACION_PASSWORD,
+      ),
     ).rejects.toThrow('Este enlace ya ha sido utilizado');
 
     await expect(
@@ -370,10 +436,14 @@ describe('Flujo Completo E2E: Invitacion, Activacion, Login, Recuperacion y Prot
 
     // Intentar reutilizar el token de invitacion original
     const emailInvitacion = sentEmails[0];
-    const rawInviteToken = emailInvitacion.actionUrl.match(/token=([a-f0-9]+)/)[1];
+    const rawInviteToken =
+      emailInvitacion.actionUrl.match(/token=([a-f0-9]+)/)[1];
 
     await expect(
-      authService.validarTokenAccion(rawInviteToken, TipoTokenAccion.INVITACION),
+      authService.validarTokenAccion(
+        rawInviteToken,
+        TipoTokenAccion.INVITACION,
+      ),
     ).rejects.toThrow('Este enlace ya ha sido utilizado');
 
     await expect(

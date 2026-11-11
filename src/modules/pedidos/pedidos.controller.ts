@@ -74,4 +74,3 @@ export class PedidosController {
     return this.pedidosService.remove(id);
   }
 }
-
