@@ -28,3 +28,4 @@
 - **Run de Actions:** (Enlace al run).
 - **Revisión humana:** Pendiente de aprobación por Integrante 4 (Emma) en PR.
 - **Hallazgos o excepciones relacionados:** Excepción E-01 (dependencias transitivas en `osv-scanner.toml`).
+
