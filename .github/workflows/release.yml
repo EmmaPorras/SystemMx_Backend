@@ -7,6 +7,8 @@ on:
         required: true
       DOCKERHUB_TOKEN:
         required: true
+      RENDER_DEPLOY_HOOK_BACKEND:
+        required: false
 
 permissions:
   contents: read
@@ -16,6 +18,8 @@ jobs:
     name: Publish approved image
     if: github.event_name == 'push' && github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.push_image.outputs.image }}
 
     steps:
       - name: Download image from this CI run
@@ -35,6 +39,7 @@ jobs:
           fi
 
       - name: Publish image and record digest
+        id: push_image
         shell: bash
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -64,6 +69,7 @@ jobs:
           fi
 
           docker push "$development_image"
+          printf 'image=%s@%s\n' "$repository" "$digest" >> "$GITHUB_OUTPUT"
 
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           jq -n \
@@ -83,3 +89,52 @@ jobs:
           name: release-record-${{ github.sha }}
           path: release-record.json
           if-no-files-found: error
+
+  deploy:
+    name: Deploy approved backend image to Render
+    needs: publish
+    if: vars.RENDER_BACKEND_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions: {}
+
+    steps:
+      - name: Request deployment by digest
+        shell: bash
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+        run: |
+          : "${RENDER_DEPLOY_HOOK:?Falta el secreto RENDER_DEPLOY_HOOK_BACKEND}"
+          : "${IMAGE:?Falta la referencia de la imagen publicada}"
+          curl --fail --silent --max-time 30 --get \
+            --data-urlencode "imgURL=${IMAGE}" \
+            --output /dev/null \
+            "$RENDER_DEPLOY_HOOK" || {
+              echo "::error::Render rechazó la solicitud de despliegue del backend."
+              exit 1
+            }
+
+      - name: Verify the deployed backend commit
+        shell: bash
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+        run: |
+          : "${BACKEND_URL:?Falta la variable BACKEND_URL}"
+          health_url="${BACKEND_URL%/}/api/health"
+          deadline=$((SECONDS + 600))
+
+          while (( SECONDS < deadline )); do
+            if curl --fail --silent --max-time 10 "$health_url" |
+              jq -e --arg sha "$GITHUB_SHA" \
+                '.status == "ok" and .commit == $sha' > /dev/null; then
+              printf 'Backend verificado en Render\n\nImagen: `%s`\n\nCommit: `%s`\n' \
+                "$IMAGE" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo "::error::El backend no confirmó el commit ${GITHUB_SHA} en /api/health."
+          exit 1
