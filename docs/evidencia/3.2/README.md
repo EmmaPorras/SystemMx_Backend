@@ -26,14 +26,14 @@
   - **Esperado:** El pipeline ejecuta las tres herramientas en un contenedor aislado, bloquea ante secretos expuestos o vulnerabilidades críticas no autorizadas, y genera los reportes correspondientes.
   - **Observado:** 
     - **Demostración de bloqueo:** En la ejecución de prueba controlada ([Run #42960987332](https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42960987332) en PR #36), el job `security` falló en 6 segundos en el paso `Run Gitleaks` al detectar una credencial ficticia de AWS (`aws-access-token` en `src/security-test-leak.ts`), retornando código de salida 1 con 1 leak encontrado y bloqueando el merge en GitHub Actions. Esto evidencia que los controles de seguridad detienen eficazmente la integración ante fuga de secretos.
-    - **Demostración de aprobación:** En la ejecución oficial de la rama `feat/3.2-ci-security` ([Run #42938085521](https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42938085521) en [PR #34](https://github.com/EmmaPorras/SystemMx_Backend/pull/34)), todos los jobs (`quality`, `security`, `authz`, `build-image`) finalizaron en **VERDE (Success)**. Gitleaks, Semgrep CE y OSV-Scanner completaron con código 0 y se generó el artefacto descargable `security-reports-c2b5b668eff3ad8c63439bc326ad06436ac9ae9d` (34.4 KB) conteniendo los reportes SARIF y JSON.
-- **Commit evaluado:** `692f1fb8a558db892db33012b6869b5a10e074c3`
+    - **Demostración de aprobación:** En la ejecución oficial de la rama `feat/3.2-ci-security` ([Run #43116848026](https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/43116848026) en [PR #34](https://github.com/EmmaPorras/SystemMx_Backend/pull/34)), todos los jobs (`quality`, `security`, `authz`, `build-image`) finalizaron en **VERDE (Success)**. Gitleaks, Semgrep CE y OSV-Scanner completaron con código 0 con verificación de integridad SHA-256 en binarios descargados, se validó la excepción E-39 y se generaron los artefactos descargables conteniendo los reportes SARIF y JSON y la imagen candidata.
+- **Commit evaluado:** `c4df876b6d51c72dfb7e5e3474d2fece349b142e`
 - **Pull Request:** [PR #34 en GitHub](https://github.com/EmmaPorras/SystemMx_Backend/pull/34)
-- **Run de Actions exitoso (verde):** https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42938085521
+- **Run de Actions exitoso (verde):** https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/43116848026
 - **Run de Actions previo (bloqueo por fallo controlado):** https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42960987332
 - **Artefactos generados:**
-  - `security-reports-c2b5b668eff3ad8c63439bc326ad06436ac9ae9d` (34.4 KB)
-  - `backend-image-c2b5b668eff3ad8c63439bc326ad06436ac9ae9d` (124 MB)
+  - `security-reports-374ca6f0f46083c4cebf22ea79f23d1956f60074` (35.2 KB)
+  - `backend-image-374ca6f0f46083c4cebf22ea79f23d1956f60074` (124 MB)
 - **Revisión humana:** Pendiente de aprobación por Integrante 4 (Emma) en PR #34.
 - **Hallazgos o excepciones relacionados:** [H-38](https://github.com/EmmaPorras/SystemMx_Backend/issues/38) (hallazgo de dependencias transitivas en `package-lock.json`) y [E-39](https://github.com/EmmaPorras/SystemMx_Backend/issues/39) (solicitud de excepción temporal en `osv-scanner.toml`).
 
