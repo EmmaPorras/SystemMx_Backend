@@ -88,7 +88,7 @@ export async function cleanupAuthzTestData(
   try {
     // Limpiar entidades de prueba con prefijo authz.
     await qr.query(
-      `DELETE FROM "pago_venta" WHERE "notas" LIKE '%authz%' OR "creado_por" LIKE 'authz.%'`,
+      `DELETE FROM "pago_venta" WHERE "notas" LIKE '%authz%' OR "usuario" LIKE 'authz.%'`,
     );
     await qr.query(
       `DELETE FROM "detalle_venta" WHERE "id_venta" IN (SELECT "id_venta" FROM "venta" WHERE "cliente_nombre" LIKE '%Authz%')`,
@@ -306,10 +306,16 @@ async function seedAuthzTestData(
     const numVenta = Math.floor(Math.random() * 900000) + 100000;
     const ventaRes = await qr.query(
       `INSERT INTO "venta" (
-         "numero_venta", "cliente_nombre", "tipo_venta", "estado",
-         "subtotal_neto", "total_iva", "total_general", "saldo_pendiente",
-         "porcentaje_descuento_general", "monto_descuento_general"
-       ) VALUES ($1, 'Cliente Venta Authz', 'CONTADO', 'COMPLETADA', 25000.00, 3250.00, 28250.00, 28250.00, 0, 0)
+         "numero_venta", "fecha_venta", "cliente_nombre", "medio_pago",
+         "estado_pago", "estado_venta", "subtotal", "descuento_total",
+         "iva_total", "total_venta", "monto_pagado", "saldo_pendiente",
+         "costo_total", "ganancia_bruta", "margen_bruto", "en_papelera"
+       ) VALUES (
+         $1, CURRENT_DATE, 'Cliente Venta Authz', 'EFECTIVO',
+         'PENDIENTE', 'COMPLETADA', 25000.00, 0.00,
+         3250.00, 28250.00, 0.00, 28250.00,
+         15000.00, 10000.00, 40.00, false
+       )
        RETURNING "id_venta"`,
       [numVenta],
     );
