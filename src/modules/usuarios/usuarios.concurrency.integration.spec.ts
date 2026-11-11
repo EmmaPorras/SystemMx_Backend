@@ -23,11 +23,18 @@ function isSafeTestDatabaseUrl(url?: string): boolean {
     return false;
   }
   const lower = url.toLowerCase();
-  if (lower.includes('prod') || lower.includes('production') || lower.includes('live')) {
+  if (
+    lower.includes('prod') ||
+    lower.includes('production') ||
+    lower.includes('live')
+  ) {
     return false;
   }
   const hasTestIndicator =
-    lower.includes('test') || lower.includes('e2e') || lower.includes('temp') || lower.includes('ci');
+    lower.includes('test') ||
+    lower.includes('e2e') ||
+    lower.includes('temp') ||
+    lower.includes('ci');
   return hasTestIndicator;
 }
 
@@ -36,157 +43,176 @@ const isTestUrlSafe = isSafeTestDatabaseUrl(rawTestPostgresUrl);
 
 const describeIntegration = isTestUrlSafe ? describe : describe.skip;
 
-describeIntegration('UsuariosService - Concurrencia Real Multi-Conexión PostgreSQL', () => {
-  let dataSource: DataSource;
-  let usuariosService: UsuariosService;
-  let passwordHasher: PasswordHasherService;
-  let createdUserId: number | null = null;
-  const uniqueSuffix = crypto.randomBytes(6).toString('hex');
-  const testUsername = 'test.concurrente.' + uniqueSuffix;
-  const testEmail = 'test.concurrente.' + uniqueSuffix + '@systemmx-test.local';
+describeIntegration(
+  'UsuariosService - Concurrencia Real Multi-Conexión PostgreSQL',
+  () => {
+    let dataSource: DataSource;
+    let usuariosService: UsuariosService;
+    let passwordHasher: PasswordHasherService;
+    let createdUserId: number | null = null;
+    const uniqueSuffix = crypto.randomBytes(6).toString('hex');
+    const testUsername = 'test.concurrente.' + uniqueSuffix;
+    const testEmail =
+      'test.concurrente.' + uniqueSuffix + '@systemmx-test.local';
 
-  beforeAll(async () => {
-    if (!rawTestPostgresUrl || !isTestUrlSafe) return;
+    beforeAll(async () => {
+      if (!rawTestPostgresUrl || !isTestUrlSafe) return;
 
-    // Seguridad: synchronize en false y dropSchema en false para evitar cualquier mutación destructiva accidental
-    dataSource = new DataSource({
-      type: 'postgres',
-      url: rawTestPostgresUrl,
-      entities: [Usuario, TokenAccionUsuario],
-      synchronize: false,
-      dropSchema: false,
-      logging: false,
-    });
+      // Seguridad: synchronize en false y dropSchema en false para evitar cualquier mutación destructiva accidental
+      dataSource = new DataSource({
+        type: 'postgres',
+        url: rawTestPostgresUrl,
+        entities: [Usuario, TokenAccionUsuario],
+        synchronize: false,
+        dropSchema: false,
+        logging: false,
+      });
 
-    await dataSource.initialize();
+      await dataSource.initialize();
 
-    // Guard de seguridad en tiempo de ejecución: verificar que el nombre de la BD sea explícitamente de pruebas
-    const dbNameResult = await dataSource.query('SELECT current_database() as db;');
-    const currentDb = String(dbNameResult[0]?.db || '').toLowerCase();
-    if (!currentDb.includes('test') && !currentDb.includes('e2e') && !currentDb.includes('temp')) {
-      await dataSource.destroy();
-      throw new Error(
-        'Seguridad: La base de datos conectada no contiene test/e2e/temp en su nombre. Abortando suite para proteger datos.',
+      // Guard de seguridad en tiempo de ejecución: verificar que el nombre de la BD sea explícitamente de pruebas
+      const dbNameResult = await dataSource.query(
+        'SELECT current_database() as db;',
       );
-    }
-
-    const configService = {
-      get: jest.fn((key: string) => {
-        if (key === 'SYSTEMMX_FRONTEND_URL') return 'https://systemmx-web-200684331.onrender.com';
-        return undefined;
-      }),
-    } as unknown as ConfigService;
-
-    const mailService = {
-      enviarCorreoActivacion: jest.fn().mockResolvedValue(true),
-      enviarCorreoRecuperacionPassword: jest.fn().mockResolvedValue(true),
-    } as unknown as MailService;
-
-    const auditService = {
-      log: jest.fn().mockResolvedValue(undefined),
-    } as unknown as AuditService;
-
-    passwordHasher = new PasswordHasherService();
-
-    usuariosService = new UsuariosService(
-      dataSource.getRepository(Usuario),
-      dataSource.getRepository(TokenAccionUsuario),
-      passwordHasher,
-      mailService,
-      auditService,
-      configService,
-      dataSource,
-    );
-  });
-
-  afterAll(async () => {
-    // Limpieza no destructiva: eliminar ÚNICAMENTE los registros generados durante la prueba
-    if (dataSource && dataSource.isInitialized) {
-      if (createdUserId) {
-        try {
-          await dataSource.query(
-            'DELETE FROM "token_accion_usuario" WHERE "id_usuario" = $1;',
-            [createdUserId],
-          );
-          await dataSource.query(
-            'DELETE FROM "usuario" WHERE "id_usuario" = $1;',
-            [createdUserId],
-          );
-        } catch {
-          // Ignorar errores en limpieza puntual
-        }
+      const currentDb = String(dbNameResult[0]?.db || '').toLowerCase();
+      if (
+        !currentDb.includes('test') &&
+        !currentDb.includes('e2e') &&
+        !currentDb.includes('temp')
+      ) {
+        await dataSource.destroy();
+        throw new Error(
+          'Seguridad: La base de datos conectada no contiene test/e2e/temp en su nombre. Abortando suite para proteger datos.',
+        );
       }
-      await dataSource.destroy();
-    }
-  });
 
-  it('permite que exactamente 1 de múltiples solicitudes concurrentes active la cuenta y consuma el token', async () => {
-    const rawToken = 'real_concurrent_test_token_' + crypto.randomBytes(16).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const configService = {
+        get: jest.fn((key: string) => {
+          if (key === 'SYSTEMMX_FRONTEND_URL')
+            return 'https://systemmx-web-200684331.onrender.com';
+          return undefined;
+        }),
+      } as unknown as ConfigService;
 
-    const userRepo = dataSource.getRepository(Usuario);
-    const tokenRepo = dataSource.getRepository(TokenAccionUsuario);
+      const mailService = {
+        enviarCorreoActivacion: jest.fn().mockResolvedValue(true),
+        enviarCorreoRecuperacionPassword: jest.fn().mockResolvedValue(true),
+      } as unknown as MailService;
 
-    // 1. Crear usuario aislado para la prueba
-    const usuario = userRepo.create({
-      username: testUsername,
-      usernameNormalizado: testUsername.toLowerCase(),
-      email: testEmail,
-      emailNormalizado: testEmail.toLowerCase(),
-      nombre: 'Usuario Concurrente Test',
-      passwordHash: await passwordHasher.hash('TemporalPassword123!'),
-      rol: RolUsuario.VENTAS,
-      activo: true,
-      estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
-      versionCredenciales: 1,
+      const auditService = {
+        log: jest.fn().mockResolvedValue(undefined),
+      } as unknown as AuditService;
+
+      passwordHasher = new PasswordHasherService();
+
+      usuariosService = new UsuariosService(
+        dataSource.getRepository(Usuario),
+        dataSource.getRepository(TokenAccionUsuario),
+        passwordHasher,
+        mailService,
+        auditService,
+        configService,
+        dataSource,
+      );
     });
-    const savedUser = await userRepo.save(usuario);
-    createdUserId = savedUser.idUsuario;
 
-    // 2. Crear token de invitación
-    const tokenAccion = tokenRepo.create({
-      idUsuario: savedUser.idUsuario,
-      tipo: TipoTokenAccion.INVITACION,
-      tokenHash,
-      expiraEn: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      usado: false,
+    afterAll(async () => {
+      // Limpieza no destructiva: eliminar ÚNICAMENTE los registros generados durante la prueba
+      if (dataSource && dataSource.isInitialized) {
+        if (createdUserId) {
+          try {
+            await dataSource.query(
+              'DELETE FROM "token_accion_usuario" WHERE "id_usuario" = $1;',
+              [createdUserId],
+            );
+            await dataSource.query(
+              'DELETE FROM "usuario" WHERE "id_usuario" = $1;',
+              [createdUserId],
+            );
+          } catch {
+            // Ignorar errores en limpieza puntual
+          }
+        }
+        await dataSource.destroy();
+      }
     });
-    await tokenRepo.save(tokenAccion);
 
-    // 3. Disparar 5 intentos concurrentes de activación con contraseñas distintas
-    const intentos = [1, 2, 3, 4, 5].map((idx) =>
-      usuariosService
-        .activarCuentaConToken(
-          { token: rawToken, nuevoPassword: `ConcurrentPass${idx}!Valid` },
-          `192.168.1.${idx}`,
-        )
-        .then(() => ({ success: true, idx, error: null }))
-        .catch((err) => ({ success: false, idx, error: err.message })),
-    );
+    it('permite que exactamente 1 de múltiples solicitudes concurrentes active la cuenta y consuma el token', async () => {
+      const rawToken =
+        'real_concurrent_test_token_' + crypto.randomBytes(16).toString('hex');
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update(rawToken)
+        .digest('hex');
 
-    const resultados = await Promise.all(intentos);
+      const userRepo = dataSource.getRepository(Usuario);
+      const tokenRepo = dataSource.getRepository(TokenAccionUsuario);
 
-    const exitos = resultados.filter((r) => r.success);
-    const fallos = resultados.filter((r) => !r.success);
+      // 1. Crear usuario aislado para la prueba
+      const usuario = userRepo.create({
+        username: testUsername,
+        usernameNormalizado: testUsername.toLowerCase(),
+        email: testEmail,
+        emailNormalizado: testEmail.toLowerCase(),
+        nombre: 'Usuario Concurrente Test',
+        passwordHash: await passwordHasher.hash('TemporalPassword123!'),
+        rol: RolUsuario.VENTAS,
+        activo: true,
+        estadoActivacion: EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+        versionCredenciales: 1,
+      });
+      const savedUser = await userRepo.save(usuario);
+      createdUserId = savedUser.idUsuario;
 
-    // Exactamente 1 transacción debe ganar la carrera
-    expect(exitos).toHaveLength(1);
-    expect(fallos).toHaveLength(4);
+      // 2. Crear token de invitación
+      const tokenAccion = tokenRepo.create({
+        idUsuario: savedUser.idUsuario,
+        tipo: TipoTokenAccion.INVITACION,
+        tokenHash,
+        expiraEn: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        usado: false,
+      });
+      await tokenRepo.save(tokenAccion);
 
-    // Verificar que los fallos fueron por token ya consumido
-    for (const fallo of fallos) {
-      expect(fallo.error).toContain('Este enlace ya ha sido utilizado');
-    }
+      // 3. Disparar 5 intentos concurrentes de activación con contraseñas distintas
+      const intentos = [1, 2, 3, 4, 5].map((idx) =>
+        usuariosService
+          .activarCuentaConToken(
+            { token: rawToken, nuevoPassword: `ConcurrentPass${idx}!Valid` },
+            `192.168.1.${idx}`,
+          )
+          .then(() => ({ success: true, idx, error: null }))
+          .catch((err) => ({ success: false, idx, error: err.message })),
+      );
 
-    // 4. Verificar estado final en base de datos
-    const userFinal = await userRepo.findOne({ where: { idUsuario: savedUser.idUsuario } });
-    expect(userFinal?.estadoActivacion).toBe(EstadoActivacionUsuario.ACTIVO);
-    expect(userFinal?.versionCredenciales).toBe(2);
+      const resultados = await Promise.all(intentos);
 
-    const tokenFinal = await tokenRepo.findOne({ where: { idToken: tokenAccion.idToken } });
-    expect(tokenFinal?.usado).toBe(true);
-  });
-});
+      const exitos = resultados.filter((r) => r.success);
+      const fallos = resultados.filter((r) => !r.success);
+
+      // Exactamente 1 transacción debe ganar la carrera
+      expect(exitos).toHaveLength(1);
+      expect(fallos).toHaveLength(4);
+
+      // Verificar que los fallos fueron por token ya consumido
+      for (const fallo of fallos) {
+        expect(fallo.error).toContain('Este enlace ya ha sido utilizado');
+      }
+
+      // 4. Verificar estado final en base de datos
+      const userFinal = await userRepo.findOne({
+        where: { idUsuario: savedUser.idUsuario },
+      });
+      expect(userFinal?.estadoActivacion).toBe(EstadoActivacionUsuario.ACTIVO);
+      expect(userFinal?.versionCredenciales).toBe(2);
+
+      const tokenFinal = await tokenRepo.findOne({
+        where: { idToken: tokenAccion.idToken },
+      });
+      expect(tokenFinal?.usado).toBe(true);
+    });
+  },
+);
 
 // Verificación de estado seguro de suite externa
 describe('UsuariosService - Estado de suite de integración externa PostgreSQL', () => {

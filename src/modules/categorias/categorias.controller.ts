@@ -19,13 +19,23 @@ import { RolUsuario } from '../usuarios/rol-usuario.enum';
 export class CategoriasController {
   constructor(private readonly categoriasService: CategoriasService) {}
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS, RolUsuario.COMPRAS, RolUsuario.CONSULTA)
+  @Roles(
+    RolUsuario.ADMIN,
+    RolUsuario.VENTAS,
+    RolUsuario.COMPRAS,
+    RolUsuario.CONSULTA,
+  )
   @Get()
   findAll() {
     return this.categoriasService.findAll();
   }
 
-  @Roles(RolUsuario.ADMIN, RolUsuario.VENTAS, RolUsuario.COMPRAS, RolUsuario.CONSULTA)
+  @Roles(
+    RolUsuario.ADMIN,
+    RolUsuario.VENTAS,
+    RolUsuario.COMPRAS,
+    RolUsuario.CONSULTA,
+  )
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.categoriasService.findOne(id);

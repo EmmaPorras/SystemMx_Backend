@@ -117,4 +117,3 @@ export function IsStrongPasswordPolicy(validationOptions?: ValidationOptions) {
     });
   };
 }
-

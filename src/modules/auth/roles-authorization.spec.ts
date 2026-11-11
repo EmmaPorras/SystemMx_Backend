@@ -1,4 +1,8 @@
-import { ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from './roles.guard';
 import { RolUsuario } from '../usuarios/rol-usuario.enum';
@@ -14,9 +18,19 @@ describe('SYSTEMMX - Matriz de Autorización por Módulo y Rol (Etapa 12)', () =
     guard = new RolesGuard(reflector);
   });
 
-  function mockExecutionContext(user?: Partial<UsuarioPublico>): ExecutionContext {
+  function mockExecutionContext(
+    user?: Partial<UsuarioPublico>,
+  ): ExecutionContext {
     const request = {
-      user: user ? ({ idUsuario: 1, username: 'test', nombre: 'Test', activo: true, ...user } as UsuarioPublico) : undefined,
+      user: user
+        ? ({
+            idUsuario: 1,
+            username: 'test',
+            nombre: 'Test',
+            activo: true,
+            ...user,
+          } as UsuarioPublico)
+        : undefined,
     };
     return {
       getHandler: () => ({}),
@@ -130,7 +144,12 @@ describe('SYSTEMMX - Matriz de Autorización por Módulo y Rol (Etapa 12)', () =
   });
 
   describe('Módulo Inventario (Lectura: ADMIN, VENTAS, COMPRAS, CONSULTA)', () => {
-    const rolesPermitidos = [RolUsuario.ADMIN, RolUsuario.VENTAS, RolUsuario.COMPRAS, RolUsuario.CONSULTA];
+    const rolesPermitidos = [
+      RolUsuario.ADMIN,
+      RolUsuario.VENTAS,
+      RolUsuario.COMPRAS,
+      RolUsuario.CONSULTA,
+    ];
 
     it('ADMIN puede consultar inventario', () => {
       setupRequiredRoles(rolesPermitidos);
@@ -244,25 +263,44 @@ describe('SYSTEMMX - Matriz de Autorización por Módulo y Rol (Etapa 12)', () =
       expect(guard.canActivate(ctx)).toBe(true);
     });
     it('DEMO no puede consultar inventario ni lotes (403)', () => {
-      setupRequiredRoles([RolUsuario.ADMIN, RolUsuario.VENTAS, RolUsuario.COMPRAS, RolUsuario.CONSULTA]);
+      setupRequiredRoles([
+        RolUsuario.ADMIN,
+        RolUsuario.VENTAS,
+        RolUsuario.COMPRAS,
+        RolUsuario.CONSULTA,
+      ]);
       const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
       expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
     });
 
     it('DEMO no puede consultar ni gestionar proveedores (403)', () => {
-      setupRequiredRoles([RolUsuario.ADMIN, RolUsuario.COMPRAS, RolUsuario.CONSULTA]);
+      setupRequiredRoles([
+        RolUsuario.ADMIN,
+        RolUsuario.COMPRAS,
+        RolUsuario.CONSULTA,
+      ]);
       const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
       expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
     });
 
     it('DEMO no puede consultar ni configurar tarifas IVA (403)', () => {
-      setupRequiredRoles([RolUsuario.ADMIN, RolUsuario.VENTAS, RolUsuario.COMPRAS, RolUsuario.CONSULTA]);
+      setupRequiredRoles([
+        RolUsuario.ADMIN,
+        RolUsuario.VENTAS,
+        RolUsuario.COMPRAS,
+        RolUsuario.CONSULTA,
+      ]);
       const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
       expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
     });
 
     it('DEMO no puede consultar catálogo comercial de productos (403)', () => {
-      setupRequiredRoles([RolUsuario.ADMIN, RolUsuario.VENTAS, RolUsuario.COMPRAS, RolUsuario.CONSULTA]);
+      setupRequiredRoles([
+        RolUsuario.ADMIN,
+        RolUsuario.VENTAS,
+        RolUsuario.COMPRAS,
+        RolUsuario.CONSULTA,
+      ]);
       const ctx = mockExecutionContext({ rol: RolUsuario.DEMO });
       expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
     });
