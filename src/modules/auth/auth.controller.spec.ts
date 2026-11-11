@@ -85,13 +85,19 @@ describe('AuthController', () => {
     it('debe delegar el reenvio de activacion a authService', async () => {
       const dto = { email: 'demo@systemmx.com', lang: 'es' as const };
       const reqMock = { ip: '127.0.0.1' } as any;
-      const mockRes = { message: 'Si la cuenta existe y está pendiente de activación, recibirás un nuevo enlace en tu correo electrónico.' };
+      const mockRes = {
+        message:
+          'Si la cuenta existe y está pendiente de activación, recibirás un nuevo enlace en tu correo electrónico.',
+      };
 
       authServiceMock.reenviarActivacion.mockResolvedValue(mockRes);
 
       const resultado = await controller.reenviarActivacion(dto, reqMock);
 
-      expect(authServiceMock.reenviarActivacion).toHaveBeenCalledWith(dto, '127.0.0.1');
+      expect(authServiceMock.reenviarActivacion).toHaveBeenCalledWith(
+        dto,
+        '127.0.0.1',
+      );
       expect(resultado).toEqual(mockRes);
     });
   });

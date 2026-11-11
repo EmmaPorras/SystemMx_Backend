@@ -18,7 +18,7 @@ import { resolveColumnType, resolveSqlExpr } from '../column-types';
 @Index('IX_token_accion_usuario_tipo', ['idUsuario', 'tipo', 'usado'])
 @Check(
   'CK_token_accion_tipo',
-  '"tipo" IN (\'INVITACION\', \'RECUPERACION_PASSWORD\')',
+  "\"tipo\" IN ('INVITACION', 'RECUPERACION_PASSWORD')",
 )
 export class TokenAccionUsuario {
   @PrimaryGeneratedColumn({
