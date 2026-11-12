@@ -20,6 +20,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:e2e:systemmx": "jest --config ./test/jest-e2e.json test/systemmx-install.e2e-spec.ts --runInBand",
+    "test:authz": "jest --config ./test/jest-authz.json --runInBand",
     "e2e:reset-db": "npm run build && node dist/scripts/reset-e2e-db.js",
     "bootstrap:user:dist": "node dist/scripts/bootstrap-user.js",
     "bootstrap:user": "npm run build && npm run bootstrap:user:dist",
