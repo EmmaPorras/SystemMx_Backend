@@ -39,3 +39,10 @@ commits = ["ecfa4febb80346b561ea707f704ddab2d24bca1c"]
 description = "Secreto ficticio de demostracion de bloqueo controlado en PR #36"
 commits = ["95f40d9595cba10d429b39cb6b3d1c6fc5041a64"]
 
+
+# 6) Valor ficticio de plantilla NestJS citado en la evidencia 2.3 (commit ca6b2f7, ya redactado en 770d0db)
+#    Es el mismo parametro de ejemplo de la insignia CircleCI de nestjs/nest (ver entrada 4), no una credencial.
+#    Alcance minimo: solo ese commit; el resto del historial sigue escaneandose. Requiere revision de CODEOWNERS.
+[[allowlists]]
+description = "Falso positivo H-44: valor de ejemplo de plantilla NestJS citado en evidencia 2.3"
+commits = ["ca6b2f7bc7c6ddf83a5711e56f93e8bce2e26e43"]

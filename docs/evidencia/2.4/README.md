@@ -1,0 +1,16 @@
+# Evidencia ítem 2.4 — Hook Stop que conecta el agente con las comprobaciones
+- Responsable: Integrante 2 · Revisor: Integrante 3 · Fecha: 2026-11-08
+- Qué cubre: `.claude/settings.json` registra un hook `Stop` → `.claude/hooks/stop-check.mjs`, que ejecuta `npm run check`.
+  - Pasa → exit 0 y contador reiniciado.
+  - Falla (<3) → resumen truncado (3500 caracteres) por **stderr** + **exit 2**, que Claude Code devuelve al agente como motivo para seguir.
+  - Falla (3.ª vez, por `session_id`) → escribe `reports/BLOQUEO.md`, mensaje "requiere intervención humana" y **exit 0** (sin bucle).
+  - Sin cambios en el árbol de trabajo → no ejecuta nada (turnos de solo conversación).
+  - Cada ejecución queda en `reports/hook-log.jsonl`.
+- Qué NO cubre / límites: la demostración se hizo **invocando el hook con el JSON de un evento Stop** (`session_id`, `stop_hook_active`) por stdin, no con un ciclo completo de un agente corrigiendo solo; falta grabar ese ciclo en vivo (transcripción) para la defensa. Agentes sin hooks (Codex, Antigravity, Gemini) solo tienen la instrucción de `AGENTS.md`.
+- Reproducir: crear `src/tmp-lint-demo.ts` con `const sinUsarDemo = 1;`, ejecutar tres veces `echo '{"session_id":"x"}' | node .claude/hooks/stop-check.mjs`, borrar el archivo y repetir.
+- Resultado observado (`salida-hook.txt`, `hook-log.jsonl`, `BLOQUEO-ejemplo.md`):
+  - Stop #1 y #2: exit=2, stderr con `'sinUsarDemo' is assigned a value but never used` (intentos 1/3 y 2/3).
+  - Stop #3: exit=0 + `BLOQUEADO: check falló 3 veces` y `BLOQUEO.md` generado.
+  - Stop #4 (error eliminado, sesión nueva): exit=0, `result: pass`.
+- Cambio relacionado: Semgrep en Docker ahora copia el código dentro del contenedor (de ~9 min a ~7 s), necesario para que el hook sea usable (`check` completo ≈ 40 s).
+- Revisión humana: pendiente (PR aprobado por Integrante 3).

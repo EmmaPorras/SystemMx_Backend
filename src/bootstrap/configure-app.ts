@@ -9,7 +9,8 @@ export function configureApp(
   // Configuración segura de proxy para Render (x-forwarded-for y x-forwarded-proto)
   const httpAdapter = app.getHttpAdapter();
   if (httpAdapter && typeof httpAdapter.getInstance === 'function') {
-    const instance = httpAdapter.getInstance();
+    const instance = httpAdapter.getInstance() as
+      { set?: (k: string, v: unknown) => void } | undefined;
     if (instance && typeof instance.set === 'function') {
       instance.set('trust proxy', 1);
     }
