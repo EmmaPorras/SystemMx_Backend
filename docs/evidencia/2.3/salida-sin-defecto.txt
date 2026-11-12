@@ -1,0 +1,11 @@
+
+> inventario-motos-backend@0.0.1 check
+> node scripts/check.mjs --only=gitleaks,semgrep
+
+▶ gitleaks ... OK (1.4s)
+▶ semgrep ... OK (544.5s)
+
+=== Resumen de check ===
+✔ gitleaks  ok
+✔ semgrep   ok
+exit=0

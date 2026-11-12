@@ -12,7 +12,6 @@ import * as crypto from 'crypto';
 
 import { Usuario } from '../../database/entities/usuario.entity';
 import { TokenAccionUsuario } from '../../database/entities/token-accion-usuario.entity';
-import { resolveSqlExpr } from '../../database/column-types';
 import { MailService } from '../mail/mail.service';
 import { RegistroDto } from '../auth/dto/registro.dto';
 import { validatePasswordPolicy } from './validators/password-policy.validator';
@@ -250,10 +249,10 @@ export class UsuariosService {
         expirationMinutes: horasExpiracion * 60,
         lang: dto.lang || 'es',
       });
-    } catch (mailError: any) {
+    } catch (mailError: unknown) {
       // Si falla el envío de correo, mantenemos consistencia pero informamos claramente al admin
       throw new BadRequestException(
-        `Usuario creado, pero falló el envío del correo de invitación: ${mailError.message}. Puedes reenviar la invitación desde la lista de usuarios.`,
+        `Usuario creado, pero falló el envío del correo de invitación: ${mailError instanceof Error ? mailError.message : String(mailError)}. Puedes reenviar la invitación desde la lista de usuarios.`,
       );
     }
 
@@ -343,9 +342,9 @@ export class UsuariosService {
         lang: dto.lang || 'es',
       });
       emailEnviado = true;
-    } catch (mailError: any) {
+    } catch (mailError: unknown) {
       this.logger.error(
-        `Error al enviar correo de verificación de registro: ${mailError.message}`,
+        `Error al enviar correo de verificación de registro: ${mailError instanceof Error ? mailError.message : String(mailError)}`,
       );
       emailEnviado = false;
     }
@@ -536,9 +535,9 @@ export class UsuariosService {
         expirationMinutes: horasExpiracion * 60,
         lang: lang || 'es',
       });
-    } catch (mailError: any) {
+    } catch (mailError: unknown) {
       this.logger.error(
-        `Error al reenviar correo de activación: ${mailError.message}`,
+        `Error al reenviar correo de activación: ${mailError instanceof Error ? mailError.message : String(mailError)}`,
       );
     }
 
