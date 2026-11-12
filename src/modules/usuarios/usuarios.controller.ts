@@ -24,6 +24,7 @@ import { UsuariosService } from './usuarios.service';
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
+  @Roles(RolUsuario.ADMIN, RolUsuario.CONSULTA)
   @Get()
   findAll() {
     return this.usuariosService.findAll();
