@@ -15,8 +15,8 @@
 - Revisión humana: pendiente (PR aprobado por Integrante 3).
 
 ## Justificación del falso positivo H-44 (README.md:5, commit ecfa4feb)
-- **Qué es:** la línea `[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456` del README plantilla de NestJS, presente desde el primer commit del repositorio (`ecfa4feb`, "Primer commit", 2026-07-05). Pertenece a una insignia de estado del proyecto `nestjs/nest`, no a este proyecto.
-- **Por qué no es un secreto:** el valor `abc123def456` es un marcador de ejemplo (secuencia `abc123def456`), no una credencial; la insignia ni siquiera apunta a un servicio de este equipo. Regla que lo marca: `generic-api-key` (coincidencia por palabra `token=` y entropía).
+- **Qué es:** la definición del enlace `[circleci-image]` (URL de la insignia de CircleCI de `nestjs/nest`, con un parámetro de ejemplo de 12 caracteres) del README plantilla de NestJS, presente desde el primer commit del repositorio (`ecfa4feb`, "Primer commit", 2026-07-05). Pertenece a una insignia de estado del proyecto `nestjs/nest`, no a este proyecto.
+- **Por qué no es un secreto:** el valor es un marcador de ejemplo de la plantilla oficial de NestJS (letras y dígitos consecutivos de muestra), no una credencial; la insignia ni siquiera apunta a un servicio de este equipo. Regla que lo marca: `generic-api-key` (coincidencia por la palabra "token" en la URL).
 - **Tratamiento:** allowlist por commit en `.gitleaks.toml` (`commits = ["ecfa4feb..."]`), de alcance mínimo: no exime archivos ni reglas, solo ese commit. El resto del historial sigue escaneándose.
 - **Verificación:** `gitleaks git` sobre el historial completo devolvió 1 coincidencia (esta); tras la allowlist, 0.
 
