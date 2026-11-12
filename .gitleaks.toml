@@ -28,3 +28,14 @@ paths = [
 [[allowlists]]
 description = "Archivo .env local no versionado"
 paths = ['''(^|/)\.env$''']
+
+# 4) Token ficticio de plantilla NestJS en README.md inicial (commit ecfa4feb)
+[[allowlists]]
+description = "Falso positivo: Token ficticio de CircleCI en README.md inicial de plantilla NestJS"
+commits = ["ecfa4febb80346b561ea707f704ddab2d24bca1c"]
+
+# 5) Secreto ficticio de demostración de bloqueo controlado en PR #36 (commit 95f40d95)
+[[allowlists]]
+description = "Secreto ficticio de demostracion de bloqueo controlado en PR #36"
+commits = ["95f40d9595cba10d429b39cb6b3d1c6fc5041a64"]
+

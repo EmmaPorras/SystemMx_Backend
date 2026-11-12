@@ -256,7 +256,7 @@ describe('PedidosService', () => {
       }),
       transaction: jest.fn().mockImplementation((...args: any[]) => {
         const callback = typeof args[0] === 'function' ? args[0] : args[1];
-        return callback(managerMock as unknown as EntityManager);
+        return callback(managerMock);
       }),
     };
 

@@ -46,6 +46,7 @@ lerna-debug.log*
 .temp
 .tmp
 scratch/
+reports/
 
 # Runtime data
 pids
@@ -60,3 +61,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /reports/
 .claude/.stop-attempts.json
 .claude/settings.local.json
+# Personal notes
+Pendiente.md
