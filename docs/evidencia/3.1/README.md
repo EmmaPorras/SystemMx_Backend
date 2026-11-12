@@ -24,5 +24,5 @@
 - **Run de Actions exitoso (verde):** https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42773861460
 - **Run de Actions previo (bloqueo por fallo):** https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/42771486248
 - **Artefacto generado:** `backend-image-408433ddaa35ece6f866eb5f9052cbeb80d3c189` (retención 1 día)
-- **Revisión humana:** Pendiente de aprobación por Integrante 4 (Emma) en PR #31.
+- **Revisión humana:** Aprobado y fusionado en `development` (commit `c89f18e`). Revisiones aprobadas: [@EmmaPorras](https://github.com/EmmaPorras/SystemMx_Backend/pull/31#pullrequestreview-5852388319) (revisora asignada) y [@Veldor09](https://github.com/EmmaPorras/SystemMx_Backend/pull/31#pullrequestreview-5852526505).
 - **Hallazgos o excepciones relacionados:** Ninguno.
