@@ -1,6 +1,6 @@
 # Evidencia ítem 2.5 — Límites de actuación del agente
 - Responsable: Integrante 2 · Revisor: Integrante 3 · Fecha: 2026-11-08
-- Estado: **comprobación en vivo hecha el 2026-11-10 para los límites 1-8 (ver tabla); 9 y 11 pendientes**. El límite 8 NO quedó comprobado: la edición no pidió confirmación.
+- Estado: **comprobación en vivo hecha el 2026-11-10 para los límites 1-8 (ver tabla); 9 pendiente; 11 comprobado por el Integrante 4 el 2026-11-12**. El límite 8 NO quedó comprobado: la edición no pidió confirmación.
 
 | # | Límite | Mecanismo que lo impone | Tipo | Resultado observado |
 |---|---|---|---|---|
@@ -14,7 +14,7 @@
 | 8 | Ediciones en pruebas requieren confirmación humana | `ask` `Edit/Write(test/**)`, `**/*.spec.ts` | técnico (pide aprobación) | NO PIDIO CONFIRMACION: la edicion de `src/app.controller.spec.ts` se ejecuto directo (el modo de permisos de la sesion probablemente auto-aprueba ediciones). Revertida; git status limpio. Repetir en modo por defecto |
 | 9 | Dependencias nuevas y `git push` piden confirmación | `ask` `Bash(npm install*)`, `Bash(git push*)` | técnico | pendiente |
 | 10 | No cambiar expectativas de pruebas para que pasen; no asumir permisos; secretos solo por una persona | `AGENTS.md` | **solo documental** | n/a |
-| 11 | Agente sin permisos de administrador del repo | Credenciales del agente sin rol admin (a cargo del Integrante 4) | configuración externa | pendiente |
+| 11 | Agente sin permisos de administrador del repo | Credenciales del agente sin rol admin (a cargo del Integrante 4) | configuración externa | COMPROBADO (2026-11-12, por Integrante 4 / Emmanuel en la configuración de GitHub): la cuenta `Veldor09`, que usa Claude Code, tiene permiso efectivo **write** (sin administración) en `SystemMx_Backend` y en `SystemMx_Frontend`. Verificación hecha por una persona; sin captura adjunta (pendiente añadirla). |
 
 ## Cómo comprobarlo (en una sesión NUEVA de Claude Code abierta en este repo)
 Las reglas se cargan al iniciar la sesión; en la sesión donde se crearon NO aplican (comprobado: se editaron `.semgrep/` y `check.mjs` pese a su deny). Pegar:
@@ -29,3 +29,7 @@ La demostración de que el agente no puede fusionar su propio PR se completa con
 - **Límite 8 (decisión):** se mantiene `ask` y NO se pasa a `deny`. En la prueba en vivo la edición de un `.spec` no pidió confirmación; la causa más probable es el modo de permisos de esa sesión (auto-aprueba ediciones), pero no se verificó, así que el control no se declara comprobado. El respaldo real es de proceso: `/test/` y `**/*.spec.ts` están en CODEOWNERS (@ROSHIII96, @Veldor09) con revisión obligatoria de otra persona, de modo que un cambio de pruebas no entra sin revisión humana. `deny` bloquearía además el trabajo legítimo del agente en pruebas. Pendiente: repetir la prueba en una sesión en modo por defecto.
 - Un usuario puede editar `.claude/settings.json` a mano o con `.claude/settings.local.json`; por eso los cambios en `.claude/**` van a CODEOWNERS.
 - Revisión humana: pendiente (Integrante 3).
+
+
+## Nota sobre cómo actúa el agente con la cuenta
+- Claude Code usa las credenciales de Git locales de `Veldor09` para el push y, en la sesión de trabajo, la sesión de GitHub del navegador de esa persona (se usó para cerrar el PR #32, abrir el #43 y pedir una revisión). No hay GitHub App ni token propio del agente, y el agente no aprobó ni fusionó ningún PR. Todo ello queda limitado al permiso write comprobado en el límite 11.
