@@ -26,5 +26,6 @@ La demostración de que el agente no puede fusionar su propio PR se completa con
 
 ## Límites declarados
 - Los permisos de Claude Code no gobiernan a Codex/Antigravity/Gemini; para ellos solo aplica `AGENTS.md` (documental) más las protecciones de rama.
+- **Límite 8 (decisión):** se mantiene `ask` y NO se pasa a `deny`. En la prueba en vivo la edición de un `.spec` no pidió confirmación; la causa más probable es el modo de permisos de esa sesión (auto-aprueba ediciones), pero no se verificó, así que el control no se declara comprobado. El respaldo real es de proceso: `/test/` y `**/*.spec.ts` están en CODEOWNERS (@ROSHIII96, @Veldor09) con revisión obligatoria de otra persona, de modo que un cambio de pruebas no entra sin revisión humana. `deny` bloquearía además el trabajo legítimo del agente en pruebas. Pendiente: repetir la prueba en una sesión en modo por defecto.
 - Un usuario puede editar `.claude/settings.json` a mano o con `.claude/settings.local.json`; por eso los cambios en `.claude/**` van a CODEOWNERS.
 - Revisión humana: pendiente (Integrante 3).
