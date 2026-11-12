@@ -307,7 +307,7 @@ async function seedAuthzTestData(
          "id_pedido", "id_producto", "codigo_lote", "cantidad_inicial",
          "cantidad_recibida", "cantidad_disponible", "costo_unitario_real",
          "precio_venta_recomendado", "estado_lote", "tipo_lote", "costo_pendiente_al_vender"
-       ) VALUES ($1, $2, $3, 50, 50, 50, 15000.00, 25000.00, 'DISPONIBLE', 'COMPRA_LOCAL', 0.0)
+       ) VALUES ($1, $2, $3, 100, 100, 20, 15000.00, 25000.00, 'DISPONIBLE', 'COMPRA_LOCAL', 0.0)
        RETURNING "id_lote"`,
       [idPed, idProd, codLote],
     );
