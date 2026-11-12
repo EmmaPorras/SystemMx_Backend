@@ -13,3 +13,16 @@
   - Historial: 1 coincidencia en `README.md:5` del commit `ecfa4feb` (probable enlace de insignia CircleCI) → falso positivo probable, pendiente de confirmar.
 - Limitación: Semgrep en Docker sobre Windows tarda ~9 min; en CI debería ser mucho menor.
 - Revisión humana: pendiente (PR aprobado por Integrante 3).
+
+## Justificación del falso positivo H-44 (README.md:5, commit ecfa4feb)
+- **Qué es:** la línea `[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456` del README plantilla de NestJS, presente desde el primer commit del repositorio (`ecfa4feb`, "Primer commit", 2026-07-05). Pertenece a una insignia de estado del proyecto `nestjs/nest`, no a este proyecto.
+- **Por qué no es un secreto:** el valor `abc123def456` es un marcador de ejemplo (secuencia `abc123def456`), no una credencial; la insignia ni siquiera apunta a un servicio de este equipo. Regla que lo marca: `generic-api-key` (coincidencia por palabra `token=` y entropía).
+- **Tratamiento:** allowlist por commit en `.gitleaks.toml` (`commits = ["ecfa4feb..."]`), de alcance mínimo: no exime archivos ni reglas, solo ese commit. El resto del historial sigue escaneándose.
+- **Verificación:** `gitleaks git` sobre el historial completo devolvió 1 coincidencia (esta); tras la allowlist, 0.
+
+## Por qué el PR toca `src/` y `eslint.config.mjs` (no cambia reglas de negocio)
+Estos cambios existen para que `npm run check` (ítem 2.3/2.4) pueda pasar de forma honesta:
+- `src/bootstrap/configure-app.ts`: se tipa `httpAdapter.getInstance()` (antes `any`) para quitar 4 errores `no-unsafe-*`. Misma llamada `instance.set('trust proxy', 1)`; sin cambio de comportamiento.
+- `src/modules/usuarios/usuarios.service.ts`: se elimina un import sin uso (`resolveSqlExpr`) y `mailError` pasa de `any` a `unknown` con `instanceof Error ? mailError.message : String(mailError)`. El mensaje de error es el mismo; no cambia validaciones, permisos ni flujos.
+- `eslint.config.mjs`: las reglas `no-unsafe-*` y afines pasan a `warn` **solo en `*.spec.ts` y `test/**`** (deuda registrada, ~300 avisos); producción mantiene `error`. Tras la integración de #31 en `development`, esta parte coincide con la relajación acordada allí.
+- Ninguno toca controladores, guards, roles, ventas ni usuarios en su lógica; las 626 pruebas existentes siguen pasando.
