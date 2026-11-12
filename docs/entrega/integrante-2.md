@@ -22,5 +22,5 @@
 
 ## Uso de IA
 - Agente: Claude Code (modelo Claude Sonnet 5.5) para redactar scripts, configuración y borradores de evidencia.
-- Licencia/plan utilizado: _completar (plan gratuito o de pago y condiciones de uso)_.
+- Licencia/plan utilizado: Claude Plan Pro (suscripción mensual, individual, contratada por la persona integrante); aplican los términos de uso de Anthropic para ese plan.
 - Validación: cada cambio se ejecutó localmente (`lint:ci`, build, 626 pruebas, Gitleaks, Semgrep) y se revisó por otra persona vía PR; los resultados de la demo están en `docs/evidencia/`.
