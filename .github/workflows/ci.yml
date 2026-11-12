@@ -221,3 +221,13 @@ jobs:
           #Indica lo que se debe de subir a Github action 
           path: backend-image.tar
           retention-days: 1
+
+  release:
+    name: Publish approved backend image
+    needs: [quality, security, authz, build-image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    uses: ./.github/workflows/release.yml
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      RENDER_DEPLOY_HOOK_BACKEND: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
