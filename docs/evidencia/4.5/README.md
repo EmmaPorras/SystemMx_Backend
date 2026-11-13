@@ -36,9 +36,9 @@
 - **Resultado esperado vs observado:**
   - **Esperado:** Todas las peticiones directas a la API aplican la matriz de autorización aprobada: roles autorizados reciben 2xx, roles no autorizados reciben 403, peticiones sin sesión o con token corrupto reciben 401, y el último ADMIN está protegido con 409 Conflict. Los intentos de escritura denegados no alteran la base de datos.
   - **Observado:** Ejecución automatizada en el job `authz` en GitHub Actions completando exitosamente en verde con todas las aserciones de autorización y no-modificación superadas.
-- **Commit evaluado:** [`e2a4e12e84d4fa7df802e3b2e3e57f12e9b04f7c`](https://github.com/EmmaPorras/SystemMx_Backend/commit/e2a4e12e84d4fa7df802e3b2e3e57f12e9b04f7c) en rama `feat/4.5-authz-tests`.
-- **Pull Request:** [PR #41 (feat(authz): pruebas de autorizacion por rol con supertest y bd efimera en CI)](https://github.com/EmmaPorras/SystemMx_Backend/pull/41) hacia `development`.
-- **Run de Actions exitoso (verde):** [Run #43124579323](https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/43124579323)
+- **Commit evaluado:** [`7ff3bb3`](https://github.com/EmmaPorras/SystemMx_Backend/commit/7ff3bb3) / [`6222251`](https://github.com/EmmaPorras/SystemMx_Backend/commit/6222251d3edaf7f277b81a651d504286addfe367) (Merge commit en `development`).
+- **Pull Request:** [PR #41 (feat(authz): pruebas de autorizacion por rol con supertest y bd efimera en CI)](https://github.com/EmmaPorras/SystemMx_Backend/pull/41) hacia `development` — **FUSIONADO EXITOSAMENTE**.
+- **Run de Actions exitoso (verde):** [Run #43126266549](https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/43126266549) y Run post-merge en `development` [Run #43261646365](https://github.com/EmmaPorras/SystemMx_Backend/actions/runs/43261646365)
   - Job `authz`: Completado exitosamente (`success`, exit code 0).
   - Resumen Jest: `Test Suites: 1 passed, 1 total; Tests: 101 passed, 101 total; Snapshots: 0 total; Time: 3.079 s`.
   - Base de datos: Contenedor efímero `postgres:16-alpine`, migraciones `npm run migration:run:dist` aplicadas al 100% en limpio.
@@ -46,5 +46,5 @@
   - Rama temporal desechable: `test/4.5-fallo-autorizacion` (Draft PR #42, cerrado y eliminado tras la demostración).
   - Defecto probado: Relajación indebida de control de acceso en `src/modules/usuarios/usuarios.controller.ts` añadiendo `@Roles(RolUsuario.ADMIN, RolUsuario.CONSULTA)` en `GET /api/usuarios`.
   - Comportamiento observado: La suite Supertest detectó que el rol `CONSULTA` recibió HTTP 200 en lugar del HTTP 403 estipulado en la matriz de permisos (`F3-USUARIOS-LISTAR: Expected 403, Received 200`), provocando fallo inmediato (`exit code 1`) en el job `authz` y bloqueando la integración en el pipeline de GitHub Actions.
-- **Revisión humana:** Pendiente de revisión y aprobación por Integrante 4 (Emma — `@EmmaPorras`) y codeowner `@Veldor09` en PR #41.
+- **Revisión humana:** Aprobado en GitHub por Integrante 4 (Emma — `@EmmaPorras`) y codeowner Derek (`@Veldor09`) en el [PR #41](https://github.com/EmmaPorras/SystemMx_Backend/pull/41). Fusionado a `development` por Joseth (`@ROSHIII96`).
 - **Hallazgos o excepciones relacionados:** Ninguno.
