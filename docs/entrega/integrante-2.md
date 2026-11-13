@@ -11,7 +11,7 @@
 | 2.4 | Hook `Stop` (`.claude/hooks/stop-check.mjs`): ejecuta `npm run check`, devuelve fallos por stderr con exit 2, 3 reintentos por sesión, `reports/BLOQUEO.md` al agotarlos | `docs/evidencia/2.4/` | #33, [#49](https://github.com/EmmaPorras/SystemMx_Backend/pull/49) |
 | 2.5 | Permisos allow/ask/deny en `.claude/settings.json` + tabla de límites con su mecanismo y resultado observado | `docs/evidencia/2.5/` | #33, [#50](https://github.com/EmmaPorras/SystemMx_Backend/pull/50) |
 | (apoyo) | Formato prettier, `lint:ci` y corrección de errores de lint | `docs/evidencia/` de 3.1 | [#32](https://github.com/EmmaPorras/SystemMx_Backend/pull/32) / #31 |
-| (apoyo) | Producción vuelve a `error` en ESLint (las 7 reglas que estaban en `warn` global); `warn` solo en specs y `test/` | `eslint.config.mjs` | [#48](https://github.com/EmmaPorras/SystemMx_Backend/pull/48) (aprobado, pendiente de fusión) |
+| (apoyo) | Producción vuelve a `error` en ESLint (las 7 reglas que estaban en `warn` global); `warn` solo en specs y `test/` | `eslint.config.mjs` | [#48](https://github.com/EmmaPorras/SystemMx_Backend/pull/48) (fusionado) |
 
 ## Decisiones y límites
 - `npm run check` falla si una herramienta **no pudo ejecutarse** (incompleto = no aprobado).
