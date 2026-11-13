@@ -19,7 +19,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.push_image.outputs.image }}
+      digest: ${{ steps.push_image.outputs.digest }}
 
     steps:
       - name: Download image from this CI run
@@ -69,7 +69,7 @@ jobs:
           fi
 
           docker push "$development_image"
-          printf 'image=%s@%s\n' "$repository" "$digest" >> "$GITHUB_OUTPUT"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
 
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           jq -n \
@@ -97,16 +97,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     permissions: {}
+    env:
+      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
+      IMAGE_DIGEST: ${{ needs.publish.outputs.digest }}
+      IMAGE: docker.io/${{ vars.DOCKERHUB_NAMESPACE }}/systemmx-backend@${{ needs.publish.outputs.digest }}
 
     steps:
       - name: Request deployment by digest
         shell: bash
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
-          IMAGE: ${{ needs.publish.outputs.image }}
         run: |
           : "${RENDER_DEPLOY_HOOK:?Falta el secreto RENDER_DEPLOY_HOOK_BACKEND}"
-          : "${IMAGE:?Falta la referencia de la imagen publicada}"
+          : "${DOCKERHUB_NAMESPACE:?Falta la variable DOCKERHUB_NAMESPACE}"
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::El job de publicación no entregó un digest válido."
+            exit 1
+          fi
+
           curl --fail --silent --max-time 30 --get \
             --data-urlencode "imgURL=${IMAGE}" \
             --output /dev/null \
@@ -119,7 +127,6 @@ jobs:
         shell: bash
         env:
           BACKEND_URL: ${{ vars.BACKEND_URL }}
-          IMAGE: ${{ needs.publish.outputs.image }}
         run: |
           : "${BACKEND_URL:?Falta la variable BACKEND_URL}"
           health_url="${BACKEND_URL%/}/api/health"
