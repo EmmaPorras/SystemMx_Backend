@@ -116,10 +116,7 @@ export class AuthController {
   })
   @Post('reenviar-activacion')
   @HttpCode(HttpStatus.OK)
-  reenviarActivacion(
-    @Body() dto: ReenviarActivacionDto,
-    @Req() req: Request,
-  ) {
+  reenviarActivacion(@Body() dto: ReenviarActivacionDto, @Req() req: Request) {
     return this.authService.reenviarActivacion(dto, req.ip);
   }
 

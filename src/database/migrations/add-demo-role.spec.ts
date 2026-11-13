@@ -67,8 +67,18 @@ describe('AddDemoRole1788762600000 Migration (Fase 4 - Rol DEMO con Privilegios 
 
     await migration.down(mockQueryRunner);
 
-    expect(queriesPostgres.some((q) => q.includes(`UPDATE "usuario" SET "rol" = 'CONSULTA' WHERE "rol" = 'DEMO'`))).toBe(true);
-    expect(queriesPostgres.some((q) => q.includes('CK_usuario_rol_valido') && !q.includes('DEMO'))).toBe(true);
+    expect(
+      queriesPostgres.some((q) =>
+        q.includes(
+          `UPDATE "usuario" SET "rol" = 'CONSULTA' WHERE "rol" = 'DEMO'`,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      queriesPostgres.some(
+        (q) => q.includes('CK_usuario_rol_valido') && !q.includes('DEMO'),
+      ),
+    ).toBe(true);
   });
 
   it('debe ejecutar la migración DOWN en SQL Server restaurando roles previos', async () => {
@@ -82,8 +92,17 @@ describe('AddDemoRole1788762600000 Migration (Fase 4 - Rol DEMO con Privilegios 
 
     await migration.down(mockQueryRunner);
 
-    expect(queriesMssql.some((q) => q.includes(`UPDATE [usuario] SET [rol] = 'CONSULTA' WHERE [rol] = 'DEMO'`))).toBe(true);
-    expect(queriesMssql.some((q) => q.includes('CK_usuario_rol_valido') && !q.includes('DEMO'))).toBe(true);
+    expect(
+      queriesMssql.some((q) =>
+        q.includes(
+          `UPDATE [usuario] SET [rol] = 'CONSULTA' WHERE [rol] = 'DEMO'`,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      queriesMssql.some(
+        (q) => q.includes('CK_usuario_rol_valido') && !q.includes('DEMO'),
+      ),
+    ).toBe(true);
   });
 });
-

@@ -47,7 +47,8 @@ describe('UsuariosService', () => {
 
   const configServiceMock = {
     get: jest.fn((key: string) => {
-      if (key === 'SYSTEMMX_FRONTEND_URL') return 'https://systemmx-web-200684331.onrender.com';
+      if (key === 'SYSTEMMX_FRONTEND_URL')
+        return 'https://systemmx-web-200684331.onrender.com';
       if (key === 'SYSTEMMX_INVITACION_EXPIRES_HOURS') return '24';
       if (key === 'SYSTEMMX_RECUPERACION_EXPIRES_MINUTES') return '30';
       return null;
@@ -55,7 +56,9 @@ describe('UsuariosService', () => {
   };
 
   const mailServiceMock = {
-    enviarCorreoAccion: jest.fn().mockResolvedValue({ exito: true, proveedor: 'simulado' }),
+    enviarCorreoAccion: jest
+      .fn()
+      .mockResolvedValue({ exito: true, proveedor: 'simulado' }),
   };
 
   const dataSourceMock = {
@@ -849,9 +852,9 @@ describe('UsuariosService', () => {
     it('debe lanzar NotFoundException si el usuario no existe', async () => {
       setupRepoTransaction([], null);
 
-      await expect(
-        service.cambiarRol(999, RolUsuario.VENTAS),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.cambiarRol(999, RolUsuario.VENTAS)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('debe lanzar BadRequestException si el rol es inválido', async () => {

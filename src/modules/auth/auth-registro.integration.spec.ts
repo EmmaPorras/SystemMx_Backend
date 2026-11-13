@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  ConflictException,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { PasswordHasherService } from '../usuarios/password-hasher.service';
@@ -27,7 +31,11 @@ describe('AuthService - Registro Público, Activación y Política de Contraseñ
     };
 
     passwordHasher = {
-      hash: jest.fn().mockImplementation((pwd: string) => Promise.resolve(`argon2id$mock$${pwd}`)),
+      hash: jest
+        .fn()
+        .mockImplementation((pwd: string) =>
+          Promise.resolve(`argon2id$mock$${pwd}`),
+        ),
       verify: jest.fn(),
     };
 
@@ -62,7 +70,8 @@ describe('AuthService - Registro Público, Activación y Política de Contraseñ
       };
 
       (usuariosService.registrarPublico as jest.Mock).mockResolvedValue({
-        message: 'Registro exitoso. Se ha enviado un enlace de activación a tu correo electrónico.',
+        message:
+          'Registro exitoso. Se ha enviado un enlace de activación a tu correo electrónico.',
         usuario: {
           idUsuario: 50,
           username: 'evaluador.publico',
@@ -75,7 +84,10 @@ describe('AuthService - Registro Público, Activación y Política de Contraseñ
 
       const response = await authService.registrarPublico(dto, '127.0.0.1');
 
-      expect(usuariosService.registrarPublico).toHaveBeenCalledWith(dto, '127.0.0.1');
+      expect(usuariosService.registrarPublico).toHaveBeenCalledWith(
+        dto,
+        '127.0.0.1',
+      );
       expect(response.usuario.rol).toBe(RolUsuario.DEMO);
       expect(response.message).toContain('enlace de activación');
     });
@@ -92,7 +104,9 @@ describe('AuthService - Registro Público, Activación y Política de Contraseñ
         new ConflictException('El nombre de usuario ya está registrado.'),
       );
 
-      await expect(authService.registrarPublico(dto)).rejects.toThrow(ConflictException);
+      await expect(authService.registrarPublico(dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -109,7 +123,9 @@ describe('AuthService - Registro Público, Activación y Política de Contraseñ
         versionCredenciales: 1,
       };
 
-      (usuariosService.buscarParaAutenticacion as jest.Mock).mockResolvedValue(usuarioHistorico);
+      (usuariosService.buscarParaAutenticacion as jest.Mock).mockResolvedValue(
+        usuarioHistorico,
+      );
       (passwordHasher.verify as jest.Mock).mockResolvedValue(true);
 
       const result = await authService.login({
@@ -134,7 +150,9 @@ describe('AuthService - Registro Público, Activación y Política de Contraseñ
         versionCredenciales: 1,
       };
 
-      (usuariosService.buscarParaAutenticacion as jest.Mock).mockResolvedValue(usuarioPendiente);
+      (usuariosService.buscarParaAutenticacion as jest.Mock).mockResolvedValue(
+        usuarioPendiente,
+      );
 
       await expect(
         authService.login({
@@ -165,4 +183,3 @@ describe('AuthService - Registro Público, Activación y Política de Contraseñ
     });
   });
 });
-

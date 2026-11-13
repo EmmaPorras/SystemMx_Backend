@@ -1,0 +1,147 @@
+name: Publish backend image
+
+on:
+  workflow_call:
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
+      RENDER_DEPLOY_HOOK_BACKEND:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish approved image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.push_image.outputs.digest }}
+
+    steps:
+      - name: Download image from this CI run
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: backend-image-${{ github.sha }}
+
+      - name: Load image and verify its commit
+        shell: bash
+        run: |
+          docker load --input backend-image.tar
+          local_image="systemmx-backend:${GITHUB_SHA}"
+          if ! docker image inspect "$local_image" --format '{{range .Config.Env}}{{println .}}{{end}}' |
+            grep -Fxq "GIT_SHA=${GITHUB_SHA}"; then
+            echo "::error::La imagen no contiene el GIT_SHA de esta ejecución."
+            exit 1
+          fi
+
+      - name: Publish image and record digest
+        id: push_image
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
+        run: |
+          : "${DOCKERHUB_NAMESPACE:?Falta la variable DOCKERHUB_NAMESPACE}"
+          export DOCKER_CONFIG
+          DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+
+          printf '%s\n' "$DOCKERHUB_TOKEN" |
+            docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
+          repository="docker.io/${DOCKERHUB_NAMESPACE}/systemmx-backend"
+          sha_image="${repository}:sha-${GITHUB_SHA}"
+          development_image="${repository}:development"
+
+          docker tag "systemmx-backend:${GITHUB_SHA}" "$sha_image"
+          docker tag "$sha_image" "$development_image"
+
+          docker push "$sha_image" | tee push.log
+          digest="$(awk '/digest: sha256:/ {for (i=1; i<NF; i++) if ($i == "digest:") print $(i+1)}' push.log)"
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::No se pudo confirmar el digest publicado."
+            exit 1
+          fi
+
+          docker push "$development_image"
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          jq -n \
+            --arg sha "$GITHUB_SHA" \
+            --arg digest "$digest" \
+            --arg ci_run_url "$run_url" \
+            --arg date "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            '{sha: $sha, digest: $digest, ci_run_url: $ci_run_url, date: $date}' \
+            > release-record.json
+
+          printf '### Imagen del backend publicada\n\n`%s@%s`\n\nCommit: `%s`\n' \
+            "$repository" "$digest" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release record
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: release-record-${{ github.sha }}
+          path: release-record.json
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy approved backend image to Render
+    needs: publish
+    if: vars.RENDER_BACKEND_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions: {}
+    env:
+      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
+      IMAGE_DIGEST: ${{ needs.publish.outputs.digest }}
+      IMAGE: docker.io/${{ vars.DOCKERHUB_NAMESPACE }}/systemmx-backend@${{ needs.publish.outputs.digest }}
+
+    steps:
+      - name: Request deployment by digest
+        shell: bash
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+        run: |
+          : "${RENDER_DEPLOY_HOOK:?Falta el secreto RENDER_DEPLOY_HOOK_BACKEND}"
+          : "${DOCKERHUB_NAMESPACE:?Falta la variable DOCKERHUB_NAMESPACE}"
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::El job de publicación no entregó un digest válido."
+            exit 1
+          fi
+
+          curl --fail --silent --max-time 30 --get \
+            --data-urlencode "imgURL=${IMAGE}" \
+            --output /dev/null \
+            "$RENDER_DEPLOY_HOOK" || {
+              echo "::error::Render rechazó la solicitud de despliegue del backend."
+              exit 1
+            }
+
+      - name: Verify the deployed backend commit
+        shell: bash
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          : "${BACKEND_URL:?Falta la variable BACKEND_URL}"
+          health_url="${BACKEND_URL%/}/api/health"
+          deadline=$((SECONDS + 600))
+
+          while (( SECONDS < deadline )); do
+            if curl --fail --silent --max-time 10 "$health_url" |
+              jq -e --arg sha "$GITHUB_SHA" \
+                '.status == "ok" and .commit == $sha' > /dev/null; then
+              printf 'Backend verificado en Render\n\nImagen: `%s`\n\nCommit: `%s`\n' \
+                "$IMAGE" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo "::error::El backend no confirmó el commit ${GITHUB_SHA} en /api/health."
+          exit 1

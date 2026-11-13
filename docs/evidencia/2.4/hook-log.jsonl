@@ -1,0 +1,4 @@
+{"at":"2026-11-08T10:04:18.341Z","sid":"demo-2-4","result":"fail","attempts":1,"stop_hook_active":false}
+{"at":"2026-11-08T10:04:56.190Z","sid":"demo-2-4","result":"fail","attempts":2,"stop_hook_active":true}
+{"at":"2026-11-08T10:05:33.809Z","sid":"demo-2-4","result":"bloqueo","attempts":3}
+{"at":"2026-11-08T10:06:11.305Z","sid":"demo-2-4b","result":"pass"}

@@ -1,0 +1,16 @@
+rules:
+  - id: systemmx-eval-dinamico
+    languages: [typescript]
+    severity: ERROR
+    message: >
+      eval() o new Function() con un valor no literal permite ejecucion de codigo arbitrario
+      si algun fragmento viene del usuario (CWE-95). Eliminar su uso.
+    pattern-either:
+      - patterns:
+          - pattern: eval($X)
+          - pattern-not: eval("...")
+      - patterns:
+          - pattern: new Function($...ARGS)
+          - pattern-not: new Function("...")
+    paths:
+      exclude: ["**/*.spec.ts"]

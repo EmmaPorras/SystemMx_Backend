@@ -29,8 +29,16 @@ export class DemoController {
         'Tu cuenta se encuentra en modo Demostración Evaluativa con privilegios mínimos y datos aislados. Los datos comerciales reales de compras, ventas e inventario están protegidos. Solicita al administrador la elevación de tu rol para acceder a los módulos operativos.',
       datosAislados: {
         categoriasEjemplo: [
-          { id: 1001, nombre: 'Accesorios y Cascos (Muestra)', totalProductos: 4 },
-          { id: 1002, nombre: 'Repuestos de Motor (Muestra)', totalProductos: 7 },
+          {
+            id: 1001,
+            nombre: 'Accesorios y Cascos (Muestra)',
+            totalProductos: 4,
+          },
+          {
+            id: 1002,
+            nombre: 'Repuestos de Motor (Muestra)',
+            totalProductos: 7,
+          },
         ],
         productosEjemplo: [
           {
@@ -57,4 +65,3 @@ export class DemoController {
     };
   }
 }
-

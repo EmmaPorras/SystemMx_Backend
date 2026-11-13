@@ -37,5 +37,19 @@ describe('AppController', () => {
       expect(apiHealth.status).toBe('ok');
       expect(apiHealth.service).toBe('systemmx-backend');
     });
+
+    it('should return the deployed commit in api health', () => {
+      const gitSha = '0a197fa97e10536dbd5b2d383894d27a60385417';
+      const env = jest.replaceProperty(process, 'env', {
+        ...process.env,
+        GIT_SHA: gitSha,
+      });
+
+      try {
+        expect(appController.getApiHealth().commit).toBe(gitSha);
+      } finally {
+        env.restore();
+      }
+    });
   });
 });

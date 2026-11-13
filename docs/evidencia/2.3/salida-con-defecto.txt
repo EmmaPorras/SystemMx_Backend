@@ -1,0 +1,18 @@
+
+> inventario-motos-backend@0.0.1 check
+> node scripts/check.mjs --only=gitleaks,semgrep
+
+▶ gitleaks ... FAIL (1.4s)
+▶ semgrep ... FAIL (542.9s)
+
+=== Resumen de check ===
+✘ gitleaks  fail
+✘ semgrep   fail
+
+--- gitleaks (fail) ---
+7:38AM INF scanned ~1176850 bytes (1.18 MB) in 439ms
+7:38AM WRN leaks found: 1
+
+--- semgrep (fail) ---
+[ERROR] semgrep.systemmx-eval-dinamico src/tmp-defecto-demo.ts:5
+exit=1

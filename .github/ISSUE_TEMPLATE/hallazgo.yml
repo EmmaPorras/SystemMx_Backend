@@ -1,0 +1,106 @@
+name: Registrar hallazgo
+description: Registrar un hallazgo con evidencia, severidad razonada, responsable y tratamiento.
+title: "[hallazgo] "
+labels:
+   - hallazgo
+body:
+   - type: markdown
+     attributes:
+       value: |
+         Completa los campos con evidencia reproducible. H-<n> es el número de este Issue. No pegues secretos ni datos personales.
+   - type: input
+     id: origen
+     attributes:
+       label: Origen (herramienta o ítem)
+       description: Herramienta, requisito o sección que detectó el hallazgo.
+       placeholder: "Guía SSDLC §2.3 / revisión de configuración"
+     validations:
+       required: true
+   - type: input
+     id: version_afectada
+     attributes:
+       label: Versión afectada
+       description: Commit SHA completo o digest; evita usar solo el nombre de rama.
+       placeholder: "40 caracteres SHA o sha256 digest"
+     validations:
+       required: true
+   - type: textarea
+     id: evidencia
+     attributes:
+       label: Evidencia (enlace o log)
+       description: Enlaces a archivos y líneas, salida redactada o evidencia que permita reproducir el hecho.
+       placeholder: "https://github.com/owner/repo/blob/<sha>/archivo#L1-L10"
+       render: text
+     validations:
+       required: true
+   - type: dropdown
+     id: severidad
+     attributes:
+       label: Severidad
+       description: Selecciona según impacto y alcance; justifica la clasificación en el campo siguiente.
+       options:
+         - sev:alta
+         - sev:media
+         - sev:baja
+     validations:
+       required: true
+   - type: textarea
+     id: justificacion_severidad
+     attributes:
+       label: Justificación de severidad
+       description: Explica impacto, probabilidad/alcance conocidos y límites de la evidencia.
+       render: textarea
+     validations:
+       required: true
+   - type: input
+     id: responsable
+     attributes:
+       label: Responsable
+       description: Persona o integrante responsable propuesto para seguimiento.
+     validations:
+       required: true
+   - type: dropdown
+     id: estado
+     attributes:
+       label: Estado
+       options:
+         - confirmado
+         - falso-positivo
+         - pendiente-investigacion
+         - en-tratamiento
+         - cerrado
+       description: El estado confirmado describe el hecho documentado; no implica que sea una vulnerabilidad explotada.
+     validations:
+       required: true
+   - type: textarea
+     id: tratamiento
+     attributes:
+       label: Tratamiento
+       description: Acción propuesta, persona responsable y criterio/evidencia para cerrar.
+       render: textarea
+     validations:
+       required: true
+   - type: input
+     id: amenaza_relacionada
+     attributes:
+       label: Amenaza relacionada
+       description: T-xx o "Sin relación directa"; no fuerces una relación inexistente.
+       placeholder: "T-01, T-03 / Sin relación directa"
+     validations:
+       required: true
+   - type: input
+     id: excepcion_relacionada
+     attributes:
+       label: Excepción relacionada
+       description: E-n si existe; si no, escribe "Ninguna".
+       placeholder: "E-<n> / Ninguna"
+     validations:
+       required: true
+   - type: input
+     id: pr_correctivo
+     attributes:
+       label: PR correctivo relacionado
+       description: Enlace al PR que corrige el hallazgo cuando exista; si no existe, indícalo.
+       placeholder: "URL de PR / Aún no existe"
+     validations:
+       required: true

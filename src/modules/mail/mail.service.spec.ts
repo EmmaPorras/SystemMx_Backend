@@ -8,8 +8,10 @@ describe('MailService y Seguridad Google Apps Script', () => {
   const originalFetch = global.fetch;
 
   // Clave secreta Base64 de prueba con caracteres especiales y padding '='
-  const TEST_BASE64_SECRET = 'aW52ZW50YXJpby1tb3Rvcy1zeXN0ZW1teC1zZWNyZXQtMjAyNiE=';
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_test/exec';
+  const TEST_BASE64_SECRET =
+    'aW52ZW50YXJpby1tb3Rvcy1zeXN0ZW1teC1zZWNyZXQtMjAyNiE=';
+  const APPS_SCRIPT_URL =
+    'https://script.google.com/macros/s/AKfycbx_test/exec';
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
@@ -45,14 +47,23 @@ describe('MailService y Seguridad Google Apps Script', () => {
         to: 'juanito@gmail.com',
         recipientName: 'Juanito Pérez',
         type: 'INVITACION',
-        actionUrl: 'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' + 'a'.repeat(64),
+        actionUrl:
+          'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' +
+          'a'.repeat(64),
         expirationMinutes: 1440,
         lang: 'es',
         from: 'receptor847@gmail.com',
       };
 
-      const canonicalString = service.construirPayloadCanonico(timestamp, nonce, corePayload);
-      const signatureNest = service.calcularHmacSha256(canonicalString, TEST_BASE64_SECRET);
+      const canonicalString = service.construirPayloadCanonico(
+        timestamp,
+        nonce,
+        corePayload,
+      );
+      const signatureNest = service.calcularHmacSha256(
+        canonicalString,
+        TEST_BASE64_SECRET,
+      );
 
       // Simular cálculo exacto de Apps Script: Utilities.computeHmacSha256Signature
       const signatureAppsScriptSim = crypto
@@ -72,14 +83,23 @@ describe('MailService y Seguridad Google Apps Script', () => {
         to: 'juanito@gmail.com',
         recipientName: 'Juanito Pérez',
         type: 'INVITACION',
-        actionUrl: 'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' + 'a'.repeat(64),
+        actionUrl:
+          'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' +
+          'a'.repeat(64),
         expirationMinutes: 1440,
         lang: 'es',
         from: 'receptor847@gmail.com',
       };
 
-      const canonicalString = service.construirPayloadCanonico(timestamp, nonce, corePayload);
-      const signatureOriginal = service.calcularHmacSha256(canonicalString, TEST_BASE64_SECRET);
+      const canonicalString = service.construirPayloadCanonico(
+        timestamp,
+        nonce,
+        corePayload,
+      );
+      const signatureOriginal = service.calcularHmacSha256(
+        canonicalString,
+        TEST_BASE64_SECRET,
+      );
       const signatureInvalida = signatureOriginal.slice(0, -2) + 'ff';
 
       expect(signatureOriginal).not.toBe(signatureInvalida);
@@ -91,7 +111,8 @@ describe('MailService y Seguridad Google Apps Script', () => {
       if (typeof urlString !== 'string' || !urlString) {
         return { valid: false, error: 'URL requerida' };
       }
-      const urlRegex = /^https:\/\/([a-zA-Z0-9.-]+)(?::([0-9]+))?(\s*\/[^?#]*)?(?:\?([^#]*))?(?:#(.*))?$/;
+      const urlRegex =
+        /^https:\/\/([a-zA-Z0-9.-]+)(?::([0-9]+))?(\s*\/[^?#]*)?(?:\?([^#]*))?(?:#(.*))?$/;
       const match = urlString.match(urlRegex);
       if (!match) return { valid: false, error: 'Protocolo HTTPS requerido' };
 
@@ -117,7 +138,8 @@ describe('MailService y Seguridad Google Apps Script', () => {
         const cleanHash = hash.replace(/^\/+/, '');
         const hashQueryIdx = cleanHash.indexOf('?');
         if (hashQueryIdx !== -1) {
-          effectiveRoute = '/' + cleanHash.slice(0, hashQueryIdx).replace(/^\/+/, '');
+          effectiveRoute =
+            '/' + cleanHash.slice(0, hashQueryIdx).replace(/^\/+/, '');
           queryToParse = cleanHash.slice(hashQueryIdx + 1);
         } else {
           effectiveRoute = '/' + cleanHash;
@@ -125,19 +147,31 @@ describe('MailService y Seguridad Google Apps Script', () => {
         }
       }
 
-      const expectedRoute = expectedType === 'INVITACION' ? '/activar-cuenta' : '/restablecer-contrasena';
-      if (expectedType !== 'INVITACION' && expectedType !== 'RECUPERACION_PASSWORD') {
+      const expectedRoute =
+        expectedType === 'INVITACION'
+          ? '/activar-cuenta'
+          : '/restablecer-contrasena';
+      if (
+        expectedType !== 'INVITACION' &&
+        expectedType !== 'RECUPERACION_PASSWORD'
+      ) {
         return { valid: false, error: 'Tipo de acción desconocido' };
       }
 
       if (effectiveRoute !== expectedRoute) {
-        return { valid: false, error: 'Ruta no autorizada para ' + expectedType };
+        return {
+          valid: false,
+          error: 'Ruta no autorizada para ' + expectedType,
+        };
       }
 
       const params: Record<string, string> = {};
       queryToParse.split('&').forEach((p) => {
         const parts = p.split('=');
-        if (parts[0]) params[decodeURIComponent(parts[0])] = decodeURIComponent(parts.slice(1).join('='));
+        if (parts[0])
+          params[decodeURIComponent(parts[0])] = decodeURIComponent(
+            parts.slice(1).join('='),
+          );
       });
 
       const token = params['token'];
@@ -149,51 +183,70 @@ describe('MailService y Seguridad Google Apps Script', () => {
     }
 
     it('debe aceptar URL legítima HTTPS con HashRouter (/#/activar-cuenta?token=...)', () => {
-      const hashUrl = 'https://systemmx-web-200684331.onrender.com/#/activar-cuenta?token=' + 'f'.repeat(64);
+      const hashUrl =
+        'https://systemmx-web-200684331.onrender.com/#/activar-cuenta?token=' +
+        'f'.repeat(64);
       const res = validarUrlAppsScript(hashUrl, 'INVITACION');
       expect(res.valid).toBe(true);
     });
 
     it('debe aceptar URL legítima HTTPS con HashRouter para recuperación (/#/restablecer-contrasena?token=...)', () => {
-      const hashUrl = 'https://systemmx-web-200684331.onrender.com/#/restablecer-contrasena?token=' + 'f'.repeat(64);
+      const hashUrl =
+        'https://systemmx-web-200684331.onrender.com/#/restablecer-contrasena?token=' +
+        'f'.repeat(64);
       const res = validarUrlAppsScript(hashUrl, 'RECUPERACION_PASSWORD');
       expect(res.valid).toBe(true);
     });
     it('debe aceptar URL legítima HTTPS del host de producción con ruta directa y token correctos', () => {
-      const validUrl = 'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' + 'f'.repeat(64);
+      const validUrl =
+        'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' +
+        'f'.repeat(64);
       const res = validarUrlAppsScript(validUrl, 'INVITACION');
       expect(res.valid).toBe(true);
     });
 
     it('debe rechazar dominio falsificado o parecido (e.g. systemmx-web-fraud.onrender.com)', () => {
-      const fakeUrl = 'https://systemmx-web-fraud.onrender.com/activar-cuenta?token=' + 'f'.repeat(64);
+      const fakeUrl =
+        'https://systemmx-web-fraud.onrender.com/activar-cuenta?token=' +
+        'f'.repeat(64);
       const res = validarUrlAppsScript(fakeUrl, 'INVITACION');
       expect(res.valid).toBe(false);
       expect(res.error).toContain('Host no autorizado');
     });
 
     it('debe rechazar URLs con protocolo no seguro HTTP o localhost en producción', () => {
-      const httpUrl = 'http://systemmx-web-200684331.onrender.com/activar-cuenta?token=' + 'f'.repeat(64);
+      const httpUrl =
+        'http://systemmx-web-200684331.onrender.com/activar-cuenta?token=' +
+        'f'.repeat(64);
       expect(validarUrlAppsScript(httpUrl, 'INVITACION').valid).toBe(false);
 
-      const localhostUrl = 'https://localhost:5173/activar-cuenta?token=' + 'f'.repeat(64);
-      expect(validarUrlAppsScript(localhostUrl, 'INVITACION').valid).toBe(false);
+      const localhostUrl =
+        'https://localhost:5173/activar-cuenta?token=' + 'f'.repeat(64);
+      expect(validarUrlAppsScript(localhostUrl, 'INVITACION').valid).toBe(
+        false,
+      );
     });
 
     it('debe rechazar si la ruta no corresponde al tipo de acción', () => {
       // Intentar usar ruta de restablecer contraseña con tipo INVITACION
-      const mismatchedUrl = 'https://systemmx-web-200684331.onrender.com/restablecer-contrasena?token=' + 'f'.repeat(64);
+      const mismatchedUrl =
+        'https://systemmx-web-200684331.onrender.com/restablecer-contrasena?token=' +
+        'f'.repeat(64);
       const res = validarUrlAppsScript(mismatchedUrl, 'INVITACION');
       expect(res.valid).toBe(false);
       expect(res.error).toContain('Ruta no autorizada');
     });
 
     it('debe rechazar si el token falta o tiene formato inválido', () => {
-      const noToken = 'https://systemmx-web-200684331.onrender.com/activar-cuenta';
+      const noToken =
+        'https://systemmx-web-200684331.onrender.com/activar-cuenta';
       expect(validarUrlAppsScript(noToken, 'INVITACION').valid).toBe(false);
 
-      const invalidToken = 'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=bad!token';
-      expect(validarUrlAppsScript(invalidToken, 'INVITACION').valid).toBe(false);
+      const invalidToken =
+        'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=bad!token';
+      expect(validarUrlAppsScript(invalidToken, 'INVITACION').valid).toBe(
+        false,
+      );
     });
   });
 
@@ -208,7 +261,8 @@ describe('MailService y Seguridad Google Apps Script', () => {
     }
 
     it('debe neutralizar intentos de inyección HTML y JavaScript en campos dinámicos', () => {
-      const maliciousName = '<script>alert("xss")</script>Juanito<img src=x onerror=alert(1)>';
+      const maliciousName =
+        '<script>alert("xss")</script>Juanito<img src=x onerror=alert(1)>';
       const escaped = escapeHtml(maliciousName);
 
       expect(escaped).not.toContain('<script>');
@@ -265,7 +319,9 @@ describe('MailService y Seguridad Google Apps Script', () => {
         to: 'juanito@gmail.com',
         recipientName: 'Juanito',
         type: 'INVITACION',
-        actionUrl: 'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' + 'a'.repeat(64),
+        actionUrl:
+          'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' +
+          'a'.repeat(64),
         expirationMinutes: 1440,
       });
 
@@ -286,16 +342,22 @@ describe('MailService y Seguridad Google Apps Script', () => {
           to: 'juanito@gmail.com',
           recipientName: 'Juanito',
           type: 'INVITACION',
-          actionUrl: 'https://systemmx-web-200684331.onrender.com/#/activar-cuenta?token=' + 'a'.repeat(64),
+          actionUrl:
+            'https://systemmx-web-200684331.onrender.com/#/activar-cuenta?token=' +
+            'a'.repeat(64),
           expirationMinutes: 1440,
         }),
-      ).rejects.toThrow('No se pudo enviar el correo de notificación: Connection reset by peer');
+      ).rejects.toThrow(
+        'No se pudo enviar el correo de notificación: Connection reset by peer',
+      );
 
       expect(attempts).toBe(1);
     });
 
     it('enmascara tokens en logs y no expone el secreto ni tokens completos', async () => {
-      const warnSpy = jest.spyOn((service as any).logger, 'warn').mockImplementation();
+      const warnSpy = jest
+        .spyOn((service as any).logger, 'warn')
+        .mockImplementation();
 
       mockConfigService.get.mockImplementation((key: string) => {
         if (key === 'NODE_ENV') return 'development';
@@ -304,7 +366,8 @@ describe('MailService y Seguridad Google Apps Script', () => {
         return null;
       });
 
-      const rawToken = 'b7c7501d9b9d74b2020c1fc5c496651fba1ac8334fc87cf03a330e30c7ca821f';
+      const rawToken =
+        'b7c7501d9b9d74b2020c1fc5c496651fba1ac8334fc87cf03a330e30c7ca821f';
       await service.enviarCorreoAccion({
         to: 'destinatario@gmail.com',
         recipientName: 'Test',
@@ -334,7 +397,9 @@ describe('MailService y Seguridad Google Apps Script', () => {
           to: 'usuario@gmail.com',
           recipientName: 'Usuario',
           type: 'INVITACION',
-          actionUrl: 'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' + 'b'.repeat(64),
+          actionUrl:
+            'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' +
+            'b'.repeat(64),
           expirationMinutes: 1440,
         }),
       ).rejects.toThrow('Servicio de correo no configurado para producción');
@@ -352,7 +417,9 @@ describe('MailService y Seguridad Google Apps Script', () => {
         to: 'usuario@gmail.com',
         recipientName: 'Usuario',
         type: 'INVITACION',
-        actionUrl: 'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' + 'b'.repeat(64),
+        actionUrl:
+          'https://systemmx-web-200684331.onrender.com/activar-cuenta?token=' +
+          'b'.repeat(64),
         expirationMinutes: 1440,
       });
 

@@ -39,6 +39,7 @@ export class AppController {
       status: 'ok',
       service: 'systemmx-backend',
       timestamp: new Date().toISOString(),
+      commit: process.env.GIT_SHA || 'unknown',
     };
   }
 }
