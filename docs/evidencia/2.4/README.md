@@ -23,7 +23,7 @@
   1. El agente terminó su turno y el hook ejecutó `npm run check`, que falló: entrada `result: fail`, `attempts: 1` (de 3), `stop_hook_active: false`, a las 00:26:05Z.
   2. El agente recibió el motivo por stderr y **corrigió el archivo** (`'veinte'` → `20`; no lo borró ni tocó pruebas, reglas ni configuración).
   3. Al terminar de nuevo, el chequeo pasó: entrada `result: pass` a las 00:27:39Z (≈ 1 min 34 s después). Intentos usados: 1 de 3. El contador quedó reiniciado (`{}`) y no se generó `reports/BLOQUEO.md`.
-- **Evidencia:** `docs/evidencia/2.4/hook-log-ciclo-vivo.jsonl` (secuencia `fail` → `pass`); video de la grabación: _enlace pendiente de añadir_ (no se sube al repositorio). El texto exacto del error devuelto al agente se ve en el video; el log solo registra el resultado.
+- **Evidencia:** `docs/evidencia/2.4/hook-log-ciclo-vivo.jsonl` (secuencia `fail` → `pass`); video de la grabación (carpeta de Drive con acceso por enlace, archivo `Desktop 2026.11.12 - 18.25.15.02.mp4`): https://drive.google.com/drive/folders/1bMi8nFRkE-vI7tFbDEa6957tjTS21s5S?usp=sharing (no se sube al repositorio). El texto exacto del error devuelto al agente se ve en el video; el log solo registra el resultado.
 - **Limpieza:** `src/tmp-demo-ciclo.ts` eliminado; árbol de trabajo sin cambios residuales.
 
 ### Qué sigue sin cubrir
