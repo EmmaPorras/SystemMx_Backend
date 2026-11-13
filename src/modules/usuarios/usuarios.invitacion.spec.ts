@@ -38,12 +38,15 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
   };
 
   const mockMailService = {
-    enviarCorreoAccion: jest.fn().mockResolvedValue({ exito: true, proveedor: 'google_apps_script' }),
+    enviarCorreoAccion: jest
+      .fn()
+      .mockResolvedValue({ exito: true, proveedor: 'google_apps_script' }),
   };
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-      if (key === 'SYSTEMMX_FRONTEND_URL') return 'https://systemmx-web-200684331.onrender.com';
+      if (key === 'SYSTEMMX_FRONTEND_URL')
+        return 'https://systemmx-web-200684331.onrender.com';
       if (key === 'SYSTEMMX_INVITACION_EXPIRES_HOURS') return '24';
       if (key === 'SYSTEMMX_RECUPERACION_EXPIRES_MINUTES') return '30';
       return null;
@@ -64,7 +67,8 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
         createQueryBuilder: jest.fn().mockReturnValue(tokenQbMock),
       };
       return cb({
-        getRepository: (entity: any) => (entity === Usuario ? userRepo : tokenRepo),
+        getRepository: (entity: any) =>
+          entity === Usuario ? userRepo : tokenRepo,
       });
     }),
   };
@@ -93,7 +97,10 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       providers: [
         UsuariosService,
         { provide: getRepositoryToken(Usuario), useValue: mockUsuarioRepo },
-        { provide: getRepositoryToken(TokenAccionUsuario), useValue: mockTokenRepo },
+        {
+          provide: getRepositoryToken(TokenAccionUsuario),
+          useValue: mockTokenRepo,
+        },
         { provide: PasswordHasherService, useValue: mockPasswordHasher },
         { provide: DataSource, useValue: mockDataSource },
         { provide: ConfigService, useValue: mockConfigService },
@@ -135,7 +142,9 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
         lang: 'es',
       });
 
-      expect(res.usuario.estadoActivacion).toBe(EstadoActivacionUsuario.PENDIENTE_ACTIVACION);
+      expect(res.usuario.estadoActivacion).toBe(
+        EstadoActivacionUsuario.PENDIENTE_ACTIVACION,
+      );
       expect(mockTokenRepo.save).toHaveBeenCalled();
       expect(mockMailService.enviarCorreoAccion).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -160,7 +169,9 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
     });
 
     it('debe rechazar si el correo ya está registrado', async () => {
-      mockUsuarioRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ idUsuario: 2 });
+      mockUsuarioRepo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ idUsuario: 2 });
 
       await expect(
         service.invitar({
@@ -188,7 +199,9 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       mockTokenRepo.create.mockReturnValue({});
       mockTokenRepo.save.mockResolvedValue({});
 
-      mockMailService.enviarCorreoAccion.mockRejectedValueOnce(new Error('Fallo conexión Google Apps Script'));
+      mockMailService.enviarCorreoAccion.mockRejectedValueOnce(
+        new Error('Fallo conexión Google Apps Script'),
+      );
 
       await expect(
         service.invitar({
@@ -203,7 +216,10 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
 
   describe('validarTokenAccion()', () => {
     it('debe validar exitosamente un token activo no expirado', async () => {
-      const tokenHash = crypto.createHash('sha256').update('mi-token-secreto').digest('hex');
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update('mi-token-secreto')
+        .digest('hex');
       const tokenEntity = {
         idToken: 1,
         tokenHash,
@@ -214,7 +230,10 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       };
       mockTokenRepo.findOne.mockResolvedValue(tokenEntity);
 
-      const resultado = await service.validarTokenAccion('mi-token-secreto', TipoTokenAccion.INVITACION);
+      const resultado = await service.validarTokenAccion(
+        'mi-token-secreto',
+        TipoTokenAccion.INVITACION,
+      );
       expect(resultado).toBe(tokenEntity);
     });
 
@@ -236,7 +255,10 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       });
 
       await expect(
-        service.validarTokenAccion('token-expirado', TipoTokenAccion.INVITACION),
+        service.validarTokenAccion(
+          'token-expirado',
+          TipoTokenAccion.INVITACION,
+        ),
       ).rejects.toThrow('Este enlace ha expirado.');
     });
   });
@@ -256,7 +278,11 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       const res = await service.reenviarInvitacion(12);
 
       expect(mockTokenRepo.update).toHaveBeenCalledWith(
-        expect.objectContaining({ idUsuario: 12, tipo: TipoTokenAccion.INVITACION, usado: false }),
+        expect.objectContaining({
+          idUsuario: 12,
+          tipo: TipoTokenAccion.INVITACION,
+          usado: false,
+        }),
         expect.objectContaining({ usado: true }),
       );
       expect(mockMailService.enviarCorreoAccion).toHaveBeenCalled();
@@ -269,7 +295,9 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
         estadoActivacion: EstadoActivacionUsuario.ACTIVO,
       });
 
-      await expect(service.reenviarInvitacion(12)).rejects.toThrow(BadRequestException);
+      await expect(service.reenviarInvitacion(12)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -299,13 +327,18 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       userQbMock.getOne.mockResolvedValue(mockUserEntity);
       tokenQbMock.execute.mockResolvedValue({ affected: 1 });
 
-      const res = await service.activarCuentaConToken(rawToken, nuevaPasswordValida);
+      const res = await service.activarCuentaConToken(
+        rawToken,
+        nuevaPasswordValida,
+      );
 
       expect(mockDataSource.transaction).toHaveBeenCalled();
       expect(tokenQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(userQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(tokenQbMock.update).toHaveBeenCalled();
-      expect(mockUserEntity.estadoActivacion).toBe(EstadoActivacionUsuario.ACTIVO);
+      expect(mockUserEntity.estadoActivacion).toBe(
+        EstadoActivacionUsuario.ACTIVO,
+      );
       expect(mockUserEntity.versionCredenciales).toBe(2);
       expect(mockUserEntity.passwordHash).toBe('');
       expect(userRepoSaveMock).toHaveBeenCalledWith(mockUserEntity);
@@ -429,7 +462,10 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       userQbMock.getOne.mockResolvedValue(mockUserEntity);
       tokenQbMock.execute.mockResolvedValue({ affected: 1 });
 
-      const res = await service.restablecerPasswordConToken(rawToken, nuevaPasswordValida);
+      const res = await service.restablecerPasswordConToken(
+        rawToken,
+        nuevaPasswordValida,
+      );
 
       expect(mockDataSource.transaction).toHaveBeenCalled();
       expect(tokenQbMock.setLock).toHaveBeenCalledWith('pessimistic_write');
@@ -486,7 +522,9 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       mockUsuarioRepo.save.mockResolvedValue(usuarioGuardado);
       mockTokenRepo.create.mockReturnValue({});
       mockTokenRepo.save.mockResolvedValue({});
-      mockMailService.enviarCorreoAccion.mockRejectedValueOnce(new Error('Servidor SMTP no disponible'));
+      mockMailService.enviarCorreoAccion.mockRejectedValueOnce(
+        new Error('Servidor SMTP no disponible'),
+      );
 
       const res = await service.registrarPublico({
         nombre: 'Demo Falla',
@@ -496,14 +534,20 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       });
 
       expect(res.emailEnviado).toBe(false);
-      expect(res.message).not.toContain('Se ha enviado un enlace de activación a tu correo electrónico.');
-      expect(res.message).toContain('no pudimos enviar el correo de activación');
+      expect(res.message).not.toContain(
+        'Se ha enviado un enlace de activación a tu correo electrónico.',
+      );
+      expect(res.message).toContain(
+        'no pudimos enviar el correo de activación',
+      );
     });
 
     it('reenviarActivacionPublico: retorna mensaje genérico si el usuario no existe (anti-enumeración)', async () => {
       mockUsuarioRepo.findOne.mockResolvedValue(null);
 
-      const res = await service.reenviarActivacionPublico('fantasma@systemmx.com');
+      const res = await service.reenviarActivacionPublico(
+        'fantasma@systemmx.com',
+      );
 
       expect(res.message).toContain('Si la cuenta existe');
       expect(mockTokenRepo.save).not.toHaveBeenCalled();
@@ -517,7 +561,9 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
         estadoActivacion: EstadoActivacionUsuario.ACTIVO,
       });
 
-      const res = await service.reenviarActivacionPublico('activo@systemmx.com');
+      const res = await service.reenviarActivacionPublico(
+        'activo@systemmx.com',
+      );
 
       expect(res.message).toContain('Si la cuenta existe');
       expect(mockTokenRepo.save).not.toHaveBeenCalled();
@@ -537,7 +583,9 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
       mockTokenRepo.save.mockResolvedValue({});
       mockMailService.enviarCorreoAccion.mockResolvedValue({ exito: true });
 
-      const res = await service.reenviarActivacionPublico('pendiente@systemmx.com');
+      const res = await service.reenviarActivacionPublico(
+        'pendiente@systemmx.com',
+      );
 
       expect(mockTokenRepo.update).toHaveBeenCalled();
       expect(mockTokenRepo.save).toHaveBeenCalled();
@@ -562,7 +610,9 @@ describe('UsuariosService - Invitaciones, Activación y Recuperación Transaccio
         createdAt: new Date(), // ahora mismo
       });
 
-      const res = await service.reenviarActivacionPublico('pendiente@systemmx.com');
+      const res = await service.reenviarActivacionPublico(
+        'pendiente@systemmx.com',
+      );
 
       expect(mockTokenRepo.update).not.toHaveBeenCalled();
       expect(mockTokenRepo.save).not.toHaveBeenCalled();

@@ -1,0 +1,41 @@
+rules:
+  # Los guards (JwtAuthGuard, RolesGuard) son globales vía APP_GUARD en auth.module.ts.
+  # El rol se declara con @Roles (clase o método) y los endpoints públicos con @Public.
+  # Esta regla señala métodos HTTP sin ninguno de los dos y en una clase sin @Roles.
+  - id: systemmx-endpoint-sin-roles-ni-public
+    languages: [typescript]
+    severity: WARNING
+    message: >
+      Endpoint sin @Roles ni @Public y sin @Roles a nivel de clase. Declara el rol permitido
+      o márcalo @Public de forma explícita y justificada.
+    patterns:
+      - pattern-inside: |
+          class $C { ... }
+      - pattern-not-inside: |
+          @Roles(...)
+          class $C { ... }
+      - pattern-either:
+          - pattern: |
+              @Get(...)
+              $M(...) { ... }
+          - pattern: |
+              @Post(...)
+              $M(...) { ... }
+          - pattern: |
+              @Patch(...)
+              $M(...) { ... }
+          - pattern: |
+              @Put(...)
+              $M(...) { ... }
+          - pattern: |
+              @Delete(...)
+              $M(...) { ... }
+      - pattern-not: |
+          @Roles(...)
+          $M(...) { ... }
+      - pattern-not: |
+          @Public(...)
+          $M(...) { ... }
+    paths:
+      include: ["src/modules/**/*.controller.ts"]
+      exclude: ["**/*.spec.ts"]

@@ -1,0 +1,55 @@
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "node .claude/hooks/stop-check.mjs", "timeout": 600 } ] }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint:ci)",
+      "Bash(npm run build)",
+      "Bash(npm test*)",
+      "Bash(npm run check*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git add*)",
+      "Bash(git commit*)"
+    ],
+    "ask": [
+      "Edit(test/**)",
+      "Edit(**/*.spec.ts)",
+      "Write(test/**)",
+      "Write(**/*.spec.ts)",
+      "Bash(git push*)",
+      "Bash(npm install*)",
+      "Bash(npm i *)"
+    ],
+    "deny": [
+      "Read(.env*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(secrets/**)",
+      "Edit(.github/workflows/**)",
+      "Write(.github/workflows/**)",
+      "Edit(.claude/**)",
+      "Write(.claude/**)",
+      "Edit(scripts/check.mjs)",
+      "Write(scripts/check.mjs)",
+      "Edit(.gitleaks.toml)",
+      "Write(.gitleaks.toml)",
+      "Edit(.semgrep/**)",
+      "Write(.semgrep/**)",
+      "Edit(.github/CODEOWNERS)",
+      "Write(.github/CODEOWNERS)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git commit*--no-verify*)",
+      "Bash(git push origin main*)",
+      "Bash(rm -rf*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr review*)",
+      "Bash(curl*)",
+      "Bash(wget*)"
+    ]
+  }
+}
